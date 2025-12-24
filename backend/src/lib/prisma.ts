@@ -3,11 +3,13 @@ import dotenv from 'dotenv';
 // Load environment variables first
 dotenv.config();
 
-import { PrismaClient } from '@prisma/client'
+import * as PrismaPkg from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient }
+const PrismaClient = (PrismaPkg as any).PrismaClient
+
+const globalForPrisma = global as unknown as { prisma: any }
 
 const connectionString = process.env.DATABASE_URL
 

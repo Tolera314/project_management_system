@@ -27,6 +27,35 @@ export const createWorkspace = async (req: Request, res: Response) => {
 
         const { name, type, color } = validation.data;
 
+        const generateSlug = (s: string): string => {
+            if (!s || typeof s !== 'string') {
+                const randomStr = Math.random().toString(36).substring(2, 10);
+                return `workspace-${randomStr}`;
+            }
+            
+            // Generate a basic slug from the name
+            let slug = s
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9\s-]/g, '')
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-+|-+$/g, ''); // Remove leading/trailing dashes
+            
+            // If the slug is empty after processing (e.g., name was all special chars)
+            if (!slug) {
+                // Generate a random string as fallback
+                const randomStr = Math.random().toString(36).substring(2, 10);
+                return `workspace-${randomStr}`;
+            }
+            
+            return slug;
+        };
+
+        // Generate slug and ensure it's not empty
+        const slug = generateSlug(name);
+        console.log(`[WorkspaceService] Generated slug: ${slug}`);
+
         // Check if user already has a workspace
         console.log(`[WorkspaceService] Checking membership for user: ${userId}`);
         const existingMembership = await prisma.organizationMember.findFirst({
@@ -55,7 +84,8 @@ export const createWorkspace = async (req: Request, res: Response) => {
         const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             const organization = await tx.organization.create({
                 data: {
-                    name,
+                    name: (name || '').trim() || 'My Workspace',
+                    slug: slug,
                     color: color || '#4F46E5', // Default color if none provided
                 }
             });
@@ -78,6 +108,9 @@ export const createWorkspace = async (req: Request, res: Response) => {
             });
 
             return { organization, adminRole };
+        }).catch((error: unknown) => {
+            console.error('Transaction error:', error);
+            throw error;
         });
 
         res.status(201).json({

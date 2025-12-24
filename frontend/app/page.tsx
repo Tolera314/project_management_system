@@ -2,7 +2,7 @@ import Navbar from './components/landing/Navbar';
 import HeroSection from './components/landing/HeroSection';
 import FeaturesSection from './components/landing/FeaturesSection';
 import FlexibleTaskSection from './components/landing/FlexibleTaskSection';
-import CollaborationSection from './components/landing/CollaborationSection';
+import CollaborationSection from '@/components/landing/CollaborationSection';
 import ProgressSection from './components/landing/ProgressSection';
 import InsightsSection from './components/landing/InsightsSection';
 import SecuritySection from './components/landing/SecuritySection';

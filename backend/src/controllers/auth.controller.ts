@@ -25,16 +25,23 @@ const loginSchema = z.object({
 export const register = async (req: Request, res: Response) => {
     try {
         console.log('[Auth] Register request body:', req.body);
-        const { fullName, email, password } = req.body;
+        const { fullName, firstName: reqFirstName, lastName: reqLastName, email, password } = req.body;
 
-        if (!fullName) {
-            res.status(400).json({ error: 'Full name is required' });
+        // Handle both fullName and firstName/lastName formats
+        let firstName = '';
+        let lastName = '';
+
+        if (fullName) {
+            const nameParts = fullName.trim().split(/\s+/);
+            firstName = nameParts[0] || '';
+            lastName = nameParts.slice(1).join(' ') || firstName;
+        } else if (reqFirstName) {
+            firstName = reqFirstName;
+            lastName = reqLastName || '';
+        } else {
+            res.status(400).json({ error: 'Name is required' });
             return;
         }
-
-        const nameParts = fullName.trim().split(/\s+/);
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || firstName;
 
         const validation = registerSchema.safeParse({
             firstName,
@@ -87,6 +94,76 @@ export const register = async (req: Request, res: Response) => {
     }
 };
 
+export const getCurrentUser = async (req: Request, res: Response) => {
+    try {
+        // The user ID should be attached to the request by the auth middleware
+        const userId = (req as any).user?.id;
+        
+        if (!userId) {
+            return res.status(401).json({ error: 'Not authenticated' });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+                timezone: true,
+                isActive: true,
+                lastLogin: true,
+                organizationMembers: {
+                    include: {
+                        organization: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        },
+                        role: {
+                            select: {
+                                name: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Transform the response to match the frontend's User type
+        const response = {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            fullName: `${user.firstName} ${user.lastName}`.trim(),
+            avatarUrl: user.avatarUrl || undefined,
+            timezone: user.timezone || 'UTC',
+            isActive: user.isActive,
+            lastLogin: user.lastLogin?.toISOString(),
+            organizations: user.organizationMembers.map((member: {
+                organization: { id: string; name: string };
+                role: { name: string };
+            }) => ({
+                id: member.organization.id,
+                name: member.organization.name,
+                role: member.role.name
+            }))
+        };
+
+        res.json(response);
+    } catch (error) {
+        console.error('Error fetching current user:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 export const login = async (req: Request, res: Response) => {
     try {
         const { email, password } = req.body;
@@ -133,7 +210,7 @@ export const login = async (req: Request, res: Response) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 hasWorkspace: user.organizationMembers.length > 0,
-                organizations: user.organizationMembers.map(om => ({
+                organizations: user.organizationMembers.map((om: { organization: { id: string; name: string }; role: { name: string } }) => ({
                     id: om.organization.id,
                     name: om.organization.name,
                     role: om.role.name

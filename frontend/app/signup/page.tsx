@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { Shield, Lock, FolderLock, Loader2, ArrowRight, Check, X } from 'lucide-react';
 import Link from 'next/link';
 import { signUpSchema, SignUpFormData } from '@/lib/schema';
-import axios from 'axios';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
 // Password strength calculator
@@ -25,7 +25,7 @@ const calculatePasswordStrength = (password: string) => {
 
 export default function SignUpPage() {
     const router = useRouter();
-    const [isLoading, setIsLoading] = useState(false);
+    const { register: signUp, isLoading } = useAuth();
     const [error, setError] = useState<string | null>(null);
     const [passwordStrength, setPasswordStrength] = useState({ hasLowercase: false, hasUppercase: false, hasNumber: false, hasMinLength: false, strength: 0 });
 
@@ -48,23 +48,29 @@ export default function SignUpPage() {
         }
     }, [password]);
 
-    const onSubmit = async (data: SignUpFormData) => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            await axios.post('http://localhost:4000/auth/register', data);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-            setTimeout(() => {
-                router.push('/dashboard');
-            }, 1000);
+    const onSubmit = async (formData: SignUpFormData) => {
+        if (isSubmitting) return; // Prevent double submission
+        
+        setError(null);
+        setIsSubmitting(true);
+        
+        try {
+            // The AuthContext will handle the name splitting and API call
+            await signUp({
+                email: formData.email,
+                password: formData.password,
+                fullName: formData.name.trim()
+            });
+            
+            // No need to redirect here as AuthContext handles it
 
         } catch (err: any) {
-            if (axios.isAxiosError(err) && err.response) {
-                setError(err.response.data.error || 'Registration failed');
-            } else {
-                setError('Something went wrong. Please try again.');
-            }
-            setIsLoading(false);
+            console.error('Registration error:', err);
+            setError(err.response?.data?.message || 'Registration failed. Please try again.');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -134,14 +140,14 @@ export default function SignUpPage() {
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-text-primary">Full Name</label>
                             <input
-                                {...register('fullName')}
+                                {...register('name')}
                                 placeholder="John Doe"
-                                className={`w-full bg-background/60 border ${errors.fullName ? 'border-danger focus:ring-danger/50' : 'border-white/[0.08] focus:border-primary/50'} rounded-xl px-4 py-3.5 text-white placeholder:text-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm`}
+                                className={`w-full bg-background/60 border ${errors.name ? 'border-danger focus:ring-danger/50' : 'border-white/[0.08] focus:border-primary/50'} rounded-xl px-4 py-3.5 text-white placeholder:text-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm`}
                             />
-                            {errors.fullName && (
+                            {errors.name && (
                                 <p className="text-xs text-danger flex items-center gap-1.5">
                                     <X className="w-3 h-3" />
-                                    {errors.fullName.message}
+                                    {errors.name.message}
                                 </p>
                             )}
                         </div>
@@ -169,9 +175,23 @@ export default function SignUpPage() {
                             <input
                                 {...register('password')}
                                 type="password"
-                                placeholder="Create a secure password"
+                                placeholder="Create a secure password (min 8 characters)"
                                 className={`w-full bg-background/60 border ${errors.password ? 'border-danger focus:ring-danger/50' : 'border-white/[0.08] focus:border-primary/50'} rounded-xl px-4 py-3.5 text-white placeholder:text-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm`}
                             />
+                            
+                            {/* Confirm Password */}
+                            <input
+                                {...register('confirmPassword')}
+                                type="password"
+                                placeholder="Confirm your password"
+                                className={`w-full bg-background/60 border ${errors.confirmPassword ? 'border-danger focus:ring-danger/50' : 'border-white/[0.08] focus:border-primary/50'} rounded-xl px-4 py-3.5 text-white placeholder:text-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm mt-3`}
+                            />
+                            {errors.confirmPassword && (
+                                <p className="text-xs text-danger flex items-center gap-1.5">
+                                    <X className="w-3 h-3" />
+                                    {errors.confirmPassword.message}
+                                </p>
+                            )}
 
                             {/* Password Strength Bar */}
                             {password && password.length > 0 && (
@@ -233,18 +253,23 @@ export default function SignUpPage() {
                                 {error}
                             </motion.div>
                         )}
-
+                        
                         <button
                             type="submit"
-                            disabled={isLoading}
-                            className="relative w-full bg-primary hover:bg-primary/90 text-white font-semibold py-4 rounded-xl transition-all shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group mt-6 hover:-translate-y-0.5 active:translate-y-0"
+                            disabled={isSubmitting}
+                            className={`w-full flex items-center justify-center gap-2 ${
+                                isSubmitting ? 'bg-primary/70' : 'bg-primary hover:bg-primary/90'
+                            } text-white font-medium py-3.5 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background disabled:opacity-70 disabled:cursor-not-allowed`}
                         >
-                            {isLoading ? (
-                                <Loader2 className="w-5 h-5 animate-spin" />
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Creating Account...
+                                </>
                             ) : (
                                 <>
                                     Create Account
-                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                    <ArrowRight className="w-4 h-4" />
                                 </>
                             )}
                         </button>

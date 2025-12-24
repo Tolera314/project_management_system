@@ -1,362 +1,144 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { FolderPlus, CheckSquare, Calendar, TrendingUp, Clock, Users, MoreHorizontal } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { useToast } from '../components/ui/Toast';
-import { useRouter } from 'next/navigation';
-import DashboardLayout from '../components/dashboard/DashboardLayout';
-import CreateProjectModal from '../components/dashboard/CreateProjectModal';
-import WorkspaceCreationModal from '../components/dashboard/WorkspaceCreationModal';
-
-interface Project {
-    id: string;
-    name: string;
-    description?: string;
-    createdAt: string;
-    _count: {
-        tasks: number;
-    };
-}
-
-interface DashboardStats {
-    totalProjects: number;
-    totalTasks: number;
-    completedTasks: number;
-    teamMembers: number;
-}
+import { useState } from 'react';
+import { Sidebar } from '@/components/sidebar/sidebar';
+import { TaskBoard } from '@/components/tasks/TaskBoard';
+import { TaskList } from '@/components/tasks/TaskList';
+import { TaskDetail } from '@/components/task-detail/task-detail';
+import { Button } from '@/components/ui/button';
+import { Plus, Menu } from 'lucide-react';
+import { mockTasks } from '@/lib/mock-tasks';
+import { Task } from '@/types/task';
+import { ViewToggle, ViewType } from '@/components/view-toggle';
 
 export default function DashboardPage() {
-    const router = useRouter();
-    const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState<DashboardStats>({
-        totalProjects: 0,
-        totalTasks: 0,
-        completedTasks: 0,
-        teamMembers: 1,
-    });
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
-    const [projects, setProjects] = useState<Project[]>([]);
-    const [userName, setUserName] = useState('there');
-    const { showToast } = useToast();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [currentView, setCurrentView] = useState<ViewType>('board');
 
-    useEffect(() => {
-        checkWorkspaceAndLoadData();
-    }, []);
+  const handleTaskUpdate = (updatedTasks: Task[]) => {
+    setTasks(updatedTasks);
+  };
 
-    const checkWorkspaceAndLoadData = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            const userStr = localStorage.getItem('user');
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+  };
 
-            console.log('[Dashboard] Checking workspace. User stranded:', !!userStr);
+  return (
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar */}
+      <div className={`${isSidebarOpen ? 'block' : 'hidden'} md:block`}>
+        <Sidebar />
+      </div>
 
-            if (!token || !userStr) {
-                router.push('/login');
-                return;
-            }
-
-            // Check if user has workspace (Source of Truth check)
-            const workspaceResponse = await fetch('http://localhost:4000/workspace/me', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-
-            if (workspaceResponse.ok) {
-                const workspaceData = await workspaceResponse.json();
-                console.log('[Dashboard] Workspace data:', workspaceData);
-
-                if (!workspaceData.hasWorkspace) {
-                    console.warn('[Dashboard] No workspace found, opening creation modal');
-                    setIsWorkspaceModalOpen(true);
-                    setLoading(false);
-                    return;
-                }
-
-                // Update local storage with fresh workspace info
-                const user = JSON.parse(userStr);
-                user.organizations = [workspaceData.workspace];
-                localStorage.setItem('user', JSON.stringify(user));
-
-                // Load dashboard data if workspace exists
-                loadDashboardData();
-            } else {
-                console.error('[Dashboard] Workspace check failed status:', workspaceResponse.status);
-                router.push('/login');
-            }
-        } catch (error) {
-            console.error('[Dashboard] Failed to check workspace:', error);
-            setLoading(false);
-        }
-    };
-
-    const onWorkspaceCreated = () => {
-        setIsWorkspaceModalOpen(false);
-        loadDashboardData();
-        // Force a reload of the layout to pick up the new workspace
-        window.location.reload();
-    };
-
-    const loadDashboardData = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            const userStr = localStorage.getItem('user');
-
-            if (!token || !userStr) {
-                setLoading(false);
-                return;
-            }
-
-            const user = JSON.parse(userStr);
-            setUserName(user.firstName || 'there');
-            const organizationId = user.organizations?.[0]?.id;
-
-            if (!organizationId) {
-                setLoading(false);
-                return;
-            }
-
-            // Fetch projects
-            const response = await fetch(`http://localhost:4000/projects?organizationId=${organizationId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setProjects(data.projects || []);
-
-                // Calculate stats
-                const totalTasks = data.projects.reduce((sum: number, p: Project) => sum + p._count.tasks, 0);
-                setStats({
-                    totalProjects: data.projects.length,
-                    totalTasks,
-                    completedTasks: 0, // Will be calculated when we have task status
-                    teamMembers: 1,
-                });
-            }
-        } catch (error) {
-            console.error('Failed to load dashboard data:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleProjectCreated = (project: any) => {
-        showToast('success', 'Project created', `${project.name} is ready to use`);
-        loadDashboardData(); // Refresh data
-    };
-
-    const getTimeGreeting = () => {
-        const hour = new Date().getHours();
-        if (hour < 12) return 'Good morning';
-        if (hour < 18) return 'Good afternoon';
-        return 'Good evening';
-    };
-
-    const hasData = projects.length > 0;
-
-    if (loading) {
-        return (
-            <DashboardLayout>
-                <div className="flex items-center justify-center h-screen">
-                    <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                </div>
-            </DashboardLayout>
-        );
-    }
-
-    return (
-        <DashboardLayout>
-            <CreateProjectModal
-                isOpen={isCreateModalOpen}
-                onClose={() => setIsCreateModalOpen(false)}
-                onSuccess={handleProjectCreated}
-            />
-
-            <WorkspaceCreationModal
-                isOpen={isWorkspaceModalOpen}
-                onSuccess={onWorkspaceCreated}
-            />
-
-            <div className="p-6 md:p-8 max-w-7xl mx-auto">
-                {/* Context-Aware Header */}
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="mb-8 flex items-start justify-between"
-                >
-                    <div>
-                        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
-                            {getTimeGreeting()}, {userName}
-                        </h1>
-                        {hasData ? (
-                            <p className="text-text-secondary text-sm">
-                                You're working in <span className="text-white font-medium">{projects[0].name}</span>
-                            </p>
-                        ) : (
-                            <p className="text-text-secondary text-sm">
-                                Ready to start your first project
-                            </p>
-                        )}
-                    </div>
-
-                    {hasData && (
-                        <button
-                            onClick={() => setIsCreateModalOpen(true)}
-                            className="px-4 py-2.5 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg transition-all shadow-lg shadow-primary/20"
-                        >
-                            Create Project
-                        </button>
-                    )}
-                </motion.div>
-
-                {hasData ? (
-                    <>
-                        {/* Overview Stats */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5, delay: 0.1 }}
-                            className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8"
-                        >
-                            <div className="p-5 bg-surface/40 border border-white/5 rounded-xl">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <FolderPlus className="w-4 h-4 text-primary" />
-                                    <span className="text-xs font-medium text-text-secondary">Projects</span>
-                                </div>
-                                <div className="text-2xl font-bold text-white">{stats.totalProjects}</div>
-                            </div>
-
-                            <div className="p-5 bg-surface/40 border border-white/5 rounded-xl">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <CheckSquare className="w-4 h-4 text-success" />
-                                    <span className="text-xs font-medium text-text-secondary">Active Tasks</span>
-                                </div>
-                                <div className="text-2xl font-bold text-white">{stats.totalTasks}</div>
-                            </div>
-
-                            <div className="p-5 bg-surface/40 border border-white/5 rounded-xl">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <Calendar className="w-4 h-4 text-warning" />
-                                    <span className="text-xs font-medium text-text-secondary">This Week</span>
-                                </div>
-                                <div className="text-2xl font-bold text-white">{stats.completedTasks}</div>
-                            </div>
-
-                            <div className="p-5 bg-surface/40 border border-white/5 rounded-xl">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <Users className="w-4 h-4 text-accent" />
-                                    <span className="text-xs font-medium text-text-secondary">Team</span>
-                                </div>
-                                <div className="text-2xl font-bold text-white">{stats.teamMembers}</div>
-                            </div>
-                        </motion.div>
-
-                        {/* Recent Projects */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5, delay: 0.2 }}
-                            className="mb-8"
-                        >
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-lg font-semibold text-white">Your Projects</h2>
-                                <button
-                                    onClick={() => setIsCreateModalOpen(true)}
-                                    className="text-sm text-text-secondary hover:text-white transition-colors"
-                                >
-                                    View all
-                                </button>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {projects.map((project, index) => (
-                                    <motion.div
-                                        key={project.id}
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
-                                        className="group p-5 bg-surface/40 border border-white/5 hover:border-white/10 rounded-xl transition-all cursor-pointer"
-                                    >
-                                        <div className="flex items-start justify-between mb-3">
-                                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                                                <FolderPlus className="w-5 h-5 text-primary" />
-                                            </div>
-                                            <button className="p-1 hover:bg-white/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <MoreHorizontal className="w-4 h-4 text-text-secondary" />
-                                            </button>
-                                        </div>
-
-                                        <h3 className="text-base font-semibold text-white mb-1 group-hover:text-primary transition-colors">
-                                            {project.name}
-                                        </h3>
-
-                                        {project.description && (
-                                            <p className="text-sm text-text-secondary mb-3 line-clamp-2">
-                                                {project.description}
-                                            </p>
-                                        )}
-
-                                        <div className="flex items-center gap-4 text-xs text-text-secondary">
-                                            <div className="flex items-center gap-1">
-                                                <CheckSquare className="w-3 h-3" />
-                                                <span>{project._count.tasks} tasks</span>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <Clock className="w-3 h-3" />
-                                                <span>{new Date(project.createdAt).toLocaleDateString()}</span>
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                ))}
-                            </div>
-                        </motion.div>
-
-                        {/* Subtle Guidance */}
-                        {stats.totalTasks === 0 && (
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ duration: 0.5, delay: 0.8 }}
-                                className="p-4 bg-primary/5 border border-primary/10 rounded-lg"
-                            >
-                                <p className="text-sm text-text-secondary">
-                                    💡 <span className="text-white">Next step:</span> Add tasks to {projects[0].name} to start tracking progress
-                                </p>
-                            </motion.div>
-                        )}
-                    </>
-                ) : (
-                    // Empty State (First Time)
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6 }}
-                        className="text-center py-16"
-                    >
-                        <div className="w-20 h-20 mx-auto mb-6 bg-white/5 rounded-full flex items-center justify-center">
-                            <FolderPlus className="w-10 h-10 text-text-secondary" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-white mb-3">
-                            Create your first project
-                        </h2>
-                        <p className="text-text-secondary mb-8 max-w-md mx-auto">
-                            Projects help you organize work, track progress, and collaborate with your team
-                        </p>
-                        <button
-                            onClick={() => setIsCreateModalOpen(true)}
-                            className="px-6 py-3 bg-primary hover:bg-primary/90 text-white font-medium rounded-xl transition-all shadow-lg shadow-primary/20"
-                        >
-                            Get Started
-                        </button>
-                    </motion.div>
-                )}
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Navigation */}
+        <header className="bg-white border-b border-gray-200">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden mr-2"
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+              <h1 className="text-xl font-semibold text-gray-900">My Workspace</h1>
             </div>
-        </DashboardLayout>
-    );
+            <div className="flex-1 flex justify-center">
+              <ViewToggle 
+                onViewChange={setCurrentView} 
+                defaultView={currentView}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                New Task
+              </Button>
+              <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                <span className="text-indigo-600 text-sm font-medium">U</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* View Tabs */}
+          <div className="flex border-b border-gray-200 px-4">
+            <button className="px-4 py-2 text-sm font-medium text-indigo-600 border-b-2 border-indigo-500">
+              Board
+            </button>
+            <button className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
+              List
+            </button>
+            <button className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
+              Calendar
+            </button>
+            <button className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
+              Table
+            </button>
+          </div>
+        </header>
+
+        {/* Task Board */}
+        <main className="flex-1 overflow-y-auto bg-gray-50">
+          <div className="p-4">
+            <div className="mb-4 flex justify-between items-center">
+              <h2 className="text-lg font-medium text-gray-900">Active Tasks</h2>
+              <div className="flex space-x-2">
+                <Button variant="outline" size="sm">
+                  Filter
+                </Button>
+                <Button variant="outline" size="sm">
+                  Sort
+                </Button>
+              </div>
+            </div>
+            
+            {/* Task Content */}
+            <div className="flex-1 overflow-auto p-4">
+              {currentView === 'board' && (
+                <TaskBoard 
+                  tasks={tasks} 
+                  onTaskUpdate={handleTaskUpdate}
+                  onTaskClick={handleTaskClick}
+                />
+              )}
+              
+              {currentView === 'list' && (
+                <div className="max-w-4xl mx-auto">
+                  <TaskList 
+                    tasks={tasks}
+                    onTaskClick={handleTaskClick}
+                  />
+                </div>
+              )}
+              
+              {(currentView === 'calendar' || currentView === 'table') && (
+                <div className="flex items-center justify-center h-64">
+                  <p className="text-muted-foreground">
+                    {currentView === 'calendar' ? 'Calendar' : 'Table'} view is coming soon!
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </main>
+      </div>
+
+      {/* Task Detail View */}
+      {selectedTask && (
+        <TaskDetail 
+          task={selectedTask} 
+          onClose={() => setSelectedTask(null)}
+          onTaskUpdate={(updatedTask) => {
+            setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+            setSelectedTask(updatedTask);
+          }}
+        />
+      )}
+    </div>
+  );
 }

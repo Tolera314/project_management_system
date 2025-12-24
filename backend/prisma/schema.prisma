@@ -1,10 +1,11 @@
-// Project Management System - Base Schema
+// Project Management System - Complete Schema
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  // URL removed from here - should be in Prisma Client config
 }
 
 // Enums
@@ -31,15 +32,34 @@ enum ProjectStatus {
   CANCELLED
 }
 
+enum DependencyType {
+  FINISH_TO_START
+  START_TO_START
+  FINISH_TO_FINISH
+  START_TO_FINISH
+}
+
+enum StorageProvider {
+  LOCAL
+  S3
+  GCS
+  AZURE
+}
+
 // Base models with relations
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  firstName String
-  lastName  String
+  id        String   @id @default(cuid()) @db.VarChar(255)
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  firstName String   @db.VarChar(100)
+  lastName  String   @db.VarChar(100)
+  avatarUrl String?  @db.VarChar(500)
+  timezone  String   @default("UTC") @db.VarChar(50)
+  isActive  Boolean  @default(true)
+  lastLogin DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
   
   // Relations
   organizationMembers OrganizationMember[]
@@ -58,12 +78,21 @@ model User {
   createdRoles     Role[] @relation("UserCreatedRoles")
   mentions        Mention[] @relation("UserMentions")
   mentionedIn     Mention[] @relation("UserMentionedIn")
+  
+  
+  @@map("users")
+  @@index([email])
+  @@index([isActive])
+  @@index([deletedAt])
 }
 
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  color     String?
+  id        String   @id @default(cuid()) @db.VarChar(255)
+  name      String   @db.VarChar(200)
+  slug      String   @unique @db.VarChar(100)
+  color     String?  @db.VarChar(7)
+  logoUrl   String?  @db.VarChar(500)
+  settings  Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
@@ -73,13 +102,17 @@ model Organization {
   roles Role[]
   projectTemplates ProjectTemplate[]
   taskStatuses TaskStatusDefinition[]
+  
+  @@map("organizations")
+  @@index([slug])
 }
 
 model OrganizationMember {
-  id             String   @id @default(cuid())
-  organizationId String
-  userId         String
-  roleId         String
+  id             String   @id @default(cuid()) @db.VarChar(255)
+  organizationId String   @db.VarChar(255)
+  userId         String   @db.VarChar(255)
+  roleId         String   @db.VarChar(255)
+  joinedAt       DateTime @default(now())
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   
@@ -90,15 +123,19 @@ model OrganizationMember {
   projectMembers ProjectMember[]
   
   @@unique([organizationId, userId])
+  @@map("organization_members")
+  @@index([organizationId])
+  @@index([userId])
+  @@index([roleId])
 }
 
 model Role {
-  id              String   @id @default(cuid())
-  name            String
-  description     String?
+  id              String   @id @default(cuid()) @db.VarChar(255)
+  name            String   @db.VarChar(100)
+  description     String?  @db.Text
   isSystem        Boolean  @default(false)
-  organizationId  String
-  createdById     String
+  organizationId  String   @db.VarChar(255)
+  createdById     String   @db.VarChar(255)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   
@@ -110,24 +147,30 @@ model Role {
   createdBy       User?              @relation("UserCreatedRoles", fields: [createdById], references: [id])
   
   @@unique([organizationId, name])
+  @@map("roles")
+  @@index([organizationId])
+  @@index([isSystem])
 }
 
 model Permission {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  category    String
+  id          String   @id @default(cuid()) @db.VarChar(255)
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  category    String   @db.VarChar(50)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
   // Relations
   rolePermissions RolePermission[]
+  
+  @@map("permissions")
+  @@index([category])
 }
 
 model RolePermission {
-  id            String   @id @default(cuid())
-  roleId        String
-  permissionId  String
+  id            String   @id @default(cuid()) @db.VarChar(255)
+  roleId        String   @db.VarChar(255)
+  permissionId  String   @db.VarChar(255)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
@@ -136,24 +179,29 @@ model RolePermission {
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
   
   @@unique([roleId, permissionId])
+  @@map("role_permissions")
+  @@index([roleId])
+  @@index([permissionId])
 }
 
 model Project {
-  id              String         @id @default(cuid())
-  name            String
-  description     String?
-  status          ProjectStatus  @default(NOT_STARTED)
-  priority        Priority       @default(MEDIUM)
-  color           String?        @default("#4F46E5")
+  id              String        @id @default(cuid()) @db.VarChar(255)
+  name            String        @db.VarChar(200)
+  description     String?       @db.Text
+  status          ProjectStatus @default(NOT_STARTED)
+  priority        Priority      @default(MEDIUM)
+  color           String?       @default("#4F46E5") @db.VarChar(7)
   startDate       DateTime?
   dueDate         DateTime?
   completedAt     DateTime?
-  organizationId  String
-  templateId      String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  createdById     String
-  updatedById     String
+  organizationId  String        @db.VarChar(255)
+  templateId      String?       @db.VarChar(255)
+  progress        Int           @default(0) @db.SmallInt
+  settings        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  createdById     String        @db.VarChar(255)
+  updatedById     String        @db.VarChar(255)
   
   // Relations
   organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -169,31 +217,42 @@ model Project {
   files        File[]
   attachedFiles FileLink[]
   milestones   Milestone[]
-  
   dependencies ProjectDependency[] @relation("SourceProject")
   dependents   ProjectDependency[] @relation("TargetProject")
+  
+  @@map("projects")
+  @@index([organizationId])
+  @@index([status])
+  @@index([priority])
+  @@index([dueDate])
+  @@index([createdById])
+  @@index([templateId])
 }
 
 model ProjectDependency {
-  id        String   @id @default(cuid())
-  sourceId  String
-  targetId  String
-  type      String   @default("FINISH_TO_START")
-  createdAt DateTime @default(now())
+  id        String         @id @default(cuid()) @db.VarChar(255)
+  sourceId  String         @db.VarChar(255)
+  targetId  String         @db.VarChar(255)
+  type      DependencyType @default(FINISH_TO_START)
+  createdAt DateTime       @default(now())
   
   // Relations
   source Project @relation("SourceProject", fields: [sourceId], references: [id], onDelete: Cascade)
   target Project @relation("TargetProject", fields: [targetId], references: [id], onDelete: Cascade)
   
   @@unique([sourceId, targetId])
+  @@map("project_dependencies")
+  @@index([sourceId])
+  @@index([targetId])
 }
 
 model ProjectTemplate {
-  id             String   @id @default(cuid())
-  name           String
-  description    String?
-  organizationId String
-  createdById    String
+  id             String   @id @default(cuid()) @db.VarChar(255)
+  name           String   @db.VarChar(200)
+  description    String?  @db.Text
+  structure      Json?    // Template structure (lists, default statuses, etc.)
+  organizationId String   @db.VarChar(255)
+  createdById    String   @db.VarChar(255)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   
@@ -201,13 +260,18 @@ model ProjectTemplate {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projects     Project[]
   createdBy    User?        @relation("UserCreatedProjectTemplates", fields: [createdById], references: [id])
+  
+  @@map("project_templates")
+  @@index([organizationId])
 }
 
 model ProjectMember {
-  id                String   @id @default(cuid())
-  projectId         String
-  organizationMemberId String
-  roleId            String
+  id                String   @id @default(cuid()) @db.VarChar(255)
+  projectId         String   @db.VarChar(255)
+  organizationMemberId String @db.VarChar(255)
+  roleId            String   @db.VarChar(255)
+  isFavorite        Boolean  @default(false)
+  notificationSettings Json?  @default("{}")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
@@ -219,13 +283,20 @@ model ProjectMember {
   timeEntries        TimeEntry[]
   
   @@unique([projectId, organizationMemberId])
+  @@map("project_members")
+  @@index([projectId])
+  @@index([organizationMemberId])
+  @@index([roleId])
+  @@index([isFavorite])
 }
 
 model List {
-  id        String   @id @default(cuid())
-  name      String
-  position  Int
-  projectId String
+  id        String   @id @default(cuid()) @db.VarChar(255)
+  name      String   @db.VarChar(200)
+  position  Int      @default(0)
+  projectId String   @db.VarChar(255)
+  isArchived Boolean @default(false)
+  settings  Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
@@ -234,31 +305,39 @@ model List {
   tasks   Task[]
   dependencies ListDependency[] @relation("SourceList")
   dependents   ListDependency[] @relation("TargetList")
+  
+  @@map("lists")
+  @@index([projectId, position])
+  @@index([projectId, isArchived])
 }
 
 model Task {
-  id              String   @id @default(cuid())
-  title           String
-  description     String?
-  statusId        String?
-  priority        String   @default("MEDIUM")
+  id              String   @id @default(cuid()) @db.VarChar(255)
+  title           String   @db.VarChar(500)
+  description     String?  @db.Text
+  statusId        String?  @db.VarChar(255)
+  priority        String   @default("MEDIUM") @db.VarChar(20)
   dueDate         DateTime?
   completedAt     DateTime?
-  estimatedHours  Float?
+  estimatedHours  Decimal? @db.Decimal(5, 2)
+  actualHours     Decimal? @db.Decimal(10, 2) @default(0)
   position        Int      @default(0)
-  projectId       String
-  listId          String?
-  parentId        String?
+  projectId       String   @db.VarChar(255)
+  listId          String?  @db.VarChar(255)
+  parentId        String?  @db.VarChar(255)
+  milestoneId     String?  @db.VarChar(255)
+  isArchived      Boolean  @default(false)
+  tags            String[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  createdById     String
-  updatedById     String
+  createdById     String   @db.VarChar(255)
+  updatedById     String   @db.VarChar(255)
   
   // Relations
   project     Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
   list        List?              @relation(fields: [listId], references: [id], onDelete: SetNull)
   statusDef   TaskStatusDefinition? @relation(fields: [statusId], references: [id], onDelete: SetNull)
-  status      TaskStatusEnum      @default(TODO)
+  status      TaskStatusEnum      @default(TODO) @map("status_enum")
   parent      Task?     @relation("SubTasks", fields: [parentId], references: [id], onDelete: Cascade)
   children    Task[]    @relation("SubTasks")
   createdBy   User      @relation("TaskCreator", fields: [createdById], references: [id])
@@ -272,16 +351,27 @@ model Task {
   timeEntries  TimeEntry[]
   files        FileLink[]
   attachedFiles File[]
-  milestoneId  String?
   milestone    Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  
+  @@map("tasks")
+  @@index([projectId])
+  @@index([listId])
+  @@index([parentId])
+  @@index([milestoneId])
+  @@index([dueDate])
+  @@index([priority])
+  @@index([createdById])
+  @@index([statusId])
+  @@index([isArchived])
+  @@index([tags])
 }
 
 model TaskAssignee {
-  id              String   @id @default(cuid())
-  taskId          String
-  projectMemberId String
+  id              String   @id @default(cuid()) @db.VarChar(255)
+  taskId          String   @db.VarChar(255)
+  projectMemberId String   @db.VarChar(255)
   assignedAt      DateTime @default(now())
-  assignedById    String
+  assignedById    String   @db.VarChar(255)
   
   // Relations
   task         Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
@@ -289,15 +379,21 @@ model TaskAssignee {
   assignedBy   User          @relation(fields: [assignedById], references: [id])
   
   @@unique([taskId, projectMemberId])
+  @@map("task_assignees")
+  @@index([taskId])
+  @@index([projectMemberId])
 }
 
 model Comment {
-  id          String   @id @default(cuid())
-  content     String
-  taskId      String?
-  projectId   String?
-  parentId    String?
-  createdById String
+  id          String   @id @default(cuid()) @db.VarChar(255)
+  content     String   @db.Text
+  taskId      String?  @db.VarChar(255)
+  projectId   String?  @db.VarChar(255)
+  parentId    String?  @db.VarChar(255)
+  createdById String   @db.VarChar(255)
+  isEdited    Boolean  @default(false)
+  editedAt    DateTime?
+  metadata    Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
@@ -309,14 +405,23 @@ model Comment {
   createdBy User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
   files     FileLink[]
   mentions  Mention[]
+  
+  @@map("comments")
+  @@index([taskId])
+  @@index([projectId])
+  @@index([parentId])
+  @@index([createdById])
+  @@index([createdAt])
 }
 
 model Mention {
-  id        String   @id @default(cuid())
-  commentId String
-  userId    String
-  mentionedById String
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid()) @db.VarChar(255)
+  commentId     String   @db.VarChar(255)
+  userId        String   @db.VarChar(255)
+  mentionedById String   @db.VarChar(255)
+  isRead        Boolean  @default(false)
+  readAt        DateTime?
+  createdAt     DateTime @default(now())
   
   // Relations
   comment       Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
@@ -325,45 +430,58 @@ model Mention {
   notification  Notification?
   
   @@unique([commentId, userId])
+  @@map("mentions")
+  @@index([commentId])
+  @@index([userId])
+  @@index([mentionedById])
+  @@index([isRead])
 }
 
 model TaskDependency {
-  id        String   @id @default(cuid())
-  sourceId  String
-  targetId  String
-  type      String   @default("FINISH_TO_START")
-  createdAt DateTime @default(now())
+  id        String         @id @default(cuid()) @db.VarChar(255)
+  sourceId  String         @db.VarChar(255)
+  targetId  String         @db.VarChar(255)
+  type      DependencyType @default(FINISH_TO_START)
+  createdAt DateTime       @default(now())
   
   // Relations
   source Task @relation("SourceTask", fields: [sourceId], references: [id], onDelete: Cascade)
   target Task @relation("TargetTask", fields: [targetId], references: [id], onDelete: Cascade)
   
   @@unique([sourceId, targetId])
+  @@map("task_dependencies")
+  @@index([sourceId])
+  @@index([targetId])
 }
 
 model ListDependency {
-  id         String   @id @default(cuid())
-  sourceId   String
-  targetId   String
-  type       String   @default("FINISH_TO_START")
-  createdAt  DateTime @default(now())
+  id         String         @id @default(cuid()) @db.VarChar(255)
+  sourceId   String         @db.VarChar(255)
+  targetId   String         @db.VarChar(255)
+  type       DependencyType @default(FINISH_TO_START)
+  createdAt  DateTime       @default(now())
   
   // Relations
   source List @relation("SourceList", fields: [sourceId], references: [id], onDelete: Cascade)
   target List @relation("TargetList", fields: [targetId], references: [id], onDelete: Cascade)
   
   @@unique([sourceId, targetId])
+  @@map("list_dependencies")
+  @@index([sourceId])
+  @@index([targetId])
 }
 
 model TaskStatusDefinition {
-  id             String   @id @default(cuid())
-  name           String
-  description    String?
-  color          String   @default("#64748B")
-  position       Int
+  id             String   @id @default(cuid()) @db.VarChar(255)
+  name           String   @db.VarChar(100)
+  description    String?  @db.Text
+  color          String   @default("#64748B") @db.VarChar(7)
+  icon           String?  @db.VarChar(50)
+  position       Int      @default(0)
   isDefault      Boolean  @default(false)
-  organizationId String
-  createdById    String
+  isCompleted    Boolean  @default(false)
+  organizationId String   @db.VarChar(255)
+  createdById    String   @db.VarChar(255)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   
@@ -373,49 +491,70 @@ model TaskStatusDefinition {
   createdBy    User?        @relation("UserCreatedTaskStatuses", fields: [createdById], references: [id])
   
   @@unique([organizationId, name])
+  @@map("task_status_definitions")
+  @@index([organizationId])
+  @@index([position])
+  @@index([isDefault])
 }
 
 model Milestone {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
+  id          String   @id @default(cuid()) @db.VarChar(255)
+  name        String   @db.VarChar(200)
+  description String?  @db.Text
   dueDate     DateTime
   completedAt DateTime?
-  projectId   String
+  projectId   String   @db.VarChar(255)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
   // Relations
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks   Task[]
+  
+  @@map("milestones")
+  @@index([projectId])
+  @@index([dueDate])
 }
 
 model ActivityLog {
-  id         String   @id @default(cuid())
-  action     String
-  entityType String
-  entityId   String
-  description String?
-  userId     String
-  projectId  String?
-  taskId     String?
+  id         String   @id @default(cuid()) @db.VarChar(255)
+  action     String   @db.VarChar(100)
+  entityType String   @db.VarChar(50)
+  entityId   String   @db.VarChar(255)
+  description String?  @db.Text
+  oldData    Json?
+  newData    Json?
+  userId     String   @db.VarChar(255)
+  projectId  String?  @db.VarChar(255)
+  taskId     String?  @db.VarChar(255)
+  ipAddress  String?  @db.VarChar(45)
+  userAgent  String?  @db.Text
   createdAt  DateTime @default(now())
   
   // Relations
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   task    Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  @@map("activity_logs")
+  @@index([userId])
+  @@index([projectId])
+  @@index([taskId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  title     String
-  message   String
+  id        String   @id @default(cuid()) @db.VarChar(255)
+  title     String   @db.VarChar(200)
+  message   String   @db.Text
+  type      String   @db.VarChar(50)
   isRead    Boolean  @default(false)
-  userId    String
-  projectId String?
-  taskId    String?
-  mentionId String? @unique
+  userId    String   @db.VarChar(255)
+  projectId String?  @db.VarChar(255)
+  taskId    String?  @db.VarChar(255)
+  mentionId String?  @unique @db.VarChar(255)
+  data      Json?
   createdAt DateTime @default(now())
   readAt    DateTime?
   
@@ -424,36 +563,53 @@ model Notification {
   project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   task    Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
   mention Mention? @relation(fields: [mentionId], references: [id], onDelete: Cascade)
+  
+  @@map("notifications")
+  @@index([userId, isRead])
+  @@index([projectId])
+  @@index([taskId])
+  @@index([createdAt])
+  @@index([type])
 }
 
 model TimeEntry {
-  id              String   @id @default(cuid())
-  description     String?
+  id              String   @id @default(cuid()) @db.VarChar(255)
+  description     String?  @db.Text
   startTime       DateTime
   endTime         DateTime?
-  duration        Int?     // in minutes
+  duration        Int?     @default(0) // in minutes
   billable        Boolean  @default(false)
-  taskId          String
-  projectMemberId String
+  billingRate     Decimal? @db.Decimal(10, 2)
+  taskId          String   @db.VarChar(255)
+  projectMemberId String   @db.VarChar(255)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   
   // Relations
   task          Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
   projectMember ProjectMember @relation(fields: [projectMemberId], references: [id], onDelete: Cascade)
+  
+  @@map("time_entries")
+  @@index([taskId])
+  @@index([projectMemberId])
+  @@index([startTime])
+  @@index([billable])
 }
 
 model File {
-  id          String   @id @default(cuid())
-  name        String
-  mimeType    String
-  size        Int      // in bytes
-  url         String
-  projectId   String?
-  taskId      String?
-  createdById String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String         @id @default(cuid()) @db.VarChar(255)
+  name          String         @db.VarChar(500)
+  mimeType      String         @db.VarChar(100)
+  size          Int            // in bytes
+  url           String         @db.VarChar(1000)
+  storageProvider StorageProvider @default(LOCAL)
+  storagePath   String?        @db.VarChar(1000)
+  isPublic      Boolean        @default(false)
+  projectId     String?        @db.VarChar(255)
+  taskId        String?        @db.VarChar(255)
+  createdById   String         @db.VarChar(255)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   
   // Relations
   project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -461,17 +617,24 @@ model File {
   createdBy User     @relation("UserCreatedFiles", fields: [createdById], references: [id])
   versions  FileVersion[]
   links     FileLink[] @relation("FileLinks")
+  
+  @@map("files")
+  @@index([projectId])
+  @@index([taskId])
+  @@index([createdById])
+  @@index([createdAt])
 }
 
 model FileVersion {
-  id          String   @id @default(cuid())
-  fileId      String
+  id          String   @id @default(cuid()) @db.VarChar(255)
+  fileId      String   @db.VarChar(255)
   version     Int
-  name        String
-  mimeType    String
+  name        String   @db.VarChar(500)
+  mimeType    String   @db.VarChar(100)
   size        Int
-  url         String
-  createdById String
+  url         String   @db.VarChar(1000)
+  changeNote  String?  @db.VarChar(500)
+  createdById String   @db.VarChar(255)
   createdAt   DateTime @default(now())
   
   // Relations
@@ -479,14 +642,17 @@ model FileVersion {
   createdBy User @relation("UserCreatedFileVersions", fields: [createdById], references: [id])
   
   @@unique([fileId, version])
+  @@map("file_versions")
+  @@index([fileId])
+  @@index([createdById])
 }
 
 model FileLink {
-  id        String   @id @default(cuid())
-  fileId    String
-  taskId    String?
-  commentId String?
-  projectId String?
+  id        String   @id @default(cuid()) @db.VarChar(255)
+  fileId    String   @db.VarChar(255)
+  taskId    String?  @db.VarChar(255)
+  commentId String?  @db.VarChar(255)
+  projectId String?  @db.VarChar(255)
   createdAt DateTime @default(now())
   
   // Relations
@@ -494,4 +660,10 @@ model FileLink {
   task    Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
   comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
   project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@map("file_links")
+  @@index([fileId])
+  @@index([taskId])
+  @@index([commentId])
+  @@index([projectId])
 }

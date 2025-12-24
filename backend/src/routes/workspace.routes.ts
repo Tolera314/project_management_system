@@ -1,11 +1,11 @@
 
 import { Router } from 'express';
 import { createWorkspace, getUserWorkspace } from '../controllers/workspace.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 
-router.post('/', authMiddleware, createWorkspace);
-router.get('/me', authMiddleware, getUserWorkspace);
+router.post('/', authenticate, createWorkspace);
+router.get('/me', authenticate, getUserWorkspace);
 
 export default router;

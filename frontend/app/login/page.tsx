@@ -7,12 +7,12 @@ import { motion } from 'framer-motion';
 import { Shield, Lock, FolderLock, Loader2, ArrowRight, X } from 'lucide-react';
 import Link from 'next/link';
 import { loginSchema, LoginFormData } from '@/lib/schema';
-import axios from 'axios';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
     const router = useRouter();
-    const [isLoading, setIsLoading] = useState(false);
+    const { login, isLoading } = useAuth();
     const [error, setError] = useState<string | null>(null);
 
     const {
@@ -24,26 +24,12 @@ export default function LoginPage() {
     });
 
     const onSubmit = async (data: LoginFormData) => {
-        setIsLoading(true);
-        setError(null);
         try {
-            const response = await axios.post('http://localhost:4000/auth/login', data);
-
-            // Store token (consider using httpOnly cookies in production)
-            localStorage.setItem('token', response.data.token);
-            localStorage.setItem('user', JSON.stringify(response.data.user));
-
-            setTimeout(() => {
-                router.push('/dashboard');
-            }, 800);
-
+            await login(data.email, data.password);
+            // The AuthContext will handle the redirection to /dashboard on successful login
         } catch (err: any) {
-            if (axios.isAxiosError(err) && err.response) {
-                setError(err.response.data.error || 'Login failed');
-            } else {
-                setError('Something went wrong. Please try again.');
-            }
-            setIsLoading(false);
+            console.error('Login error:', err);
+            setError(err.message || 'Login failed. Please check your credentials.');
         }
     };
 
