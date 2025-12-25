@@ -8,6 +8,10 @@ import prisma from './lib/prisma';
 import authRoutes from './routes/auth.routes';
 import projectRoutes from './routes/project.routes';
 import workspaceRoutes from './routes/workspace.routes';
+import listRoutes from './routes/list.routes';
+import taskRoutes from './routes/task.routes';
+import milestoneRoutes from './routes/milestone.routes';
+import dependencyRoutes from './routes/dependency.routes';
 
 const app = express();
 // const prisma = new PrismaClient(); // Removed local instance
@@ -20,6 +24,10 @@ app.use(express.json());
 app.use('/auth', authRoutes);
 app.use('/projects', projectRoutes);
 app.use('/workspace', workspaceRoutes);
+app.use('/lists', listRoutes);
+app.use('/tasks', taskRoutes);
+app.use('/milestones', milestoneRoutes);
+app.use('/dependencies', dependencyRoutes);
 
 app.get('/', (req, res) => {
     res.send('ProjectOS Backend Running');

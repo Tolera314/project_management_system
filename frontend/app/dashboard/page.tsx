@@ -8,12 +8,14 @@ import { useRouter } from 'next/navigation';
 import DashboardLayout from '../components/dashboard/DashboardLayout';
 import CreateProjectModal from '../components/dashboard/CreateProjectModal';
 import WorkspaceCreationModal from '../components/dashboard/WorkspaceCreationModal';
+import ProjectCard from '../components/dashboard/ProjectCard';
 
 interface Project {
     id: string;
     name: string;
     description?: string;
     createdAt: string;
+    color?: string;
     _count: {
         tasks: number;
     };
@@ -276,43 +278,11 @@ export default function DashboardPage() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {projects.map((project, index) => (
-                                    <motion.div
+                                    <ProjectCard
                                         key={project.id}
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
-                                        className="group p-5 bg-surface/40 border border-white/5 hover:border-white/10 rounded-xl transition-all cursor-pointer"
-                                    >
-                                        <div className="flex items-start justify-between mb-3">
-                                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                                                <FolderPlus className="w-5 h-5 text-primary" />
-                                            </div>
-                                            <button className="p-1 hover:bg-white/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <MoreHorizontal className="w-4 h-4 text-text-secondary" />
-                                            </button>
-                                        </div>
-
-                                        <h3 className="text-base font-semibold text-white mb-1 group-hover:text-primary transition-colors">
-                                            {project.name}
-                                        </h3>
-
-                                        {project.description && (
-                                            <p className="text-sm text-text-secondary mb-3 line-clamp-2">
-                                                {project.description}
-                                            </p>
-                                        )}
-
-                                        <div className="flex items-center gap-4 text-xs text-text-secondary">
-                                            <div className="flex items-center gap-1">
-                                                <CheckSquare className="w-3 h-3" />
-                                                <span>{project._count.tasks} tasks</span>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <Clock className="w-3 h-3" />
-                                                <span>{new Date(project.createdAt).toLocaleDateString()}</span>
-                                            </div>
-                                        </div>
-                                    </motion.div>
+                                        project={project}
+                                        index={index}
+                                    />
                                 ))}
                             </div>
                         </motion.div>

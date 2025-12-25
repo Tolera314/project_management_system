@@ -157,3 +157,74 @@ export const getProjects = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+export const getProjectDetails = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).userId;
+
+        const project = await prisma.project.findFirst({
+            where: {
+                id,
+                organization: {
+                    members: { some: { userId } }
+                }
+            },
+            include: {
+                lists: {
+                    orderBy: { position: 'asc' },
+                    include: {
+                        dependencies: {
+                            include: { source: true }
+                        },
+                        tasks: {
+                            where: { parentId: null }, // Only top-level tasks
+                            orderBy: { position: 'asc' },
+                            include: {
+                                assignees: {
+                                    include: {
+                                        projectMember: {
+                                            include: {
+                                                organizationMember: {
+                                                    include: {
+                                                        user: {
+                                                            select: { id: true, firstName: true, lastName: true }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                members: {
+                    include: {
+                        organizationMember: {
+                            include: {
+                                user: {
+                                    select: { id: true, firstName: true, lastName: true }
+                                }
+                            }
+                        }
+                    }
+                },
+                _count: {
+                    select: { tasks: true }
+                }
+            }
+        });
+
+        if (!project) {
+            res.status(404).json({ error: 'Project not found' });
+            return;
+        }
+
+        res.json({ project });
+    } catch (error) {
+        console.error('Get project details error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
