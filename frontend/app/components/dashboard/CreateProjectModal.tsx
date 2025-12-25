@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, FolderPlus, Palette } from 'lucide-react';
+import { X, FolderPlus, Palette, Link as LinkIcon, Plus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,6 +41,8 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
     const [selectedColor, setSelectedColor] = useState(projectColors[0].value);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [existingProjects, setExistingProjects] = useState<any[]>([]);
+    const [isDependencySearchOpen, setIsDependencySearchOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     const {
         register,
@@ -274,31 +276,73 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
                                 </div>
 
                                 {/* Dependencies */}
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-text-primary">Depends On</label>
-                                    <div className="max-h-32 overflow-y-auto border border-white/10 rounded-xl bg-background/40 p-2 space-y-1">
-                                        {existingProjects.length > 0 ? (
-                                            existingProjects.map((proj) => (
-                                                <label key={proj.id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg cursor-pointer transition-all">
-                                                    <input
-                                                        type="checkbox"
-                                                        value={proj.id}
-                                                        checked={selectedDependencies?.includes(proj.id)}
-                                                        onChange={(e) => {
-                                                            const current = selectedDependencies || [];
-                                                            if (e.target.checked) {
-                                                                setValue('dependencyIds', [...current, proj.id]);
-                                                            } else {
-                                                                setValue('dependencyIds', current.filter(id => id !== proj.id));
-                                                            }
-                                                        }}
-                                                        className="w-4 h-4 rounded border-white/10 bg-white/5 text-primary focus:ring-primary/30"
-                                                    />
-                                                    <span className="text-sm text-white truncate">{proj.name}</span>
-                                                </label>
-                                            ))
-                                        ) : (
-                                            <p className="text-xs text-text-secondary p-2 italic text-center">there is no project</p>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-sm font-medium text-text-primary flex items-center gap-2">
+                                            <LinkIcon size={16} className="text-amber-500" />
+                                            Required Dependencies
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsDependencySearchOpen(!isDependencySearchOpen)}
+                                            className="text-[10px] font-bold text-primary uppercase tracking-widest hover:underline"
+                                        >
+                                            {isDependencySearchOpen ? 'Done' : '+ Add Dependency'}
+                                        </button>
+                                    </div>
+
+                                    {isDependencySearchOpen && (
+                                        <div className="relative animate-in fade-in slide-in-from-top-2">
+                                            <input
+                                                type="text"
+                                                placeholder="Search projects to link..."
+                                                className="w-full bg-background border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                            />
+                                            {searchQuery && (
+                                                <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-white/10 rounded-xl shadow-2xl z-10 max-h-40 overflow-y-auto overflow-x-hidden py-1">
+                                                    {existingProjects
+                                                        .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) && !selectedDependencies.includes(p.id))
+                                                        .map(p => (
+                                                            <button
+                                                                key={p.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setValue('dependencyIds', [...selectedDependencies, p.id]);
+                                                                    setSearchQuery('');
+                                                                }}
+                                                                className="w-full px-4 py-2 text-left text-xs text-white hover:bg-white/5 transition-colors flex items-center justify-between group"
+                                                            >
+                                                                <span className="truncate">{p.name}</span>
+                                                                <Plus size={12} className="text-primary opacity-0 group-hover:opacity-100" />
+                                                            </button>
+                                                        ))
+                                                    }
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <div className="flex flex-wrap gap-2">
+                                        {selectedDependencies.map(depId => {
+                                            const proj = existingProjects.find(p => p.id === depId);
+                                            return proj ? (
+                                                <div key={depId} className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg group animate-in zoom-in-95">
+                                                    <LinkIcon size={12} className="text-amber-500" />
+                                                    <span className="text-[10px] font-bold text-amber-500 uppercase">{proj.name}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setValue('dependencyIds', selectedDependencies.filter(id => id !== depId))}
+                                                        className="p-0.5 hover:bg-amber-500/20 rounded text-amber-500"
+                                                    >
+                                                        <X size={10} />
+                                                    </button>
+                                                </div>
+                                            ) : null;
+                                        })}
+                                        {selectedDependencies.length === 0 && !isDependencySearchOpen && (
+                                            <p className="text-[10px] text-text-secondary italic uppercase tracking-widest py-2">No dependencies selected</p>
                                         )}
                                     </div>
                                 </div>
