@@ -43,6 +43,7 @@ export const register = async (req: Request, res: Response) => {
             password,
         });
 
+        
         if (!validation.success) {
             console.warn('[Auth] Validation failed:', validation.error.issues[0].message);
             res.status(400).json({ error: validation.error.issues[0].message });
