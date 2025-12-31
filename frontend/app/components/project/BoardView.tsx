@@ -1,0 +1,240 @@
+'use client';
+
+import { useState, useMemo } from 'react';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import {
+    AlertTriangle,
+    Calendar,
+    CheckCircle2,
+    Circle,
+    Clock,
+    MoreHorizontal,
+    Plus,
+    User as UserIcon
+} from 'lucide-react';
+import { motion } from 'framer-motion';
+
+interface BoardViewProps {
+    tasks: any[];
+    projectId: string;
+    onTaskClick: (task: any) => void;
+    onRefresh: () => void;
+}
+
+const COLUMNS: { [key: string]: string } = {
+    TODO: 'To Do',
+    IN_PROGRESS: 'In Progress',
+    IN_REVIEW: 'Review',
+    DONE: 'Done'
+};
+
+const COLUMN_COLORS: { [key: string]: string } = {
+    TODO: 'bg-white/5 border-white/5',
+    IN_PROGRESS: 'bg-blue-500/10 border-blue-500/20',
+    IN_REVIEW: 'bg-amber-500/10 border-amber-500/20',
+    DONE: 'bg-emerald-500/10 border-emerald-500/20'
+};
+
+const STATUS_Map: { [key: string]: string } = {
+    'To Do': 'TODO',
+    'In Progress': 'IN_PROGRESS',
+    'Review': 'IN_REVIEW',
+    'Done': 'DONE'
+};
+
+export default function BoardView({ tasks, projectId, onTaskClick, onRefresh }: BoardViewProps) {
+    // Filter out tasks that belong to lists without status or ensure flat list
+    // The prompt says "Lists are abstracted away". So we take all tasks.
+
+    // Group tasks by status
+    const tasksByStatus = useMemo(() => {
+        const grouped: { [key: string]: any[] } = {
+            TODO: [],
+            IN_PROGRESS: [],
+            IN_REVIEW: [],
+            DONE: []
+        };
+
+        tasks.forEach(task => {
+            if (grouped[task.status]) {
+                grouped[task.status].push(task);
+            } else if (task.status === 'BLOCKED') {
+                // For now, maybe map blocked to TODO or separate? 
+                // User didn't specify Blocked column. Let's put in TODO or ignore.
+                // Let's add them to TODO for now to avoid data loss in view
+                grouped['TODO'].push(task);
+            }
+        });
+
+        return grouped;
+    }, [tasks]);
+
+    const onDragEnd = async (result: DropResult) => {
+        const { destination, source, draggableId } = result;
+
+        if (!destination) return;
+
+        if (
+            destination.droppableId === source.droppableId &&
+            destination.index === source.index
+        ) {
+            return;
+        }
+
+        const newStatus = destination.droppableId;
+        const task = tasks.find(t => t.id === draggableId);
+
+        if (!task) return;
+
+        // Optimistic update could happen here, but for now let's just call API
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:4000/tasks/${draggableId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+            if (res.ok) {
+                onRefresh();
+            }
+        } catch (error) {
+            console.error('Update task status error:', error);
+        }
+    };
+
+    const getPriorityIcon = (priority: string) => {
+        switch (priority) {
+            case 'URGENT': return <AlertTriangle size={14} className="text-rose-500" />;
+            case 'HIGH': return <AlertTriangle size={14} className="text-amber-500" />;
+            case 'MEDIUM': return <span className="w-2 h-2 rounded-full bg-blue-500" />;
+            case 'LOW': return <span className="w-2 h-2 rounded-full bg-slate-500" />;
+            default: return null;
+        }
+    };
+
+    return (
+        <div className="h-full overflow-x-auto pb-4">
+            <DragDropContext onDragEnd={onDragEnd}>
+                <div className="flex gap-4 min-w-[1000px] h-full px-4">
+                    {Object.entries(COLUMNS).map(([statusKey, title]) => (
+                        <div key={statusKey} className="flex-1 min-w-[280px] flex flex-col h-full">
+                            {/* Column Header */}
+                            <div className="flex items-center justify-between mb-4 px-2">
+                                <div className="flex items-center gap-2">
+                                    <span className={`w-2 h-2 rounded-full ${statusKey === 'DONE' ? 'bg-emerald-500' :
+                                        statusKey === 'IN_PROGRESS' ? 'bg-blue-500' :
+                                            statusKey === 'IN_REVIEW' ? 'bg-amber-500' : 'bg-slate-500'
+                                        }`} />
+                                    <h3 className="text-sm font-bold text-text-secondary uppercase tracking-wider">{title}</h3>
+                                    <span className="text-xs font-medium text-slate-500 bg-white/5 px-2 py-0.5 rounded-full">
+                                        {tasksByStatus[statusKey]?.length || 0}
+                                    </span>
+                                </div>
+                                <div className="flex items-center">
+                                    <button className="p-1 hover:bg-white/5 rounded text-text-secondary hover:text-white transition-colors">
+                                        <Plus size={16} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Column Content */}
+                            <div className={`flex-1 rounded-xl p-2 ${COLUMN_COLORS[statusKey]}`}>
+                                <Droppable droppableId={statusKey}>
+                                    {(provided, snapshot) => (
+                                        <div
+                                            {...provided.droppableProps}
+                                            ref={provided.innerRef}
+                                            className={`h-full flex flex-col gap-3 transition-colors ${snapshot.isDraggingOver ? 'bg-white/5' : ''
+                                                }`}
+                                        >
+                                            {tasksByStatus[statusKey]?.map((task, index) => (
+                                                <Draggable key={task.id} draggableId={task.id} index={index}>
+                                                    {(provided, snapshot) => (
+                                                        <div
+                                                            ref={provided.innerRef}
+                                                            {...provided.draggableProps}
+                                                            {...provided.dragHandleProps}
+                                                            onClick={() => onTaskClick(task)}
+                                                            style={{
+                                                                ...provided.draggableProps.style,
+                                                            }}
+                                                            className={`bg-[#0A0A0A] p-3 rounded-lg border border-white/5 hover:border-primary/50 group cursor-pointer shadow-sm transition-all ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/50 rotate-2' : 'hover:-translate-y-1'
+                                                                }`}
+                                                        >
+                                                            {/* Card Content */}
+                                                            <div className="flex items-start justify-between mb-2">
+                                                                <span className="text-[10px] text-text-secondary font-mono">
+                                                                    {task.id.slice(-4).toUpperCase()}
+                                                                </span>
+                                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                    <button className="p-1 hover:bg-white/10 rounded text-text-secondary">
+                                                                        <MoreHorizontal size={12} />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+
+                                                            <h4 className="text-sm font-medium text-white mb-3 line-clamp-2">
+                                                                {task.title}
+                                                            </h4>
+
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-2">
+                                                                    {/* Assignee Avatar */}
+                                                                    <div className="w-6 h-6 rounded-full bg-surface-lighter flex items-center justify-center ring-1 ring-white/10" title={task.assignees?.[0]?.projectMember?.organizationMember?.user?.firstName || 'Unassigned'}>
+                                                                        {task.assignees?.[0]?.projectMember?.organizationMember?.user?.firstName ? (
+                                                                            <span className="text-[10px] font-bold text-text-secondary">
+                                                                                {task.assignees[0].projectMember.organizationMember.user.firstName[0]}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <UserIcon size={12} className="text-text-secondary" />
+                                                                        )}
+                                                                    </div>
+
+                                                                    {/* Due Date */}
+                                                                    {task.dueDate && (
+                                                                        <div className={`flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded ${new Date(task.dueDate) < new Date() ? 'text-rose-400 bg-rose-500/10' : 'text-text-secondary bg-white/5'
+                                                                            }`}>
+                                                                            <Clock size={10} />
+                                                                            <span>
+                                                                                {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="flex items-center gap-2">
+                                                                    {/* Subtasks Count */}
+                                                                    {task._count?.children > 0 && (
+                                                                        <div className="flex items-center gap-1 text-[10px] text-text-secondary">
+                                                                            <CheckCircle2 size={10} />
+                                                                            <span>{task._count.children}</span>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* Priority */}
+                                                                    <div title={`Priority: ${task.priority}`}>
+                                                                        {getPriorityIcon(task.priority)}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </Draggable>
+                                            ))}
+                                            {provided.placeholder}
+                                        </div>
+                                    )}
+                                </Droppable>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </DragDropContext>
+        </div>
+    );
+}
+
+// Add CSS keyframes for animations if needed, or rely on Tailwind utility classes
