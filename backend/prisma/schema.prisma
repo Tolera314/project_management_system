@@ -37,6 +37,28 @@ enum SystemRole {
   USER
 }
 
+enum TemplateVisibility {
+  SYSTEM      // Platform-wide (admin only)
+  WORKSPACE   // Organization-wide
+  PRIVATE     // Creator only
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_STATUS_CHANGED
+  TASK_DUE_SOON
+  TASK_OVERDUE
+  TASK_COMMENTED
+  MENTIONED
+  PROJECT_MEMBER_ADDED
+  PROJECT_ROLE_CHANGED
+  MILESTONE_COMPLETED
+  MILESTONE_AT_RISK
+  INVITATION_ACCEPTED
+  PERMISSION_CHANGED
+  SECURITY_ALERT
+}
+
 // Base models with relations
 model User {
   id        String   @id @default(cuid())
@@ -59,6 +81,8 @@ model User {
   comments        Comment[]
   activityLogs    ActivityLog[]
   notifications   Notification[]
+  actedNotifications Notification[] @relation("NotificationActor")
+  notificationPreference NotificationPreference?
   createdFiles    File[] @relation("UserCreatedFiles")
   createdFileVersions FileVersion[] @relation("UserCreatedFileVersions")
   projectTemplates ProjectTemplate[] @relation("UserCreatedProjectTemplates")
@@ -182,6 +206,15 @@ model Project {
   attachedFiles FileLink[]
   milestones   Milestone[]
   invitations  Invitation[]
+
+  // Template Logic
+  isTemplate         Boolean              @default(false)
+  isPublic           Boolean              @default(false)
+  category           String?
+  templateVisibility TemplateVisibility?  @default(WORKSPACE)
+  sourceTemplateId   String?
+  sourceTemplate     Project?             @relation("ProjectTemplateSource", fields: [sourceTemplateId], references: [id])
+  derivedProjects    Project[]            @relation("ProjectTemplateSource")
   
   dependencies ProjectDependency[] @relation("SourceProject")
   dependents   ProjectDependency[] @relation("TargetProject")
@@ -434,22 +467,59 @@ model ActivityLog {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  title     String
-  message   String
-  isRead    Boolean  @default(false)
-  userId    String
-  projectId String?
-  taskId    String?
-  mentionId String? @unique
-  createdAt DateTime @default(now())
-  readAt    DateTime?
+  id          String           @id @default(cuid())
+  type        NotificationType
+  title       String
+  message     String
+  isRead      Boolean          @default(false)
+  userId      String           // Recipient
+  actorId     String?          // Who did the action
+  projectId   String?
+  taskId      String?
+  milestoneId String?
+  mentionId   String?           @unique
+  metadata    Json?             // Store extra details like old/new status
+  createdAt   DateTime          @default(now())
+  readAt      DateTime?
   
   // Relations
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  task    Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  mention Mention? @relation(fields: [mentionId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actor     User?    @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  mention   Mention? @relation(fields: [mentionId], references: [id], onDelete: Cascade)
+}
+
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Task Notifications
+  taskAssignedInApp    Boolean @default(true)
+  taskAssignedEmail    Boolean @default(true)
+  taskStatusInApp      Boolean @default(true)
+  taskStatusEmail      Boolean @default(false)
+  taskCommentInApp     Boolean @default(true)
+  taskCommentEmail     Boolean @default(true)
+  taskDueInApp         Boolean @default(true)
+  taskDueEmail         Boolean @default(true)
+
+  // Project Notifications
+  projectMemberInApp   Boolean @default(true)
+  projectMemberEmail   Boolean @default(true)
+  projectRoleInApp     Boolean @default(true)
+  projectRoleEmail     Boolean @default(false)
+  milestoneInApp       Boolean @default(true)
+  milestoneEmail       Boolean @default(false)
+
+  // System Notifications
+  invitationInApp      Boolean @default(true)
+  invitationEmail      Boolean @default(true)
+  securityEmail        Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model TimeEntry {

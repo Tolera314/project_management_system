@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { Prisma } from '@prisma/client';
+import { PrismaClient, TaskStatusEnum } from '@prisma/client';
 import prisma from '../lib/prisma';
-import { getTaskAssignedEmailTemplate, sendEmail } from '../lib/email';
+import { NotificationService } from '../services/notification.service';
 
 const createTaskSchema = z.object({
     title: z.string().min(1, 'Task title is required').max(200),
@@ -135,6 +135,44 @@ export const updateTask = async (req: Request, res: Response) => {
                         : providedCompletedAt,
             }
         });
+
+        // Send Notification for Status Change
+        if (status && status !== task.status) {
+            try {
+                const updater = await prisma.user.findUnique({ where: { id: userId } });
+                const link = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/projects/${task.projectId}?taskId=${id}`;
+
+                // Notify all assignees except the updater
+                const assignees = await prisma.taskAssignee.findMany({
+                    where: { taskId: id },
+                    include: { projectMember: { include: { organizationMember: true } } }
+                });
+
+                for (const assignee of assignees) {
+                    const recipientId = assignee.projectMember.organizationMember.userId;
+                    if (recipientId === userId) continue;
+
+                    await NotificationService.notify({
+                        type: 'TASK_STATUS_CHANGED',
+                        recipientId,
+                        actorId: userId,
+                        projectId: task.projectId,
+                        taskId: id,
+                        title: 'Task Status Updated',
+                        message: `${updater ? `${updater.firstName} ${updater.lastName}` : 'A team member'} changed the status of "${task.title}" to ${status}`,
+                        link,
+                        metadata: {
+                            taskTitle: task.title,
+                            oldStatus: task.status,
+                            newStatus: status,
+                            actorName: updater ? `${updater.firstName} ${updater.lastName}` : 'A team member'
+                        }
+                    });
+                }
+            } catch (notifErr) {
+                console.error('Failed to send status update notification:', notifErr);
+            }
+        }
 
         res.json({ task: updatedTask });
     } catch (error) {
@@ -272,6 +310,62 @@ export const addComment = async (req: Request, res: Response) => {
             }
         });
 
+        // Parse Mentions @[Name](userId)
+        // Regex to capture userId from the markdown-like syntax
+        const mentionRegex = /@\[[^\]]+\]\(([a-zA-Z0-9-]+)\)/g;
+        const mentionedUserIds = new Set<string>();
+        let match;
+
+        while ((match = mentionRegex.exec(content)) !== null) {
+            mentionedUserIds.add(match[1]);
+        }
+
+        // Validate and Create Mentions
+        const mentionedUsers = await prisma.user.findMany({
+            where: { id: { in: Array.from(mentionedUserIds) } }
+        });
+
+        const validMentionedIds = mentionedUsers.map(u => u.id);
+
+        if (validMentionedIds.length > 0) {
+            // Create Mention records
+            await prisma.mention.createMany({
+                data: validMentionedIds.map(mId => ({
+                    commentId: comment.id,
+                    userId: mId,
+                    mentionedById: userId
+                }))
+            });
+
+            // Send Notifications to Mentioned Users
+            const commenter = await prisma.user.findUnique({ where: { id: userId } });
+            const taskDetails = await prisma.task.findUnique({ where: { id: taskId }, include: { project: true } });
+
+            if (taskDetails) {
+                const link = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/projects/${taskDetails.projectId}?taskId=${taskId}`;
+
+                for (const mId of validMentionedIds) {
+                    if (mId === userId) continue; // Don't notify self
+
+                    await NotificationService.notify({
+                        type: 'MENTIONED',
+                        recipientId: mId,
+                        actorId: userId,
+                        projectId: taskDetails.projectId,
+                        taskId,
+                        title: 'You were mentioned',
+                        message: `${commenter ? `${commenter.firstName} ${commenter.lastName}` : 'A team member'} mentioned you in "${taskDetails.title}"`,
+                        link,
+                        metadata: {
+                            taskTitle: taskDetails.title,
+                            commentContent: content,
+                            actorName: commenter ? `${commenter.firstName} ${commenter.lastName}` : 'A team member'
+                        }
+                    });
+                }
+            }
+        }
+
         // Log activity
         await prisma.activityLog.create({
             data: {
@@ -283,6 +377,54 @@ export const addComment = async (req: Request, res: Response) => {
                 description: `Commented: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`
             }
         });
+
+        // Send Notification for Comment (Skip mentioned users to avoid double notify if desired, or send both. Usually separate is better)
+        // We will skip mentioned users here.
+        try {
+            const task = await prisma.task.findUnique({
+                where: { id: taskId },
+                include: { project: true }
+            });
+
+            if (task) {
+                const commenter = await prisma.user.findUnique({ where: { id: userId } });
+                const link = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/projects/${task.projectId}?taskId=${taskId}`;
+
+                // Notify all assignees except the commenter AND mentioned users
+                const assignees = await prisma.taskAssignee.findMany({
+                    where: { taskId },
+                    include: { projectMember: { include: { organizationMember: true } } }
+                });
+
+                for (const assignee of assignees) {
+                    const recipientId = assignee.projectMember.organizationMember.userId;
+
+                    // Skip if self
+                    if (recipientId === userId) continue;
+
+                    // Skip if already notified via mention
+                    if (validMentionedIds.includes(recipientId)) continue;
+
+                    await NotificationService.notify({
+                        type: 'TASK_COMMENTED',
+                        recipientId,
+                        actorId: userId,
+                        projectId: task.projectId,
+                        taskId,
+                        title: 'New Comment on Task',
+                        message: `${commenter ? `${commenter.firstName} ${commenter.lastName}` : 'A team member'} commented on "${task.title}"`,
+                        link,
+                        metadata: {
+                            taskTitle: task.title,
+                            commentContent: content,
+                            actorName: commenter ? `${commenter.firstName} ${commenter.lastName}` : 'A team member'
+                        }
+                    });
+                }
+            }
+        } catch (notifErr) {
+            console.error('Failed to send comment notification:', notifErr);
+        }
 
         res.status(201).json({ comment });
     } catch (error) {
@@ -383,26 +525,29 @@ export const addAssignee = async (req: Request, res: Response) => {
             }
         });
 
-        // Send Email
+        // Send Notification (In-App + Email via Service)
         try {
             const assigner = await prisma.user.findUnique({ where: { id: userId } });
             const assignedUser = assignee.projectMember.organizationMember.user;
             const link = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/projects/${task.projectId}?taskId=${taskId}`;
 
-            const html = getTaskAssignedEmailTemplate(
-                task.title,
-                task.project.name,
-                assigner ? `${assigner.firstName} ${assigner.lastName}` : 'A Team Member',
-                link
-            );
-
-            await sendEmail({
-                to: assignedUser.email,
-                subject: `New Task Assigned: ${task.title}`,
-                html
+            await NotificationService.notify({
+                type: 'TASK_ASSIGNED',
+                recipientId: assignedUser.id,
+                actorId: userId,
+                projectId: task.projectId,
+                taskId: taskId,
+                title: 'New Task Assigned',
+                message: `${assigner ? `${assigner.firstName} ${assigner.lastName}` : 'A team member'} assigned you a task: ${task.title}`,
+                link: link,
+                metadata: {
+                    taskTitle: task.title,
+                    projectName: task.project.name,
+                    actorName: assigner ? `${assigner.firstName} ${assigner.lastName}` : 'A team member'
+                }
             });
-        } catch (emailErr) {
-            console.error('Failed to send task assignment email:', emailErr);
+        } catch (notifErr) {
+            console.error('Failed to send task assignment notification:', notifErr);
         }
 
         res.status(201).json({ assignee });

@@ -14,6 +14,7 @@ import CreateListModal from '../../components/project/CreateListModal';
 import InviteMemberModal from '../../components/project/InviteMemberModal';
 import BoardView from '../../components/project/BoardView';
 import TimelineView from '../../components/project/TimelineView';
+import ProjectMembersModal from '../../components/project/ProjectMembersModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
 
@@ -27,13 +28,24 @@ export default function ProjectPage() {
     const [selectedListId, setSelectedListId] = useState<string | null>(null);
     const [isCreateListModalOpen, setIsCreateListModalOpen] = useState(false);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+    const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
     const [activeView, setActiveView] = useState('list');
     const [sortBy, setSortBy] = useState<'default' | 'priority' | 'dueDate'>('default');
+    const [filterStatus, setFilterStatus] = useState<string | null>(null);
+    const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
 
     const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchProjectData();
+
+        // Remember this project as the last visited for the current workspace
+        const selectedId = localStorage.getItem('selectedWorkspaceId');
+        if (selectedId && projectId) {
+            const lastProjects = JSON.parse(localStorage.getItem('lastProjectsPerWorkspace') || '{}');
+            lastProjects[selectedId] = projectId;
+            localStorage.setItem('lastProjectsPerWorkspace', JSON.stringify(lastProjects));
+        }
     }, [projectId]);
 
     // Sync selectedTask when project data updates
@@ -65,27 +77,50 @@ export default function ProjectPage() {
 
     const processedProject = useMemo(() => {
         if (!project) return null;
-        if (sortBy === 'default') return project;
 
         const priorityOrder = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
 
-        const sortedLists = project.lists.map((list: any) => ({
-            ...list,
-            tasks: [...list.tasks].sort((a: any, b: any) => {
-                if (sortBy === 'priority') {
-                    return (priorityOrder[a.priority as keyof typeof priorityOrder] || 2) - (priorityOrder[b.priority as keyof typeof priorityOrder] || 2);
-                }
-                if (sortBy === 'dueDate') {
-                    if (!a.dueDate) return 1;
-                    if (!b.dueDate) return -1;
-                    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-                }
-                return 0;
-            })
-        }));
+        const lists = project.lists.map((list: any) => {
+            // 1. Filter Tasks
+            let filteredTasks = list.tasks.filter((task: any) => {
+                // Status Filter
+                if (filterStatus && task.status !== filterStatus) return false;
 
-        return { ...project, lists: sortedLists };
-    }, [project, sortBy]);
+                // Assignee Filter
+                if (filterAssignee) {
+                    if (filterAssignee === 'unassigned') {
+                        if (task.assignees && task.assignees.length > 0) return false;
+                    } else if (filterAssignee === 'me') {
+                        if (!currentMemberId) return false;
+                        // Check if current user's org member ID is in task assignees
+                        // The task assignees are ProjectMembers. currentMemberId is a ProjectMember ID.
+                        const isAssigned = task.assignees?.some((a: any) => a.id === currentMemberId);
+                        if (!isAssigned) return false;
+                    }
+                }
+                return true;
+            });
+
+            // 2. Sort Tasks
+            if (sortBy !== 'default') {
+                filteredTasks = [...filteredTasks].sort((a: any, b: any) => {
+                    if (sortBy === 'priority') {
+                        return (priorityOrder[a.priority as keyof typeof priorityOrder] || 2) - (priorityOrder[b.priority as keyof typeof priorityOrder] || 2);
+                    }
+                    if (sortBy === 'dueDate') {
+                        if (!a.dueDate) return 1;
+                        if (!b.dueDate) return -1;
+                        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                    }
+                    return 0;
+                });
+            }
+
+            return { ...list, tasks: filteredTasks };
+        });
+
+        return { ...project, lists };
+    }, [project, sortBy, filterStatus, filterAssignee, currentMemberId]);
 
     const fetchProjectData = async (silent = false) => {
         try {
@@ -129,6 +164,42 @@ export default function ProjectPage() {
         await fetchProjectData(true);
     };
 
+    const handleUpdateMemberRole = async (memberId: string, roleId: string) => {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`http://localhost:4000/projects/${projectId}/members/${memberId}/role`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ roleId })
+        });
+
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || 'Failed to update role');
+        }
+
+        await fetchProjectData(true);
+    };
+
+    const handleRemoveMember = async (memberId: string) => {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`http://localhost:4000/projects/${projectId}/members/${memberId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || 'Failed to remove member');
+        }
+
+        await fetchProjectData(true);
+    };
+
     if (loading) {
         return (
             <DashboardLayout>
@@ -166,9 +237,16 @@ export default function ProjectPage() {
                         onViewChange={setActiveView}
                         onCreateList={() => setIsCreateListModalOpen(true)}
                         onInviteMember={() => setIsInviteModalOpen(true)}
+                        onManageMembers={() => setIsMembersModalOpen(true)}
                         canInvite={hasPermission('manage_members')}
                         sortBy={sortBy}
                         onSortChange={setSortBy}
+                        filterStatus={filterStatus}
+                        filterAssignee={filterAssignee}
+                        onFilterChange={(type, value) => {
+                            if (type === 'status') setFilterStatus(value);
+                            if (type === 'assignee') setFilterAssignee(value);
+                        }}
                     />
 
                     <div className="flex-1 overflow-auto custom-scrollbar">
@@ -207,6 +285,7 @@ export default function ProjectPage() {
                                         <BoardView
                                             tasks={processedProject.lists.flatMap((l: any) => l.tasks)}
                                             projectId={projectId}
+                                            project={project}
                                             onTaskClick={(task: any) => setSelectedTask(task)}
                                             onRefresh={() => fetchProjectData(true)}
                                         />
@@ -258,6 +337,7 @@ export default function ProjectPage() {
                         <TaskDetailPanel
                             key="task-detail-panel"
                             task={selectedTask}
+                            project={project}
                             onClose={() => setSelectedTask(null)}
                             onUpdate={() => fetchProjectData(true)}
                         />
@@ -294,6 +374,18 @@ export default function ProjectPage() {
                         roles={project?.organization?.roles || []}
                         workspaceMembers={project?.organization?.members || []}
                         projectMembers={project?.members || []}
+                    />
+                    <ProjectMembersModal
+                        key="project-members-modal"
+                        isOpen={isMembersModalOpen}
+                        onClose={() => setIsMembersModalOpen(false)}
+                        project={project}
+                        onUpdateRole={handleUpdateMemberRole}
+                        onRemoveMember={handleRemoveMember}
+                        currentUser={{ id: currentMemberId }} // We need user info more than just member ID for "You" tag, but basic check works
+                        roles={(project?.organization?.roles || []).filter((r: any) =>
+                            ['Project Manager', 'Project Member', 'Project Viewer'].includes(r.name)
+                        )}
                     />
                 </AnimatePresence>
             </div>

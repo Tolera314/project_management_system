@@ -29,28 +29,7 @@ export const createWorkspace = async (req: Request, res: Response) => {
 
         const { name, type, color } = validation.data;
 
-        // Check if user already has a workspace
-        console.log(`[WorkspaceService] Checking membership for user: ${userId}`);
-        const existingMembership = await prisma.organizationMember.findFirst({
-            where: { userId },
-            include: {
-                organization: true,
-                role: true
-            }
-        });
-
-        if (existingMembership) {
-            console.log(`[WorkspaceService] User ${userId} already has membership in organization: ${existingMembership.organizationId}. Returning existing workspace.`);
-            res.status(200).json({
-                message: 'You already have a workspace',
-                workspace: {
-                    id: existingMembership.organization.id,
-                    name: existingMembership.organization.name,
-                }
-            });
-            return;
-        }
-
+        // Multi-workspace support: Removed the check that prevented creating more than one workspace.
         console.log(`[WorkspaceService] Creating new workspace for user: ${userId}`);
 
         // Create workspace with admin role
@@ -115,7 +94,7 @@ export const createWorkspace = async (req: Request, res: Response) => {
                     description: 'Read-only project access',
                     isSystem: false,
                     permissions: [
-                        'view_project', 'view_reports', 'download_file', 'view_file_versions'
+                        'view_project', 'view_reports', 'download_file', 'view_file_versions', 'comment_task'
                     ]
                 }
             ];
@@ -178,6 +157,41 @@ export const createWorkspace = async (req: Request, res: Response) => {
     }
 };
 
+/**
+ * Get all workspaces for the current user
+ */
+export const getUserWorkspaces = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' });
+            return;
+        }
+
+        const memberships = await prisma.organizationMember.findMany({
+            where: { userId },
+            include: {
+                organization: true,
+                role: true
+            }
+        });
+
+        const workspaces = memberships.map(m => ({
+            id: m.organization.id,
+            name: m.organization.name,
+            role: m.role.name,
+            color: m.organization.color,
+            createdAt: m.organization.createdAt
+        }));
+
+        res.status(200).json({ workspaces });
+    } catch (error) {
+        console.error('Get workspaces list error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 export const getUserWorkspace = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).userId;
@@ -188,13 +202,21 @@ export const getUserWorkspace = async (req: Request, res: Response) => {
         }
 
         console.log(`[WorkspaceService] Getting workspace for user: ${userId}`);
+        const { workspaceId } = req.query;
+
         const membership = await prisma.organizationMember.findFirst({
-            where: { userId },
+            where: {
+                userId,
+                ...(workspaceId ? { organizationId: workspaceId as string } : {})
+            },
             include: {
                 organization: {
                     include: { roles: true }
                 },
                 role: true
+            },
+            orderBy: {
+                createdAt: 'asc'
             }
         });
 
@@ -390,6 +412,158 @@ export const removeWorkspaceMember = async (req: Request, res: Response) => {
         res.json({ message: 'Member removed successfully' });
     } catch (error) {
         console.error('Remove workspace member error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+/**
+ * Get all members of a workspace
+ */
+export const getWorkspaceMembers = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).userId;
+
+        // Verify membership
+        const membership = await prisma.organizationMember.findFirst({
+            where: { organizationId: id, userId }
+        });
+
+        if (!membership) {
+            res.status(403).json({ error: 'Access denied' });
+            return;
+        }
+
+        const members = await prisma.organizationMember.findMany({
+            where: { organizationId: id },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        systemRole: true
+                    }
+                },
+                role: true
+            },
+            orderBy: {
+                createdAt: 'asc'
+            }
+        });
+
+        res.status(200).json({ members });
+    } catch (error) {
+        console.error('Get workspace members error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const updateWorkspaceMemberRole = async (req: Request, res: Response) => {
+    try {
+        const { id, memberId } = req.params;
+        const { roleId } = req.body;
+        const userId = (req as any).userId;
+
+        // Verify requester is Admin/Owner of workspace
+        const requesterMembership = await prisma.organizationMember.findFirst({
+            where: { organizationId: id, userId },
+            include: { role: true }
+        });
+
+        if (!requesterMembership || (requesterMembership.role.name !== 'Admin' && requesterMembership.role.name !== 'Owner')) {
+            res.status(403).json({ error: 'Only Admins can manage workspace roles' });
+            return;
+        }
+
+        // Verify target member belongs to workspace
+        const targetMember = await prisma.organizationMember.findUnique({
+            where: { id: memberId },
+            include: { role: true }
+        });
+
+        if (!targetMember || targetMember.organizationId !== id) {
+            res.status(404).json({ error: 'Member not found in this workspace' });
+            return;
+        }
+
+        // Safety: Prevent removing last Admin
+        if (targetMember.role.name === 'Admin') {
+            const adminCount = await prisma.organizationMember.count({
+                where: {
+                    organizationId: id,
+                    role: { name: 'Admin' }
+                }
+            });
+            if (adminCount <= 1 && roleId !== targetMember.roleId) { // If trying to change role
+                res.status(400).json({ error: 'Cannot remove the last Admin from the workspace' });
+                return;
+            }
+        }
+
+        // Safety: Prevent self-demotion (optional, but good practice)
+        if (targetMember.userId === userId) {
+            res.status(400).json({ error: 'You cannot change your own workspace role' });
+            return;
+        }
+
+        const newRole = await prisma.role.findUnique({ where: { id: roleId } });
+        if (!newRole || newRole.organizationId !== id) {
+            res.status(400).json({ error: 'Invalid role specified' });
+            return;
+        }
+
+        const updatedMember = await prisma.organizationMember.update({
+            where: { id: memberId },
+            data: { roleId },
+            include: { role: true, user: true }
+        });
+
+        res.json({ member: updatedMember });
+
+    } catch (error) {
+        console.error('Update workspace member role error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+/**
+ * Get all roles for a workspace
+ */
+export const getWorkspaceRoles = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).userId;
+
+        // Verify membership
+        const membership = await prisma.organizationMember.findFirst({
+            where: { organizationId: id, userId }
+        });
+
+        if (!membership) {
+            res.status(403).json({ error: 'Access denied' });
+            return;
+        }
+
+        const roles = await prisma.role.findMany({
+            where: { organizationId: id },
+            include: {
+                permissions: {
+                    include: { permission: true }
+                },
+                _count: {
+                    select: { members: true }
+                }
+            },
+            orderBy: {
+                isSystem: 'desc' // List system roles (like Admin) first
+            }
+        });
+
+        res.status(200).json({ roles });
+    } catch (error) {
+        console.error('Get workspace roles error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };

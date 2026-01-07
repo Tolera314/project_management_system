@@ -27,6 +27,7 @@ const projectSchema = z.object({
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
     status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'CANCELLED']),
     dependencyIds: z.array(z.string()),
+    templateId: z.string().optional(),
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -58,16 +59,43 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
             priority: 'MEDIUM',
             status: 'NOT_STARTED',
             dependencyIds: [],
+            templateId: undefined,
         },
     });
 
     const selectedDependencies = watch('dependencyIds');
+    const [mode, setMode] = useState<'BLANK' | 'TEMPLATE'>('BLANK');
+    const [templates, setTemplates] = useState<any[]>([]);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen) {
             fetchProjects();
+            fetchTemplates();
         }
     }, [isOpen]);
+
+    const fetchTemplates = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const userStr = localStorage.getItem('user');
+            if (!token || !userStr) return;
+            const user = JSON.parse(userStr);
+            const organizationId = user.organizations?.[0]?.id;
+
+            if (!organizationId) return;
+
+            const res = await fetch(`http://localhost:4000/projects/templates?organizationId=${organizationId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setTemplates(data.templates || []);
+            }
+        } catch (e) {
+            console.error('Fetch templates error', e);
+        }
+    };
 
     const fetchProjects = async () => {
         try {
@@ -112,17 +140,24 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
                 return;
             }
 
+            const requestBody: any = {
+                ...data,
+                color: selectedColor,
+                organizationId,
+            };
+
+            // Only include templateId if in template mode and one is selected
+            if (mode === 'TEMPLATE' && selectedTemplateId) {
+                requestBody.templateId = selectedTemplateId;
+            }
+
             const response = await fetch('http://localhost:4000/projects', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify({
-                    ...data,
-                    color: selectedColor,
-                    organizationId,
-                }),
+                body: JSON.stringify(requestBody),
             });
 
             if (!response.ok) {
@@ -144,10 +179,19 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
         }
     };
 
+    const handleTemplateSelect = (tId: string, tColor?: string) => {
+        setSelectedTemplateId(tId);
+        setValue('templateId', tId);
+        if (tColor) setSelectedColor(tColor);
+    };
+
     const handleClose = () => {
         if (!isSubmitting) {
             reset();
             setSelectedColor(projectColors[0].value);
+            setMode('BLANK');
+            setSelectedTemplateId(null);
+            setValue('templateId', undefined);
             onClose();
         }
     };
@@ -194,8 +238,74 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
                                 </button>
                             </div>
 
+                            {/* Mode Tabs */}
+                            <div className="flex px-6 border-b border-white/5">
+                                <button
+                                    onClick={() => setMode('BLANK')}
+                                    className={`pb-3 text-sm font-bold border-b-2 px-4 transition-colors ${mode === 'BLANK' ? 'border-primary text-white' : 'border-transparent text-text-secondary hover:text-white'}`}
+                                    type="button"
+                                >
+                                    Blank Project
+                                </button>
+                                <button
+                                    onClick={() => setMode('TEMPLATE')}
+                                    className={`pb-3 text-sm font-bold border-b-2 px-4 transition-colors ${mode === 'TEMPLATE' ? 'border-primary text-white' : 'border-transparent text-text-secondary hover:text-white'}`}
+                                    type="button"
+                                >
+                                    From Template
+                                </button>
+                            </div>
+
                             {/* Form */}
                             <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
+
+                                {/* Template Selection */}
+                                {mode === 'TEMPLATE' && (
+                                    <div className="space-y-3">
+                                        <label className="text-sm font-medium text-text-primary">
+                                            Select Template <span className="text-danger">*</span>
+                                        </label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-1">
+                                            {templates.map(t => (
+                                                <div
+                                                    key={t.id}
+                                                    onClick={() => handleTemplateSelect(t.id, t.color)}
+                                                    className={`p-3 sm:p-4 rounded-xl border cursor-pointer transition-all ${selectedTemplateId === t.id
+                                                        ? 'bg-primary/10 border-primary shadow-[0_0_15px_rgba(99,102,241,0.3)] ring-2 ring-primary/20'
+                                                        : 'bg-background border-white/10 hover:border-white/20 hover:bg-background/80'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-start justify-between gap-2 mb-2">
+                                                        <div className="font-bold text-white text-sm">{t.name}</div>
+                                                        {selectedTemplateId === t.id && (
+                                                            <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                                                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                                </svg>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[10px] sm:text-xs text-text-secondary line-clamp-2 mb-2">
+                                                        {t.description || 'No description'}
+                                                    </div>
+                                                    <div className="flex items-center gap-3 text-[10px] font-mono text-text-secondary/50">
+                                                        <span>{t._count?.tasks || 0} tasks</span>
+                                                        <span>•</span>
+                                                        <span>{t._count?.lists || 0} lists</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {templates.length === 0 && (
+                                                <div className="col-span-full text-center py-8 text-text-secondary text-xs italic border border-white/5 border-dashed rounded-xl">
+                                                    No templates available. Create one from an existing project.
+                                                </div>
+                                            )}
+                                        </div>
+                                        {mode === 'TEMPLATE' && !selectedTemplateId && templates.length > 0 && (
+                                            <p className="text-xs text-yellow-400/80">Please select a template to continue</p>
+                                        )}
+                                    </div>
+                                )}
                                 {/* Project Name */}
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-text-primary">

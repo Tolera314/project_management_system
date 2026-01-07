@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
+import { NotificationService } from '../services/notification.service';
 
 const createMilestoneSchema = z.object({
     name: z.string().min(1, 'Milestone name is required').max(100),
@@ -49,6 +50,11 @@ export const createMilestone = async (req: Request, res: Response) => {
         // Validate Due Date against Project Start/End (if they exist)
         if (project.startDate && dueDate < project.startDate) {
             res.status(400).json({ error: 'Milestone due date cannot be before project start date' });
+            return;
+        }
+
+        if (project.dueDate && dueDate > project.dueDate) {
+            res.status(400).json({ error: 'Milestone due date cannot be after project due date' });
             return;
         }
 
@@ -206,6 +212,34 @@ export const updateMilestone = async (req: Request, res: Response) => {
                 owner: true
             }
         });
+
+        // Send Notification if milestone owner is set and changed, or if it's completed
+        try {
+            if (updatedMilestone.ownerId) {
+                const owner = await prisma.projectMember.findUnique({
+                    where: { id: updatedMilestone.ownerId },
+                    include: { organizationMember: true }
+                });
+
+                if (owner && owner.organizationMember.userId !== userId) {
+                    await NotificationService.notify({
+                        type: 'MILESTONE_COMPLETED', // Or generic MILESTONE_UPDATED if we want
+                        recipientId: owner.organizationMember.userId,
+                        actorId: userId,
+                        projectId: updatedMilestone.projectId,
+                        milestoneId: updatedMilestone.id,
+                        title: 'Milestone Updated',
+                        message: `Milestone "${updatedMilestone.name}" has been updated.`,
+                        link: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/projects/${updatedMilestone.projectId}`,
+                        metadata: {
+                            milestoneName: updatedMilestone.name
+                        }
+                    });
+                }
+            }
+        } catch (notifErr) {
+            console.error('Failed to send milestone notification:', notifErr);
+        }
 
         res.json({ milestone: updatedMilestone });
     } catch (error) {
