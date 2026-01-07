@@ -43,7 +43,7 @@ export const register = async (req: Request, res: Response) => {
             password,
         });
 
-        
+
         if (!validation.success) {
             console.warn('[Auth] Validation failed:', validation.error.issues[0].message);
             res.status(400).json({ error: validation.error.issues[0].message });
@@ -139,7 +139,8 @@ export const login = async (req: Request, res: Response) => {
                 organizations: user.organizationMembers.map(om => ({
                     id: om.organization.id,
                     name: om.organization.name,
-                    role: om.role.name
+                    role: om.role.name,
+                    color: om.organization.color
                 }))
             }
         });

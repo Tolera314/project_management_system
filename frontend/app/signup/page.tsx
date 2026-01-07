@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion } from 'framer-motion';
@@ -23,7 +23,7 @@ const calculatePasswordStrength = (password: string) => {
     return { ...checks, strength };
 };
 
-export default function SignUpPage() {
+function SignUpContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [isLoading, setIsLoading] = useState(false);
@@ -65,15 +65,12 @@ export default function SignUpPage() {
         try {
             const signupRes = await axios.post('http://localhost:4000/auth/register', data);
 
-            // Register doesn't always return a token in all implementations, 
-            // but our auth.controller.ts DOES return { message, token, user }.
             const token = signupRes.data.token;
             localStorage.setItem('token', token);
             localStorage.setItem('user', JSON.stringify(signupRes.data.user));
 
             let redirectUrl = '/dashboard';
 
-            // If there's an invitation, accept it
             if (invitationToken) {
                 try {
                     const acceptRes = await axios.post(`http://localhost:4000/invitations/accept/${invitationToken}`, {}, {
@@ -337,5 +334,17 @@ export default function SignUpPage() {
                 </p>
             </footer>
         </div>
+    );
+}
+
+export default function SignUpPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-[#0A0B10] flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+        }>
+            <SignUpContent />
+        </Suspense>
     );
 }

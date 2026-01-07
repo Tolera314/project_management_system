@@ -72,16 +72,22 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
                 throw new Error(result.error || 'Failed to create workspace');
             }
 
+            // Update selected workspace id
+            localStorage.setItem('selectedWorkspaceId', result.workspace.id);
+
             // Update local user data
             const userStr = localStorage.getItem('user');
             if (userStr) {
                 const user = JSON.parse(userStr);
-                user.organizations = [{
+                // Just add this to the list of organizations if we were tracking them, 
+                // but since we rely on selectedWorkspaceId + refresh, this is safer.
+                if (!user.organizations) user.organizations = [];
+                user.organizations.push({
                     id: result.workspace.id,
                     name: result.workspace.name,
                     color: result.workspace.color,
                     role: 'Admin'
-                }];
+                });
                 localStorage.setItem('user', JSON.stringify(user));
             }
 

@@ -60,7 +60,12 @@ export default function DashboardPage() {
             }
 
             // Check if user has workspace (Source of Truth check)
-            const workspaceResponse = await fetch('http://localhost:4000/workspaces/me', {
+            const selectedId = localStorage.getItem('selectedWorkspaceId');
+            const url = selectedId
+                ? `http://localhost:4000/workspaces/me?workspaceId=${selectedId}`
+                : 'http://localhost:4000/workspaces/me';
+
+            const workspaceResponse = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                 },

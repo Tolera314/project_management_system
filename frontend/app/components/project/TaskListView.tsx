@@ -27,9 +27,10 @@ export interface TaskListViewProps {
     onTaskClick: (task: any) => void;
     onListClick?: (listId: string) => void;
     onRefresh: () => void;
+    isTemplate?: boolean;
 }
 
-export default function TaskListView({ lists, projectId, project, onTaskClick, onListClick, onRefresh }: TaskListViewProps) {
+export default function TaskListView({ lists, projectId, project, onTaskClick, onListClick, onRefresh, isTemplate = false }: TaskListViewProps) {
     const [collapsedLists, setCollapsedLists] = useState<Record<string, boolean>>({});
     const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
     const [isCreatingList, setIsCreatingList] = useState(false);
@@ -105,6 +106,7 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
     };
 
     const handleToggleStatus = async (task: any) => {
+        if (isTemplate) return; // Status toggling disabled in templates
         const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
         // Optimistic update
         setOptimisticUpdates(prev => ({
@@ -480,7 +482,8 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
                                                                     {getStatusIcon(task.status)}
                                                                 </button>
                                                                 <div className="min-w-0 flex-1">
-                                                                    <p className={`text-sm font-medium transition-colors truncate ${task.status === 'DONE' ? 'text-text-secondary line-through' : 'text-white group-hover:text-primary'}`}>
+                                                                    <p className={`text-sm font-medium transition-colors truncate ${task.status === 'DONE' && !isTemplate ? 'text-text-secondary line-through' : 'text-white group-hover:text-primary'
+                                                                        }`}>
                                                                         {task.title}
                                                                     </p>
                                                                     {task._count?.children > 0 && (
@@ -520,15 +523,22 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
                                                             })()}
                                                         </td>
                                                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                                                            <InlineAssigneeSelector
-                                                                currentAssignees={task.assignees || []}
-                                                                projectMembers={project.members}
-                                                                organizationMembers={project.organization?.members || []}
-                                                                invitations={project.invitations || []}
-                                                                onAssign={(id) => handleToggleAssignee(task.id, id)}
-                                                                onUnassign={(id) => handleToggleAssignee(task.id, id)}
-                                                                onInvite={(email) => handleInviteAndAssign(task.id, email)}
-                                                            />
+                                                            {!isTemplate ? (
+                                                                <InlineAssigneeSelector
+                                                                    currentAssignees={task.assignees || []}
+                                                                    projectMembers={project.members}
+                                                                    organizationMembers={project.organization?.members || []}
+                                                                    invitations={project.invitations || []}
+                                                                    onAssign={(id) => handleToggleAssignee(task.id, id)}
+                                                                    onUnassign={(id) => handleToggleAssignee(task.id, id)}
+                                                                    onInvite={(email) => handleInviteAndAssign(task.id, email)}
+                                                                />
+                                                            ) : (
+                                                                <div className="flex items-center gap-1 text-[10px] text-text-secondary italic">
+                                                                    <UserIcon size={12} className="opacity-50" />
+                                                                    No assignee in blueprint
+                                                                </div>
+                                                            )}
                                                         </td>
                                                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                                                             <div className="flex items-center gap-2 text-text-secondary relative group/date">
@@ -574,7 +584,7 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
                                                                             >
                                                                                 {getStatusIcon(subtask.status)}
                                                                             </button>
-                                                                            <p className={`text-xs font-medium transition-colors truncate ${subtask.status === 'DONE' ? 'text-text-secondary line-through' : 'text-white/80'}`}>
+                                                                            <p className={`text-xs font-medium transition-colors truncate ${subtask.status === 'DONE' && !isTemplate ? 'text-text-secondary line-through' : 'text-white/80'}`}>
                                                                                 {subtask.title}
                                                                             </p>
                                                                         </div>
@@ -597,15 +607,22 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
                                                                         })()}
                                                                     </td>
                                                                     <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
-                                                                        <InlineAssigneeSelector
-                                                                            currentAssignees={subtask.assignees || []}
-                                                                            projectMembers={project.members}
-                                                                            organizationMembers={project.organization?.members || []}
-                                                                            invitations={project.invitations || []}
-                                                                            onAssign={(id) => handleToggleAssignee(subtask.id, id)}
-                                                                            onUnassign={(id) => handleToggleAssignee(subtask.id, id)}
-                                                                            onInvite={(email) => handleInviteAndAssign(subtask.id, email)}
-                                                                        />
+                                                                        {!isTemplate ? (
+                                                                            <InlineAssigneeSelector
+                                                                                currentAssignees={subtask.assignees || []}
+                                                                                projectMembers={project.members}
+                                                                                organizationMembers={project.organization?.members || []}
+                                                                                invitations={project.invitations || []}
+                                                                                onAssign={(id) => handleToggleAssignee(subtask.id, id)}
+                                                                                onUnassign={(id) => handleToggleAssignee(subtask.id, id)}
+                                                                                onInvite={(email) => handleInviteAndAssign(subtask.id, email)}
+                                                                            />
+                                                                        ) : (
+                                                                            <div className="flex items-center gap-1 text-[9px] text-text-secondary/50 italic">
+                                                                                <UserIcon size={10} className="opacity-30" />
+                                                                                (No dev)
+                                                                            </div>
+                                                                        )}
                                                                     </td>
                                                                     <td className="px-4 py-2 text-text-secondary" onClick={(e) => e.stopPropagation()}>
                                                                         <input

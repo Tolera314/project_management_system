@@ -13,6 +13,8 @@ import taskRoutes from './routes/task.routes';
 import milestoneRoutes from './routes/milestone.routes';
 import dependencyRoutes from './routes/dependency.routes';
 import invitationRoutes from './routes/invitation.routes';
+import notificationRoutes from './routes/notification.routes';
+import templateRoutes from './routes/template.routes';
 
 const app = express();
 // const prisma = new PrismaClient(); // Removed local instance
@@ -30,6 +32,8 @@ app.use('/tasks', taskRoutes);
 app.use('/milestones', milestoneRoutes);
 app.use('/dependencies', dependencyRoutes);
 app.use('/invitations', invitationRoutes);
+app.use('/notifications', notificationRoutes);
+app.use('/templates', templateRoutes);
 
 app.get('/', (req, res) => {
     res.send('ProjectOS Backend Running');

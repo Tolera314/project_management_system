@@ -17,8 +17,10 @@ import { motion } from 'framer-motion';
 interface BoardViewProps {
     tasks: any[];
     projectId: string;
+    project?: any;
     onTaskClick: (task: any) => void;
     onRefresh: () => void;
+    isTemplate?: boolean;
 }
 
 const COLUMNS: { [key: string]: string } = {
@@ -42,7 +44,7 @@ const STATUS_Map: { [key: string]: string } = {
     'Done': 'DONE'
 };
 
-export default function BoardView({ tasks, projectId, onTaskClick, onRefresh }: BoardViewProps) {
+export default function BoardView({ tasks, projectId, project, onTaskClick, onRefresh, isTemplate = false }: BoardViewProps) {
     // Filter out tasks that belong to lists without status or ensure flat list
     // The prompt says "Lists are abstracted away". So we take all tasks.
 
@@ -70,6 +72,8 @@ export default function BoardView({ tasks, projectId, onTaskClick, onRefresh }: 
     }, [tasks]);
 
     const onDragEnd = async (result: DropResult) => {
+        if (isTemplate) return; // Disable drag and drop in template mode for now (unless we want to support reordering)
+
         const { destination, source, draggableId } = result;
 
         if (!destination) return;
@@ -156,7 +160,7 @@ export default function BoardView({ tasks, projectId, onTaskClick, onRefresh }: 
                                                         <div
                                                             ref={provided.innerRef}
                                                             {...provided.draggableProps}
-                                                            {...provided.dragHandleProps}
+                                                            {...(isTemplate ? {} : provided.dragHandleProps)}
                                                             onClick={() => onTaskClick(task)}
                                                             style={{
                                                                 ...provided.draggableProps.style,
@@ -183,15 +187,21 @@ export default function BoardView({ tasks, projectId, onTaskClick, onRefresh }: 
                                                             <div className="flex items-center justify-between">
                                                                 <div className="flex items-center gap-2">
                                                                     {/* Assignee Avatar */}
-                                                                    <div className="w-6 h-6 rounded-full bg-surface-lighter flex items-center justify-center ring-1 ring-white/10" title={task.assignees?.[0]?.projectMember?.organizationMember?.user?.firstName || 'Unassigned'}>
-                                                                        {task.assignees?.[0]?.projectMember?.organizationMember?.user?.firstName ? (
-                                                                            <span className="text-[10px] font-bold text-text-secondary">
-                                                                                {task.assignees[0].projectMember.organizationMember.user.firstName[0]}
-                                                                            </span>
-                                                                        ) : (
-                                                                            <UserIcon size={12} className="text-text-secondary" />
-                                                                        )}
-                                                                    </div>
+                                                                    {!isTemplate ? (
+                                                                        <div className="w-6 h-6 rounded-full bg-surface-lighter flex items-center justify-center ring-1 ring-white/10" title={task.assignees?.[0]?.projectMember?.organizationMember?.user?.firstName || 'Unassigned'}>
+                                                                            {task.assignees?.[0]?.projectMember?.organizationMember?.user?.firstName ? (
+                                                                                <span className="text-[10px] font-bold text-text-secondary">
+                                                                                    {task.assignees[0].projectMember.organizationMember.user.firstName[0]}
+                                                                                </span>
+                                                                            ) : (
+                                                                                <UserIcon size={12} className="text-text-secondary" />
+                                                                            )}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center border border-dashed border-white/10" title="Template Blueprint">
+                                                                            <UserIcon size={10} className="text-text-secondary/50" />
+                                                                        </div>
+                                                                    )}
 
                                                                     {/* Due Date */}
                                                                     {task.dueDate && (

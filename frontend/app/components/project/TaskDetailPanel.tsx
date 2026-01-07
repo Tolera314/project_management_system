@@ -26,17 +26,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, Fragment, useRef } from 'react';
 import DependencyModal from '../shared/DependencyModal';
 import InlineAssigneeSelector from './InlineAssigneeSelector';
+import CommentComposer from './CommentComposer';
 
 interface TaskDetailPanelProps {
     task: any;
+    project: any;
     onClose: () => void;
     onUpdate: () => void;
+    isTemplate?: boolean;
 }
 
-export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }: TaskDetailPanelProps) {
+export default function TaskDetailPanel({ task: initialTask, project: initialProject, onClose, onUpdate, isTemplate = false }: TaskDetailPanelProps) {
     const [task, setTask] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [comment, setComment] = useState('');
     const [isDependencyModalOpen, setIsDependencyModalOpen] = useState(false);
     const [dependencies, setDependencies] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'comments' | 'activity'>('comments');
@@ -166,28 +168,6 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
             }
         } catch (error) {
             console.error('Delete task error:', error);
-        }
-    };
-
-    const handlePostComment = async () => {
-        if (!comment.trim()) return;
-        try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/tasks/${task.id}/comments`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ content: comment })
-            });
-
-            if (res.ok) {
-                setComment('');
-                fetchTaskDetails();
-            }
-        } catch (error) {
-            console.error('Post comment error:', error);
         }
     };
 
@@ -402,6 +382,44 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
         }
     };
 
+    const handleCommentPost = async (content: string) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:4000/tasks/${task.id}/comments`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ content })
+            });
+
+            if (res.ok) {
+                fetchTaskDetails();
+            }
+        } catch (error) {
+            console.error('Post comment error:', error);
+        }
+    };
+
+    const renderCommentContent = (content: string) => {
+        // Regex to match @[Name](userId)
+        const parts = content.split(/(@\[[^\]]+\]\([a-zA-Z0-9-]+\))/g);
+        return parts.map((part, index) => {
+            // Check if this part is a mention
+            const strictMatch = part.match(/^@\[(.*?)\]\((.*?)\)$/);
+
+            if (strictMatch) {
+                return (
+                    <span key={index} className="text-primary font-bold hover:underline cursor-pointer">
+                        @{strictMatch[1]}
+                    </span>
+                );
+            }
+            return <span key={index}>{part}</span>;
+        });
+    };
+
     if (loading && !task) {
         return (
             <motion.div
@@ -434,21 +452,30 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-white/5">
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => handleUpdateStatus(task.status === 'DONE' ? 'TODO' : 'DONE')}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[10px] font-bold uppercase tracking-wider ${task.status === 'DONE'
-                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
-                            : 'bg-white/5 border-white/10 text-text-secondary hover:text-white'
-                            }`}
-                    >
-                        {task.status === 'DONE' ? <CheckCircle2 size={14} /> : <Circle size={14} />}
-                        {task.status === 'DONE' ? 'Completed' : 'Mark Complete'}
-                    </button>
-                    <div className="h-4 w-[1px] bg-white/10" />
-                    <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-[10px] font-bold uppercase tracking-wider group hover:bg-indigo-500 hover:text-white transition-all">
-                        <Play size={12} className="group-hover:fill-current" />
-                        Track Time
-                    </button>
+                    {!isTemplate && (
+                        <>
+                            <button
+                                onClick={() => handleUpdateStatus(task.status === 'DONE' ? 'TODO' : 'DONE')}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[10px] font-bold uppercase tracking-wider ${task.status === 'DONE'
+                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+                                    : 'bg-white/5 border-white/10 text-text-secondary hover:text-white'
+                                    }`}
+                            >
+                                {task.status === 'DONE' ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+                                {task.status === 'DONE' ? 'Completed' : 'Mark Complete'}
+                            </button>
+                            <div className="h-4 w-[1px] bg-white/10" />
+                            <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-[10px] font-bold uppercase tracking-wider group hover:bg-indigo-500 hover:text-white transition-all">
+                                <Play size={12} className="group-hover:fill-current" />
+                                Track Time
+                            </button>
+                        </>
+                    )}
+                    {isTemplate && (
+                        <div className="px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-bold uppercase tracking-wider">
+                            Blueprint Mode
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-2">
                     <button
@@ -594,7 +621,8 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                                 <Clock size={12} /> Status
                             </label>
                             <select
-                                className="w-full bg-primary/10 border border-primary/20 text-xs font-bold text-primary rounded-full px-3 py-1 outline-none hover:bg-primary/20 transition-all appearance-none cursor-pointer uppercase tracking-tighter"
+                                disabled={isTemplate}
+                                className={`w-full ${isTemplate ? 'bg-white/5 opacity-50 cursor-not-allowed' : 'bg-primary/10 hover:bg-primary/20 cursor-pointer'} border border-primary/20 text-xs font-bold text-primary rounded-full px-3 py-1 outline-none transition-all appearance-none uppercase tracking-tighter`}
                                 value={task.status}
                                 onChange={(e) => handleUpdateTask({ status: e.target.value })}
                             >
@@ -734,27 +762,10 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                         {activeTab === 'comments' && (
                             <>
                                 {/* Comment Input */}
-                                <div className="flex gap-4">
-                                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                                        <UserIcon size={14} className="text-primary" />
-                                    </div>
-                                    <div className="flex-1 space-y-3">
-                                        <textarea
-                                            className="w-full bg-background border border-white/10 rounded-xl p-4 text-sm text-white placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all min-h-[80px]"
-                                            placeholder="Write a comment..."
-                                            value={comment}
-                                            onChange={(e) => setComment(e.target.value)}
-                                        />
-                                        <div className="flex justify-end">
-                                            <button
-                                                onClick={handlePostComment}
-                                                className="px-5 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all font-sans"
-                                            >
-                                                Post Comment
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+                                <CommentComposer
+                                    onPost={handleCommentPost}
+                                    members={projectMembers}
+                                />
 
                                 {/* Recent Comments */}
                                 <div className="space-y-6">
@@ -768,8 +779,8 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                                                     <span className="text-xs font-bold text-white">{c.createdBy?.firstName} {c.createdBy?.lastName}</span>
                                                     <span className="text-[10px] text-text-secondary">{new Date(c.createdAt).toLocaleDateString()}</span>
                                                 </div>
-                                                <p className="text-sm text-text-secondary leading-relaxed bg-white/[0.01] p-3 rounded-lg border border-white/5">
-                                                    {c.content}
+                                                <p className="text-sm text-text-secondary leading-relaxed bg-white/[0.01] p-3 rounded-lg border border-white/5 whitespace-pre-wrap">
+                                                    {renderCommentContent(c.content)}
                                                 </p>
                                             </div>
                                         </div>
