@@ -15,8 +15,9 @@ import InviteMemberModal from '../../components/project/InviteMemberModal';
 import BoardView from '../../components/project/BoardView';
 import TimelineView from '../../components/project/TimelineView';
 import ProjectMembersModal from '../../components/project/ProjectMembersModal';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
+import FileList from '../../components/files/FileList';
 
 export default function ProjectPage() {
     const params = useParams();
@@ -325,6 +326,18 @@ export default function ProjectPage() {
                                             onTaskClick={(task: any) => setSelectedTask(task)}
                                             onRefresh={() => fetchProjectData(true)}
                                         />
+                                    </motion.div>
+                                )}
+
+                                {activeView === 'files' && (
+                                    <motion.div
+                                        key="files"
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -20 }}
+                                        transition={{ duration: 0.3 }}
+                                    >
+                                        <FileList projectId={projectId} />
                                     </motion.div>
                                 )}
                             </AnimatePresence>

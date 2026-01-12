@@ -13,7 +13,14 @@ import {
     User as UserIcon,
     LayoutGrid,
     Link as LinkIcon,
-    Play
+    Play,
+    Trash2,
+    Archive,
+    CheckSquare,
+    Square,
+    Users,
+    Eye,
+    X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DependencyModal from '../shared/DependencyModal';
@@ -38,6 +45,8 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
     const [activeListId, setActiveListId] = useState<string | null>(null);
     const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
     const [dependencyListId, setDependencyListId] = useState<string | null>(null);
+    const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+    const [isBulkLoading, setIsBulkLoading] = useState(false);
     const subtaskInputRef = useRef<HTMLInputElement>(null);
     const mainTaskInputRef = useRef<HTMLInputElement>(null);
 
@@ -105,9 +114,63 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
         }
     };
 
-    const handleToggleStatus = async (task: any) => {
+    const toggleTaskSelection = (taskId: string) => {
+        setSelectedTaskIds(prev =>
+            prev.includes(taskId)
+                ? prev.filter(id => id !== taskId)
+                : [...prev, taskId]
+        );
+    };
+
+    const handleBulkUpdate = async (updates: any) => {
+        if (selectedTaskIds.length === 0) return;
+        try {
+            setIsBulkLoading(true);
+            const token = localStorage.getItem('token');
+            const res = await fetch('http://localhost:4000/tasks/bulk', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    taskIds: selectedTaskIds,
+                    updates
+                })
+            });
+
+            if (res.ok) {
+                setSelectedTaskIds([]);
+                onRefresh();
+            }
+        } catch (error) {
+            console.error('Bulk update error:', error);
+        } finally {
+            setIsBulkLoading(false);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedTaskIds.length === 0) return;
+        if (!window.confirm(`Are you sure you want to delete ${selectedTaskIds.length} tasks?`)) return;
+
+        try {
+            setIsBulkLoading(true);
+            const token = localStorage.getItem('token');
+            await handleBulkUpdate({ isArchived: true });
+        } catch (error) {
+            console.error('Bulk delete error:', error);
+        } finally {
+            setIsBulkLoading(false);
+        }
+    };
+
+    const handleToggleStatus = async (task: any, specificStatus?: string) => {
         if (isTemplate) return; // Status toggling disabled in templates
-        const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
+
+        // If specific status provided, use it. Otherwise, toggle between DONE/TODO
+        const newStatus = specificStatus || (task.status === 'DONE' ? 'TODO' : 'DONE');
+
         // Optimistic update
         setOptimisticUpdates(prev => ({
             ...prev,
@@ -156,10 +219,11 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
 
     const getStatusIcon = (status: string) => {
         switch (status) {
-            case 'DONE': return <CheckCircle2 size={16} className="text-emerald-500" />;
-            case 'IN_PROGRESS': return <Play size={16} className="text-primary fill-primary/20" />;
-            case 'BLOCKED': return <AlertTriangle size={16} className="text-red-500" />;
-            default: return <Circle size={16} className="text-text-secondary group-hover:text-white" />;
+            case 'DONE': return <CheckCircle2 size={16} className="text-emerald-500" />
+            case 'IN_PROGRESS': return <Play size={16} className="text-primary fill-primary/20" />
+            case 'IN_REVIEW': return <Eye size={16} className="text-amber-500" />
+            case 'BLOCKED': return <AlertTriangle size={16} className="text-red-500" />
+            default: return <Circle size={16} className="text-text-secondary group-hover:text-primary" />
         }
     };
 
@@ -381,7 +445,7 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
                                         onListClick(list.id);
                                     }
                                 }}
-                                className="text-sm font-bold text-white uppercase tracking-wider hover:text-primary transition-colors cursor-pointer"
+                                className="text-sm font-bold text-text-primary/foreground uppercase tracking-wider hover:text-primary transition-colors cursor-pointer"
                             >
                                 {list.name}
                             </h3>
@@ -438,21 +502,22 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
                             >
                                 <div className="w-full overflow-x-auto custom-scrollbar">
                                     <table className="w-full border-collapse text-left">
-                                        <thead>
-                                            <tr className="border-b border-white/5">
-                                                <th className="px-4 py-3 text-[10px] font-bold text-text-secondary uppercase tracking-widest min-w-[300px]">Task</th>
-                                                <th className="px-4 py-3 text-[10px] font-bold text-text-secondary uppercase tracking-widest w-32">Priority</th>
-                                                <th className="px-4 py-3 text-[10px] font-bold text-text-secondary uppercase tracking-widest w-40">Assignee</th>
-                                                <th className="px-4 py-3 text-[10px] font-bold text-text-secondary uppercase tracking-widest w-32">Start Date</th>
-                                                <th className="px-4 py-3 text-[10px] font-bold text-text-secondary uppercase tracking-widest w-32">Due Date</th>
+                                        <thead className="bg-surface-secondary top-0 sticky z-10">
+                                            <tr className="border-b border-border">
+                                                <th className="px-4 py-3 text-[10px] font-bold text-text-secondary uppercase tracking-widest min-w-[200px] md:min-w-[300px]">Task</th>
+                                                <th className="px-4 py-3 text-[10px] font-bold text-text-secondary uppercase tracking-widest w-24 md:w-32">Status</th>
+                                                <th className="px-4 py-3 text-[10px] font-bold text-text-secondary uppercase tracking-widest w-24 md:w-32 hidden sm:table-cell">Priority</th>
+                                                <th className="px-4 py-3 text-[10px] font-bold text-text-secondary uppercase tracking-widest w-32 md:w-40">Assignee</th>
+                                                <th className="px-4 py-3 text-[10px] font-bold text-text-secondary uppercase tracking-widest w-24 md:w-32 hidden lg:table-cell">Start Date</th>
+                                                <th className="px-4 py-3 text-[10px] font-bold text-text-secondary uppercase tracking-widest w-24 md:w-32 hidden md:table-cell">Due Date</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-white/5">
+                                        <tbody className="divide-y divide-foreground/5">
                                             {list.tasks?.map((task: any) => (
                                                 <Fragment key={task.id}>
                                                     <tr
                                                         key={task.id}
-                                                        className="group hover:bg-white/[0.02] transition-colors cursor-pointer"
+                                                        className={`group hover:bg-surface-secondary transition-colors cursor-pointer ${selectedTaskIds.includes(task.id) ? 'bg-primary/5' : ''}`}
                                                         onClick={() => onTaskClick(task)}
                                                     >
                                                         <td className="px-4 py-3">
@@ -472,17 +537,22 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
                                                                         )}
                                                                     </div>
                                                                 </div>
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleToggleStatus(task);
-                                                                    }}
-                                                                    className="hover:scale-110 transition-transform shrink-0"
-                                                                >
-                                                                    {getStatusIcon(task.status)}
-                                                                </button>
+                                                                {/* Simple task icon */}
+                                                                <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${task.status === 'DONE' ? 'border-emerald-500 bg-emerald-500/10' :
+                                                                    task.status === 'IN_PROGRESS' ? 'border-primary bg-primary/10' :
+                                                                        task.status === 'IN_REVIEW' ? 'border-amber-500 bg-amber-500/10' :
+                                                                            task.status === 'BLOCKED' ? 'border-red-500 bg-red-500/10' :
+                                                                                'border-foreground/20'
+                                                                    }`}>
+                                                                    <CheckSquare size={10} className={`${task.status === 'DONE' ? 'text-emerald-500' :
+                                                                        task.status === 'IN_PROGRESS' ? 'text-primary' :
+                                                                            task.status === 'IN_REVIEW' ? 'text-amber-500' :
+                                                                                task.status === 'BLOCKED' ? 'text-red-500' :
+                                                                                    'text-foreground/20'
+                                                                        }`} />
+                                                                </div>
                                                                 <div className="min-w-0 flex-1">
-                                                                    <p className={`text-sm font-medium transition-colors truncate ${task.status === 'DONE' && !isTemplate ? 'text-text-secondary line-through' : 'text-white group-hover:text-primary'
+                                                                    <p className={`text-sm font-medium transition-colors truncate ${task.status === 'DONE' && !isTemplate ? 'text-text-secondary' : 'text-text-primary group-hover:text-primary'
                                                                         }`}>
                                                                         {task.title}
                                                                     </p>
@@ -506,6 +576,25 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
                                                             </div>
                                                         </td>
                                                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                                            <select
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onChange={(e) => handleToggleStatus({ ...task, status: e.target.value })}
+                                                                value={task.status}
+                                                                className={`flex items-center gap-2 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-tight transition-all border-none focus:ring-0 cursor-pointer ${task.status === 'DONE' ? 'bg-emerald-500/10 text-emerald-500' :
+                                                                    task.status === 'IN_PROGRESS' ? 'bg-primary/10 text-primary' :
+                                                                        task.status === 'IN_REVIEW' ? 'bg-amber-500/10 text-amber-500' :
+                                                                            task.status === 'BLOCKED' ? 'bg-red-500/10 text-red-500' :
+                                                                                'bg-white/5 text-text-secondary'
+                                                                    }`}
+                                                            >
+                                                                <option value="TODO" className="bg-[#1e1e1e] text-text-secondary">To Do</option>
+                                                                <option value="IN_PROGRESS" className="bg-[#1e1e1e] text-primary">In Progress</option>
+                                                                <option value="IN_REVIEW" className="bg-[#1e1e1e] text-amber-500">In Review</option>
+                                                                <option value="DONE" className="bg-[#1e1e1e] text-emerald-500">Done</option>
+                                                                <option value="BLOCKED" className="bg-[#1e1e1e] text-red-500">Blocked</option>
+                                                            </select>
+                                                        </td>
+                                                        <td className="px-4 py-3 hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                                                             {(() => {
                                                                 const styles = getPriorityStyles(task.priority);
                                                                 return (
@@ -575,19 +664,42 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
                                                                 >
                                                                     <td className="px-4 py-2 pl-12 border-l-2 border-primary/20">
                                                                         <div className="flex items-center gap-3">
-                                                                            <button
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    handleToggleStatus(subtask);
-                                                                                }}
-                                                                                className="hover:scale-110 transition-transform shrink-0"
-                                                                            >
-                                                                                {getStatusIcon(subtask.status)}
-                                                                            </button>
-                                                                            <p className={`text-xs font-medium transition-colors truncate ${subtask.status === 'DONE' && !isTemplate ? 'text-text-secondary line-through' : 'text-white/80'}`}>
+                                                                            <div className={`w-3 h-3 rounded border flex items-center justify-center shrink-0 ${subtask.status === 'DONE' ? 'border-emerald-500 bg-emerald-500/10' :
+                                                                                subtask.status === 'IN_PROGRESS' ? 'border-primary bg-primary/10' :
+                                                                                    subtask.status === 'IN_REVIEW' ? 'border-amber-500 bg-amber-500/10' :
+                                                                                        subtask.status === 'BLOCKED' ? 'border-red-500 bg-red-500/10' :
+                                                                                            'border-foreground/20'
+                                                                                }`}>
+                                                                                <CheckSquare size={8} className={`${subtask.status === 'DONE' ? 'text-emerald-500' :
+                                                                                    subtask.status === 'IN_PROGRESS' ? 'text-primary' :
+                                                                                        subtask.status === 'IN_REVIEW' ? 'text-amber-500' :
+                                                                                            subtask.status === 'BLOCKED' ? 'text-red-500' :
+                                                                                                'text-foreground/20'
+                                                                                    }`} />
+                                                                            </div>
+                                                                            <p className={`text-xs font-medium transition-colors truncate ${subtask.status === 'DONE' && !isTemplate ? 'text-text-secondary' : 'text-text-primary/80'}`}>
                                                                                 {subtask.title}
                                                                             </p>
                                                                         </div>
+                                                                    </td>
+                                                                    <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
+                                                                        <select
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            onChange={(e) => handleToggleStatus(subtask, e.target.value)}
+                                                                            value={subtask.status}
+                                                                            className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-tight transition-all border-none focus:ring-0 cursor-pointer ${subtask.status === 'DONE' ? 'bg-emerald-500/10 text-emerald-500' :
+                                                                                    subtask.status === 'IN_PROGRESS' ? 'bg-primary/10 text-primary' :
+                                                                                        subtask.status === 'IN_REVIEW' ? 'bg-amber-500/10 text-amber-500' :
+                                                                                            subtask.status === 'BLOCKED' ? 'bg-red-500/10 text-red-500' :
+                                                                                                'bg-foreground/5 text-text-secondary'
+                                                                                }`}
+                                                                        >
+                                                                            <option value="TODO" className="bg-[#1e1e1e] text-text-secondary">To Do</option>
+                                                                            <option value="IN_PROGRESS" className="bg-[#1e1e1e] text-primary">In Progress</option>
+                                                                            <option value="IN_REVIEW" className="bg-[#1e1e1e] text-amber-500">In Review</option>
+                                                                            <option value="DONE" className="bg-[#1e1e1e] text-emerald-500">Done</option>
+                                                                            <option value="BLOCKED" className="bg-[#1e1e1e] text-red-500">Blocked</option>
+                                                                        </select>
                                                                     </td>
                                                                     <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
                                                                         {(() => {
@@ -749,51 +861,55 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
                                     </button>
                                 )}
                             </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-            ))}
+                        )
+                        }
+                    </AnimatePresence >
+                </div >
+            ))
+            }
 
             {/* Create List Button */}
-            {isCreatingList ? (
-                <div className="p-4 bg-surface/40 border border-primary/30 rounded-2xl animate-in fade-in slide-in-from-bottom-2 transition-all mx-2">
-                    <input
-                        autoFocus
-                        placeholder="Enter list name..."
-                        className="w-full bg-background/50 border border-white/10 rounded-lg px-4 py-3 text-sm text-white mb-3 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                        value={newListNames['new'] || ''}
-                        onChange={(e) => setNewListNames({ ...newListNames, ['new']: e.target.value })}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleCreateList();
-                            if (e.key === 'Escape') setIsCreatingList(false);
-                        }}
-                    />
-                    <div className="flex justify-end gap-2">
+            {
+                isCreatingList ? (
+                    <div className="p-4 bg-surface/40 border border-primary/30 rounded-2xl animate-in fade-in slide-in-from-bottom-2 transition-all mx-2">
+                        <input
+                            autoFocus
+                            placeholder="Enter list name..."
+                            className="w-full bg-background/50 border border-white/10 rounded-lg px-4 py-3 text-sm text-white mb-3 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            value={newListNames['new'] || ''}
+                            onChange={(e) => setNewListNames({ ...newListNames, ['new']: e.target.value })}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleCreateList();
+                                if (e.key === 'Escape') setIsCreatingList(false);
+                            }}
+                        />
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={handleCreateList}
+                                className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:shadow-lg hover:shadow-primary/20 transition-all"
+                            >
+                                Create List
+                            </button>
+                            <button
+                                onClick={() => setIsCreatingList(false)}
+                                className="px-4 py-2 bg-white/5 text-text-secondary text-xs font-bold rounded-lg hover:bg-white/10 transition-all"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="px-2">
                         <button
-                            onClick={handleCreateList}
-                            className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:shadow-lg hover:shadow-primary/20 transition-all"
+                            onClick={() => setIsCreatingList(true)}
+                            className="flex items-center gap-3 w-full p-4 border border-dashed border-white/10 rounded-2xl text-text-secondary hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all group"
                         >
-                            Create List
-                        </button>
-                        <button
-                            onClick={() => setIsCreatingList(false)}
-                            className="px-4 py-2 bg-white/5 text-text-secondary text-xs font-bold rounded-lg hover:bg-white/10 transition-all"
-                        >
-                            Cancel
+                            <Plus size={18} className="group-hover:scale-110 transition-transform" />
+                            <span className="text-sm font-bold">Create new list</span>
                         </button>
                     </div>
-                </div>
-            ) : (
-                <div className="px-2">
-                    <button
-                        onClick={() => setIsCreatingList(true)}
-                        className="flex items-center gap-3 w-full p-4 border border-dashed border-white/10 rounded-2xl text-text-secondary hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all group"
-                    >
-                        <Plus size={18} className="group-hover:scale-110 transition-transform" />
-                        <span className="text-sm font-bold">Create new list</span>
-                    </button>
-                </div>
-            )}
+                )
+            }
 
             <DependencyModal
                 isOpen={!!dependencyListId}
@@ -803,6 +919,72 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
                 projectId={projectId}
                 onSuccess={onRefresh}
             />
-        </div>
+
+            {/* Bulk Action Bar */}
+            <AnimatePresence>
+                {selectedTaskIds.length > 0 && (
+                    <motion.div
+                        initial={{ y: 100, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 100, opacity: 0 }}
+                        className="fixed bottom-4 md:bottom-8 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-max z-50 bg-surface-lighter border border-white/10 rounded-2xl shadow-2xl p-3 md:p-4 flex flex-col md:flex-row items-center gap-3 md:gap-6 backdrop-blur-xl"
+                    >
+                        <div className="flex items-center justify-between w-full md:w-auto md:gap-3 md:border-r md:border-white/10 md:pr-6 md:mr-2">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+                                    {selectedTaskIds.length}
+                                </div>
+                                <span className="text-xs font-bold text-white uppercase tracking-wider">Selected</span>
+                            </div>
+                            <button
+                                onClick={() => setSelectedTaskIds([])}
+                                className="p-1 hover:bg-white/5 rounded-full text-text-secondary"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                            <select
+                                className="bg-white/5 border border-white/10 rounded-lg px-2 md:px-3 py-1.5 text-[10px] font-bold text-white focus:ring-0 cursor-pointer hover:bg-white/10 transition-all uppercase"
+                                onChange={(e) => e.target.value && handleBulkUpdate({ status: e.target.value })}
+                            >
+                                <option value="">Status</option>
+                                <option value="TODO">To Do</option>
+                                <option value="IN_PROGRESS">In Progress</option>
+                                <option value="IN_REVIEW">In Review</option>
+                                <option value="DONE">Done</option>
+                                <option value="BLOCKED">Blocked</option>
+                            </select>
+
+                            <select
+                                className="bg-white/5 border border-white/10 rounded-lg px-2 md:px-3 py-1.5 text-[10px] font-bold text-white focus:ring-0 cursor-pointer hover:bg-white/10 transition-all uppercase"
+                                onChange={(e) => e.target.value && handleBulkUpdate({ priority: e.target.value })}
+                            >
+                                <option value="">Priority</option>
+                                <option value="LOW">Low</option>
+                                <option value="MEDIUM">Medium</option>
+                                <option value="HIGH">High</option>
+                                <option value="URGENT">Urgent</option>
+                            </select>
+
+                            <button
+                                onClick={() => handleBulkUpdate({ isArchived: true })}
+                                className="flex items-center gap-2 px-2 md:px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold text-text-secondary hover:text-white transition-all uppercase"
+                            >
+                                <Archive size={12} /> <span className="hidden sm:inline">Archive</span>
+                            </button>
+
+                            <button
+                                onClick={handleBulkDelete}
+                                className="flex items-center gap-2 px-2 md:px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded-lg text-[10px] font-bold text-rose-500 transition-all uppercase"
+                            >
+                                <Trash2 size={12} /> <span className="hidden sm:inline">Delete</span>
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div >
     );
 }

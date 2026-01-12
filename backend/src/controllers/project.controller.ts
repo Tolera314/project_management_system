@@ -235,6 +235,7 @@ export const createProject = async (req: Request, res: Response) => {
                 // For now, empty
             } else {
                 // Default Lists for normal project (TODO, IN PROGRESS, DONE)
+                /* Commented out as requested - user wants to define their own lists
                 await tx.list.createMany({
                     data: [
                         { name: 'To Do', projectId: newProject.id, position: 0 },
@@ -242,6 +243,7 @@ export const createProject = async (req: Request, res: Response) => {
                         { name: 'Done', projectId: newProject.id, position: 2 },
                     ]
                 });
+                */
             }
 
             return newProject;

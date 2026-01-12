@@ -1,5 +1,5 @@
 import { NotificationType } from '@prisma/client';
-import { sendEmail, getTaskAssignedEmailTemplate } from '../lib/email';
+import { sendEmail, getTaskAssignedEmailTemplate, getPlatformWelcomeTemplate } from '../lib/email';
 import prisma from '../lib/prisma';
 
 export interface NotificationPayload {
@@ -16,6 +16,18 @@ export interface NotificationPayload {
 }
 
 export class NotificationService {
+    static async sendWelcomeEmail(user: { email: string, firstName: string }) {
+        try {
+            await sendEmail({
+                to: user.email,
+                subject: 'Welcome to ProjectOS!',
+                html: getPlatformWelcomeTemplate(user.firstName)
+            });
+        } catch (error) {
+            console.error('[NotificationService] Failed to send welcome email:', error);
+        }
+    }
+
     /**
      * Centralized method to create a notification and send email if preferred.
      */

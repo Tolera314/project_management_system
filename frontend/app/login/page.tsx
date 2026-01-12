@@ -46,7 +46,7 @@ function LoginContent() {
             localStorage.setItem('token', token);
             localStorage.setItem('user', JSON.stringify(response.data.user));
 
-            let redirectUrl = '/dashboard';
+            let redirectUrl = response.data.user.systemRole === 'SYSTEM_ADMIN' ? '/admin' : '/dashboard';
 
             // If there's an invitation, accept it
             if (invitationToken) {

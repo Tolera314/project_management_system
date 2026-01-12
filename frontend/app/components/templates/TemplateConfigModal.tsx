@@ -131,23 +131,23 @@ export default function TemplateConfigModal({
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
                             transition={{ duration: 0.2 }}
-                            className="bg-surface border border-white/10 rounded-2xl shadow-2xl shadow-black/40 w-full max-w-2xl overflow-hidden"
+                            className="bg-surface border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-2xl overflow-hidden"
                         >
                             {/* Header */}
-                            <div className="flex items-center justify-between p-6 border-b border-white/5">
+                            <div className="flex items-center justify-between p-6 border-b border-border">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
                                         <FolderPlus className="w-5 h-5 text-primary" />
                                     </div>
                                     <div>
-                                        <h2 className="text-lg font-semibold text-white">Configure Project</h2>
+                                        <h2 className="text-lg font-semibold text-text-primary">Configure Project</h2>
                                         <p className="text-xs text-text-secondary">From template: {templateName}</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={handleClose}
                                     disabled={isSubmitting}
-                                    className="p-2 hover:bg-white/5 rounded-lg transition-colors disabled:opacity-50"
+                                    className="p-2 hover:bg-foreground/5 rounded-lg transition-colors disabled:opacity-50"
                                 >
                                     <X size={18} className="text-text-secondary" />
                                 </button>
@@ -164,8 +164,8 @@ export default function TemplateConfigModal({
                                         {...register('name')}
                                         placeholder="e.g., Q1 Marketing Campaign"
                                         autoFocus
-                                        className={`w-full bg-background/60 border ${errors.name ? 'border-danger' : 'border-white/10'
-                                            } rounded-xl px-4 py-3 text-white placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
+                                        className={`w-full bg-surface-secondary border ${errors.name ? 'border-danger' : 'border-border'
+                                            } rounded-xl px-4 py-3 text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
                                     />
                                     {errors.name && (
                                         <p className="text-xs text-danger">{errors.name.message}</p>
@@ -181,7 +181,7 @@ export default function TemplateConfigModal({
                                         {...register('description')}
                                         placeholder="Brief description of this project..."
                                         rows={3}
-                                        className="w-full bg-background/60 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all resize-none"
+                                        className="w-full bg-surface-secondary border border-border rounded-xl px-4 py-3 text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all resize-none"
                                     />
                                 </div>
 
@@ -195,8 +195,8 @@ export default function TemplateConfigModal({
                                         {...register('startDate')}
                                         type="date"
                                         min={new Date().toISOString().split('T')[0]}
-                                        className={`w-full bg-background/60 border ${errors.startDate ? 'border-danger' : 'border-white/10'
-                                            } rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
+                                        className={`w-full bg-surface-secondary border ${errors.startDate ? 'border-danger' : 'border-border'
+                                            } rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
                                     />
                                     {errors.startDate && (
                                         <p className="text-xs text-danger">{errors.startDate.message}</p>
@@ -211,8 +211,8 @@ export default function TemplateConfigModal({
                                     </label>
                                     <select
                                         {...register('ownerId')}
-                                        className={`w-full bg-background/60 border ${errors.ownerId ? 'border-danger' : 'border-white/10'
-                                            } rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
+                                        className={`w-full bg-surface-secondary border ${errors.ownerId ? 'border-danger' : 'border-border'
+                                            } rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
                                     >
                                         <option value="">Select owner...</option>
                                         {projectMembers.map(member => (
@@ -233,7 +233,7 @@ export default function TemplateConfigModal({
                                         Timeline Behavior <span className="text-danger">*</span>
                                     </label>
                                     <div className="space-y-2">
-                                        <label className="flex items-start gap-3 p-4 bg-background/30 border border-white/10 rounded-xl cursor-pointer hover:border-primary/30 transition-all">
+                                        <label className="flex items-start gap-3 p-4 bg-surface-secondary border border-border rounded-xl cursor-pointer hover:border-primary/30 transition-all">
                                             <input
                                                 {...register('timelineBehavior')}
                                                 type="radio"
@@ -241,13 +241,13 @@ export default function TemplateConfigModal({
                                                 className="mt-0.5 w-4 h-4 text-primary focus:ring-primary/30"
                                             />
                                             <div className="flex-1">
-                                                <div className="font-medium text-white text-sm">Relative Dates (Recommended)</div>
+                                                <div className="font-medium text-text-primary text-sm">Relative Dates (Recommended)</div>
                                                 <div className="text-xs text-text-secondary mt-1">
                                                     Task dates will be adjusted relative to the new start date
                                                 </div>
                                             </div>
                                         </label>
-                                        <label className="flex items-start gap-3 p-4 bg-background/30 border border-white/10 rounded-xl cursor-pointer hover:border-primary/30 transition-all">
+                                        <label className="flex items-start gap-3 p-4 bg-surface-secondary border border-border rounded-xl cursor-pointer hover:border-primary/30 transition-all">
                                             <input
                                                 {...register('timelineBehavior')}
                                                 type="radio"
@@ -255,7 +255,7 @@ export default function TemplateConfigModal({
                                                 className="mt-0.5 w-4 h-4 text-primary focus:ring-primary/30"
                                             />
                                             <div className="flex-1">
-                                                <div className="font-medium text-white text-sm">Fixed Dates (Advanced)</div>
+                                                <div className="font-medium text-text-primary text-sm">Fixed Dates (Advanced)</div>
                                                 <div className="text-xs text-text-secondary mt-1">
                                                     Keep original template dates unchanged
                                                 </div>
@@ -274,12 +274,12 @@ export default function TemplateConfigModal({
                             </form>
 
                             {/* Footer */}
-                            <div className="border-t border-white/5 px-6 py-4 flex items-center justify-between bg-background/50">
+                            <div className="border-t border-border px-6 py-4 flex items-center justify-between bg-surface-secondary">
                                 <button
                                     onClick={handleClose}
                                     disabled={isSubmitting}
                                     type="button"
-                                    className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-white transition-colors disabled:opacity-50"
+                                    className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50"
                                 >
                                     Cancel
                                 </button>

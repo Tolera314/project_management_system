@@ -66,8 +66,10 @@ model User {
   password  String
   firstName String
   lastName  String
+  avatarUrl String?
   systemRole SystemRole @default(USER)
   status    String   @default("ACTIVE") // active, suspended
+  passwordVersion Int @default(1)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
@@ -83,6 +85,7 @@ model User {
   notifications   Notification[]
   actedNotifications Notification[] @relation("NotificationActor")
   notificationPreference NotificationPreference?
+  sessions        Session[]
   createdFiles    File[] @relation("UserCreatedFiles")
   createdFileVersions FileVersion[] @relation("UserCreatedFileVersions")
   projectTemplates ProjectTemplate[] @relation("UserCreatedProjectTemplates")
@@ -92,6 +95,7 @@ model User {
   mentions        Mention[] @relation("UserMentions")
   mentionedIn     Mention[] @relation("UserMentionedIn")
   sentInvitations Invitation[] @relation("UserSentInvitations")
+  watchedTasks    TaskWatcher[]
 }
 
 model Organization {
@@ -108,6 +112,7 @@ model Organization {
   projectTemplates ProjectTemplate[]
   taskStatuses TaskStatusDefinition[]
   invitations Invitation[]
+  tags        Tag[]
 }
 
 model OrganizationMember {
@@ -186,6 +191,7 @@ model Project {
   completedAt     DateTime?
   organizationId  String
   templateId      String?
+  isArchived      Boolean        @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   createdById     String
@@ -277,6 +283,7 @@ model List {
   color     String?
   status    String   @default("ACTIVE")
   priority  String   @default("MEDIUM")
+  isArchived Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
@@ -302,6 +309,7 @@ model Task {
   projectId       String
   listId          String?
   parentId        String?
+  isArchived      Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   createdById     String
@@ -327,6 +335,8 @@ model Task {
   attachedFiles File[]
   milestoneId  String?
   milestone    Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  watchers     TaskWatcher[]
+  tags         TaskTag[]
 }
 
 model TaskAssignee {
@@ -553,7 +563,7 @@ model File {
   
   // Relations
   project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
   createdBy User     @relation("UserCreatedFiles", fields: [createdById], references: [id])
   versions  FileVersion[]
   links     FileLink[] @relation("FileLinks")
@@ -627,4 +637,56 @@ model Invitation {
 
   @@index([email])
   @@index([token])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  userAgent String?
+  ipAddress String?
+  lastActive DateTime @default(now())
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model TaskWatcher {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+}
+
+model Tag {
+  id             String   @id @default(cuid())
+  name           String
+  color          String   @default("#64748B")
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tasks          TaskTag[]
+
+  @@unique([organizationId, name])
+}
+
+model TaskTag {
+  id      String @id @default(cuid())
+  taskId  String
+  tagId   String
+
+  task    Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, tagId])
 }

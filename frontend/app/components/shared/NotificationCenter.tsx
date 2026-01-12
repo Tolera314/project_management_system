@@ -91,11 +91,11 @@ const NotificationCenter = () => {
             {/* Bell Icon */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="relative p-2 text-slate-400 hover:text-indigo-400 transition-colors rounded-full hover:bg-slate-800/50"
+                className="relative p-2 text-slate-400 hover:text-primary transition-colors rounded-full hover:bg-white/5"
             >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 w-4 h-4 bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-slate-900 animate-pulse">
+                    <span className="absolute top-1 right-1 w-4 h-4 bg-primary text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-background animate-pulse">
                         {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                 )}
@@ -116,14 +116,14 @@ const NotificationCenter = () => {
                             initial={{ opacity: 0, y: 10, scale: 0.95 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                            className="absolute right-0 mt-3 w-80 md:w-96 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 overflow-hidden"
+                            className="absolute right-0 mt-3 w-[calc(100vw-32px)] md:w-96 bg-surface border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl"
                         >
-                            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-800/30">
+                            <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/5">
                                 <h3 className="text-sm font-semibold text-white">Notifications</h3>
                                 {unreadCount > 0 && (
                                     <button
                                         onClick={markAllRead}
-                                        className="text-[11px] text-indigo-400 hover:text-indigo-300 font-medium transition-colors flex items-center gap-1"
+                                        className="text-[11px] text-primary hover:text-primary/80 font-medium transition-colors flex items-center gap-1"
                                     >
                                         <CheckCheck className="w-3.5 h-3.5" />
                                         Mark all as read
@@ -134,14 +134,14 @@ const NotificationCenter = () => {
                             <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
                                 {notifications.length === 0 ? (
                                     <div className="p-10 text-center">
-                                        <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
-                                            <Bell className="w-6 h-6 text-slate-600" />
+                                        <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3">
+                                            <Bell className="w-6 h-6 text-slate-500" />
                                         </div>
-                                        <p className="text-sm text-slate-400">All caught up!</p>
-                                        <p className="text-xs text-slate-600 mt-1">No new notifications.</p>
+                                        <p className="text-sm text-foreground">All caught up!</p>
+                                        <p className="text-xs text-text-secondary mt-1">No new notifications.</p>
                                     </div>
                                 ) : (
-                                    <div className="divide-y divide-slate-800/50">
+                                    <div className="divide-y divide-white/5">
                                         {Object.entries(
                                             notifications.reduce((groups, notif) => {
                                                 const date = new Date(notif.createdAt);
@@ -162,18 +162,18 @@ const NotificationCenter = () => {
                                                 return groups;
                                             }, {} as Record<string, Notification[]>)
                                         ).map(([group, groupNotifications]) => (
-                                            <div key={group} className="bg-slate-900/50">
-                                                <div className="px-4 py-2 bg-slate-800/20 text-[10px] uppercase tracking-wider font-bold text-slate-500 border-y border-white/5">
+                                            <div key={group} className="bg-surface/50">
+                                                <div className="px-4 py-2 bg-white/5 text-[10px] uppercase tracking-wider font-bold text-slate-500 border-y border-white/5">
                                                     {group}
                                                 </div>
-                                                <div className="divide-y divide-slate-800/30">
+                                                <div className="divide-y divide-white/5">
                                                     {groupNotifications.map((notif) => (
                                                         <div
                                                             key={notif.id}
-                                                            className={`p-4 hover:bg-slate-800/40 transition-colors relative group ${!notif.isRead ? 'bg-indigo-500/5' : ''}`}
+                                                            className={`p-4 hover:bg-white/5 transition-colors relative group ${!notif.isRead ? 'bg-primary/5' : ''}`}
                                                         >
                                                             <div className="flex gap-3">
-                                                                <div className={`mt-1 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${!notif.isRead ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-500'
+                                                                <div className={`mt-1 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${!notif.isRead ? 'bg-primary/20 text-primary' : 'bg-white/5 text-slate-500'
                                                                     }`}>
                                                                     <UserIcon className="w-4 h-4" />
                                                                 </div>
@@ -190,7 +190,7 @@ const NotificationCenter = () => {
                                                                         {!notif.isRead && (
                                                                             <button
                                                                                 onClick={(e) => { e.stopPropagation(); markAsRead(notif.id); }}
-                                                                                className="shrink-0 text-slate-500 hover:text-indigo-400 transition-colors p-1 opacity-0 group-hover:opacity-100"
+                                                                                className="shrink-0 text-slate-500 hover:text-primary transition-colors p-1 opacity-0 group-hover:opacity-100"
                                                                                 title="Mark as read"
                                                                             >
                                                                                 <Check className="w-3.5 h-3.5" />
@@ -204,8 +204,8 @@ const NotificationCenter = () => {
                                                                         </span>
                                                                         {(notif.project || notif.task) && (
                                                                             <>
-                                                                                <span className="w-1 h-1 rounded-full bg-slate-700" />
-                                                                                <span className="text-indigo-400 truncate">
+                                                                                <span className="w-1 h-1 rounded-full bg-white/10" />
+                                                                                <span className="text-primary truncate">
                                                                                     {notif.task ? notif.task.title : notif.project?.name || 'Deleted Project'}
                                                                                 </span>
                                                                             </>
@@ -222,7 +222,7 @@ const NotificationCenter = () => {
                                 )}
                             </div>
 
-                            <div className="p-3 border-t border-slate-800 bg-slate-800/30 text-center">
+                            <div className="p-3 border-t border-white/5 bg-white/5 text-center">
                                 <Link
                                     href="/settings/notifications"
                                     onClick={() => setIsOpen(false)}

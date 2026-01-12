@@ -125,23 +125,23 @@ export default function SaveAsTemplateModal({
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
                             transition={{ duration: 0.2 }}
-                            className="bg-surface border border-white/10 rounded-2xl shadow-2xl shadow-black/40 w-full max-w-lg overflow-hidden"
+                            className="bg-surface border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-lg overflow-hidden"
                         >
                             {/* Header */}
-                            <div className="flex items-center justify-between p-6 border-b border-white/5">
+                            <div className="flex items-center justify-between p-6 border-b border-border">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
                                         <Layout className="w-5 h-5 text-purple-400" />
                                     </div>
                                     <div>
-                                        <h2 className="text-lg font-semibold text-white">Save as Template</h2>
+                                        <h2 className="text-lg font-semibold text-text-primary">Save as Template</h2>
                                         <p className="text-xs text-text-secondary">Create a reusable project blueprint</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={handleClose}
                                     disabled={isSubmitting}
-                                    className="p-2 hover:bg-white/5 rounded-lg transition-colors disabled:opacity-50"
+                                    className="p-2 hover:bg-foreground/5 rounded-lg transition-colors disabled:opacity-50"
                                 >
                                     <X size={18} className="text-text-secondary" />
                                 </button>
@@ -165,8 +165,8 @@ export default function SaveAsTemplateModal({
                                         {...register('name')}
                                         placeholder="e.g., Software Development Template"
                                         autoFocus
-                                        className={`w-full bg-background/60 border ${errors.name ? 'border-danger' : 'border-white/10'
-                                            } rounded-xl px-4 py-3 text-white placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
+                                        className={`w-full bg-surface-secondary border ${errors.name ? 'border-danger' : 'border-border'
+                                            } rounded-xl px-4 py-3 text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
                                     />
                                     {errors.name && (
                                         <p className="text-xs text-danger">{errors.name.message}</p>
@@ -182,7 +182,7 @@ export default function SaveAsTemplateModal({
                                         {...register('description')}
                                         placeholder="Describe what this template is for and when to use it..."
                                         rows={3}
-                                        className="w-full bg-background/60 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all resize-none"
+                                        className="w-full bg-surface-secondary border border-border rounded-xl px-4 py-3 text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all resize-none"
                                     />
                                 </div>
 
@@ -193,8 +193,8 @@ export default function SaveAsTemplateModal({
                                     </label>
                                     <select
                                         {...register('category')}
-                                        className={`w-full bg-background/60 border ${errors.category ? 'border-danger' : 'border-white/10'
-                                            } rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
+                                        className={`w-full bg-surface-secondary border ${errors.category ? 'border-danger' : 'border-border'
+                                            } rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
                                     >
                                         {categories.map(cat => (
                                             <option key={cat} value={cat}>{cat}</option>
@@ -211,7 +211,7 @@ export default function SaveAsTemplateModal({
                                         Visibility <span className="text-danger">*</span>
                                     </label>
                                     <div className="space-y-2">
-                                        <label className="flex items-start gap-3 p-4 bg-background/30 border border-white/10 rounded-xl cursor-pointer hover:border-primary/30 transition-all">
+                                        <label className="flex items-start gap-3 p-4 bg-surface-secondary border border-border rounded-xl cursor-pointer hover:border-primary/30 transition-all">
                                             <input
                                                 {...register('visibility')}
                                                 type="radio"
@@ -219,13 +219,13 @@ export default function SaveAsTemplateModal({
                                                 className="mt-0.5 w-4 h-4 text-primary focus:ring-primary/30"
                                             />
                                             <div className="flex-1">
-                                                <div className="font-medium text-white text-sm">Workspace</div>
+                                                <div className="font-medium text-text-primary text-sm">Workspace</div>
                                                 <div className="text-xs text-text-secondary mt-1">
                                                     All members in your workspace can view and use this template
                                                 </div>
                                             </div>
                                         </label>
-                                        <label className="flex items-start gap-3 p-4 bg-background/30 border border-white/10 rounded-xl cursor-pointer hover:border-primary/30 transition-all">
+                                        <label className="flex items-start gap-3 p-4 bg-surface-secondary border border-border rounded-xl cursor-pointer hover:border-primary/30 transition-all">
                                             <input
                                                 {...register('visibility')}
                                                 type="radio"
@@ -233,7 +233,7 @@ export default function SaveAsTemplateModal({
                                                 className="mt-0.5 w-4 h-4 text-primary focus:ring-primary/30"
                                             />
                                             <div className="flex-1">
-                                                <div className="font-medium text-white text-sm">Private</div>
+                                                <div className="font-medium text-text-primary text-sm">Private</div>
                                                 <div className="text-xs text-text-secondary mt-1">
                                                     Only you can view and use this template
                                                 </div>
@@ -252,12 +252,12 @@ export default function SaveAsTemplateModal({
                             </form>
 
                             {/* Footer */}
-                            <div className="border-t border-white/5 px-6 py-4 flex items-center justify-between bg-background/50">
+                            <div className="border-t border-border px-6 py-4 flex items-center justify-between bg-surface-secondary">
                                 <button
                                     onClick={handleClose}
                                     disabled={isSubmitting}
                                     type="button"
-                                    className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-white transition-colors disabled:opacity-50"
+                                    className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50"
                                 >
                                     Cancel
                                 </button>

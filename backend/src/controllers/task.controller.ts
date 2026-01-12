@@ -142,14 +142,21 @@ export const updateTask = async (req: Request, res: Response) => {
                 const updater = await prisma.user.findUnique({ where: { id: userId } });
                 const link = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/projects/${task.projectId}?taskId=${id}`;
 
-                // Notify all assignees except the updater
+                // Notify all assignees AND watchers except the updater
                 const assignees = await prisma.taskAssignee.findMany({
                     where: { taskId: id },
                     include: { projectMember: { include: { organizationMember: true } } }
                 });
 
-                for (const assignee of assignees) {
-                    const recipientId = assignee.projectMember.organizationMember.userId;
+                const watchers = await (prisma as any).taskWatcher.findMany({
+                    where: { taskId: id }
+                });
+
+                const recipientIds = new Set<string>();
+                assignees.forEach(a => recipientIds.add(a.projectMember.organizationMember.userId));
+                watchers.forEach((w: any) => recipientIds.add(w.userId));
+
+                for (const recipientId of recipientIds) {
                     if (recipientId === userId) continue;
 
                     await NotificationService.notify({
@@ -169,9 +176,48 @@ export const updateTask = async (req: Request, res: Response) => {
                         }
                     });
                 }
+
+                // Log Activity for Status Change
+                await prisma.activityLog.create({
+                    data: {
+                        action: 'STATUS_CHANGED',
+                        entityType: 'TASK',
+                        entityId: id,
+                        taskId: id,
+                        userId,
+                        description: `Changed status from ${task.status} to ${status}`
+                    }
+                });
             } catch (notifErr) {
                 console.error('Failed to send status update notification:', notifErr);
             }
+        }
+
+        // Log Activity for other changes
+        if (priority && priority !== task.priority) {
+            await prisma.activityLog.create({
+                data: {
+                    action: 'PRIORITY_CHANGED',
+                    entityType: 'TASK',
+                    entityId: id,
+                    taskId: id,
+                    userId,
+                    description: `Changed priority from ${task.priority} to ${priority}`
+                }
+            });
+        }
+
+        if (dueDate !== undefined && String(dueDate) !== String(task.dueDate)) {
+            await prisma.activityLog.create({
+                data: {
+                    action: 'DUE_DATE_CHANGED',
+                    entityType: 'TASK',
+                    entityId: id,
+                    taskId: id,
+                    userId,
+                    description: dueDate ? `Set due date to ${dueDate.toLocaleDateString()}` : 'Cleared due date'
+                }
+            });
         }
 
         res.json({ task: updatedTask });
@@ -266,23 +312,44 @@ export const getTaskDetails = async (req: Request, res: Response) => {
                     orderBy: { createdAt: 'desc' },
                     include: {
                         user: {
-                            select: { id: true, firstName: true }
+                            select: { id: true, firstName: true, avatarUrl: true } as any
+                        }
+                    }
+                },
+                watchers: {
+                    include: {
+                        user: {
+                            select: { id: true, firstName: true, avatarUrl: true } as any
+                        }
+                    }
+                },
+                tags: {
+                    include: {
+                        tag: true
+                    }
+                },
+                files: {
+                    include: {
+                        file: {
+                            include: {
+                                currentVersion: true
+                            }
                         }
                     }
                 }
-            }
+            } as any
         });
 
-        if (!task) {
-            res.status(404).json({ error: 'Task not found' });
-            return;
-        }
-
-        res.json({ task });
-    } catch (error) {
-        console.error('Get task details error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+    if (!task) {
+        res.status(404).json({ error: 'Task not found' });
+        return;
     }
+
+    res.json({ task });
+} catch (error) {
+    console.error('Get task details error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+}
 };
 
 export const addComment = async (req: Request, res: Response) => {
@@ -378,8 +445,7 @@ export const addComment = async (req: Request, res: Response) => {
             }
         });
 
-        // Send Notification for Comment (Skip mentioned users to avoid double notify if desired, or send both. Usually separate is better)
-        // We will skip mentioned users here.
+        // Send Notification for Comment
         try {
             const task = await prisma.task.findUnique({
                 where: { id: taskId },
@@ -390,15 +456,21 @@ export const addComment = async (req: Request, res: Response) => {
                 const commenter = await prisma.user.findUnique({ where: { id: userId } });
                 const link = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/projects/${task.projectId}?taskId=${taskId}`;
 
-                // Notify all assignees except the commenter AND mentioned users
+                // Notify all assignees AND watchers except the commenter AND mentioned users
                 const assignees = await prisma.taskAssignee.findMany({
                     where: { taskId },
                     include: { projectMember: { include: { organizationMember: true } } }
                 });
 
-                for (const assignee of assignees) {
-                    const recipientId = assignee.projectMember.organizationMember.userId;
+                const watchers = await (prisma as any).taskWatcher.findMany({
+                    where: { taskId }
+                });
 
+                const recipientIds = new Set<string>();
+                assignees.forEach(a => recipientIds.add(a.projectMember.organizationMember.userId));
+                watchers.forEach((w: any) => recipientIds.add(w.userId));
+
+                for (const recipientId of recipientIds) {
                     // Skip if self
                     if (recipientId === userId) continue;
 
@@ -591,6 +663,239 @@ export const removeAssignee = async (req: Request, res: Response) => {
         res.json({ message: 'Assignee removed successfully' });
     } catch (error) {
         console.error('Remove assignee error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const watchTask = async (req: Request, res: Response) => {
+    try {
+        const { id: taskId } = req.params;
+        const userId = (req as any).userId;
+
+        const watcher = await (prisma as any).taskWatcher.upsert({
+            where: {
+                taskId_userId: { taskId, userId }
+            },
+            create: { taskId, userId },
+            update: {} // Do nothing if already watching
+        });
+
+        res.status(201).json({ watcher });
+    } catch (error) {
+        console.error('Watch task error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const unwatchTask = async (req: Request, res: Response) => {
+    try {
+        const { id: taskId } = req.params;
+        const userId = (req as any).userId;
+
+        await (prisma as any).taskWatcher.delete({
+            where: {
+                taskId_userId: { taskId, userId }
+            }
+        });
+
+        res.json({ message: 'Unwatched task successfully' });
+    } catch (error) {
+        console.error('Unwatch task error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const archiveTask = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).userId;
+
+        await prisma.task.update({
+            where: { id },
+            data: {
+                isArchived: true,
+                updatedById: userId
+            } as any
+        });
+
+        res.json({ message: 'Task archived successfully' });
+    } catch (error) {
+        console.error('Archive task error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const restoreTask = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).userId;
+
+        await prisma.task.update({
+            where: { id },
+            data: {
+                isArchived: false,
+                updatedById: userId
+            } as any
+        });
+
+        res.json({ message: 'Task restored successfully' });
+    } catch (error) {
+        console.error('Restore task error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const searchTasks = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const {
+            q,
+            status,
+            priority,
+            assigneeId,
+            tagIds,
+            projectId,
+            isArchived,
+            workspaceId
+        } = req.query;
+
+        const where: any = {
+            // Only tasks in projects where user is a member or workspace-wide if requested (and permitted)
+            project: {
+                members: {
+                    some: {
+                        organizationMember: {
+                            userId
+                        }
+                    }
+                }
+            }
+        };
+
+        if (q) {
+            where.OR = [
+                { title: { contains: q as string, mode: 'insensitive' } },
+                { description: { contains: q as string, mode: 'insensitive' } }
+            ];
+        }
+
+        if (status) where.status = status;
+        if (priority) where.priority = priority;
+        if (projectId) where.projectId = projectId;
+        if (workspaceId) {
+            where.project.organizationId = workspaceId;
+        }
+
+        if (isArchived !== undefined) {
+            where.isArchived = isArchived === 'true';
+        } else {
+            where.isArchived = false; // Default to non-archived
+        }
+
+        if (assigneeId) {
+            where.assignees = {
+                some: {
+                    projectMember: {
+                        organizationMember: {
+                            userId: assigneeId
+                        }
+                    }
+                }
+            };
+        }
+
+        if (tagIds) {
+            const tagIdList = (tagIds as string).split(',');
+            where.tags = {
+                some: {
+                    tagId: { in: tagIdList }
+                }
+            };
+        }
+
+        const tasks = await prisma.task.findMany({
+            where,
+            include: {
+                project: {
+                    select: { id: true, name: true }
+                },
+                assignees: {
+                    include: {
+                        projectMember: {
+                            include: {
+                                organizationMember: {
+                                    include: { user: { select: { id: true, firstName: true, avatarUrl: true } as any } }
+                                }
+                            }
+                        }
+                    }
+                },
+                tags: {
+                    include: { tag: true }
+                }
+            } as any,
+            orderBy: { updatedAt: 'desc' },
+            take: 50
+        });
+
+        res.json({ tasks });
+    } catch (error) {
+        console.error('Search tasks error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const bulkUpdateTasks = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { taskIds, updates } = req.body;
+
+        if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+            res.status(400).json({ error: 'Invalid task IDs' });
+            return;
+        }
+
+        const validUpdates: any = {};
+        if (updates.status) validUpdates.status = updates.status;
+        if (updates.priority) validUpdates.priority = updates.priority;
+        if (updates.dueDate !== undefined) validUpdates.dueDate = updates.dueDate ? new Date(updates.dueDate) : null;
+        if (updates.listId) validUpdates.listId = updates.listId;
+        if (updates.isArchived !== undefined) validUpdates.isArchived = updates.isArchived;
+
+        const result = await prisma.task.updateMany({
+            where: {
+                id: { in: taskIds },
+                project: {
+                    members: {
+                        some: {
+                            organizationMember: { userId }
+                        }
+                    }
+                }
+            },
+            data: {
+                ...validUpdates,
+                updatedById: userId
+            }
+        });
+
+        // Log activity for each task
+        for (const taskId of taskIds) {
+            await prisma.activityLog.create({
+                data: {
+                    action: 'BULK_UPDATED',
+                    entityType: 'TASK',
+                    entityId: taskId,
+                    taskId,
+                    userId,
+                    description: `Bulk updated fields: ${Object.keys(validUpdates).join(', ')}`
+                }
+            });
+        }
+
+        res.json({ message: `Successfully updated ${result.count} tasks`, count: result.count });
+    } catch (error) {
+        console.error('Bulk update tasks error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };

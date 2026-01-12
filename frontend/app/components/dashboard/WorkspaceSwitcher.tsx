@@ -100,18 +100,18 @@ const WorkspaceSwitcher = ({ currentWorkspace, isCollapsed = false, onOpenModal 
             {/* Trigger */}
             <button
                 onClick={handleTriggerClick}
-                className={`flex items-center gap-3 p-1.5 rounded-xl hover:bg-white/5 transition-all group ${isCollapsed ? 'justify-center' : ''}`}
+                className={`flex items-center gap-3 p-1.5 rounded-xl hover:bg-white/5 transition-all group \${isCollapsed ? 'justify-center' : ''}`}
                 title={isCollapsed ? currentWorkspace?.name : undefined}
             >
                 <div
                     className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-lg shrink-0"
-                    style={{ backgroundColor: currentWorkspace?.color || '#4F46E5' }}
+                    style={{ backgroundColor: currentWorkspace?.color || 'var(--color-primary)' }}
                 >
                     {currentWorkspace ? getInitials(currentWorkspace.name) : 'P'}
                 </div>
                 {!isCollapsed && (
                     <div className="flex items-center gap-2 overflow-hidden">
-                        <span className="text-white font-medium text-sm truncate max-w-[120px] tracking-tight">
+                        <span className="text-foreground font-medium text-sm truncate max-w-[120px] tracking-tight">
                             {currentWorkspace?.name || 'Loading...'}
                         </span>
                         <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
@@ -127,7 +127,7 @@ const WorkspaceSwitcher = ({ currentWorkspace, isCollapsed = false, onOpenModal 
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="absolute top-full left-0 mt-2 w-72 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl z-[100] overflow-hidden"
+                        className="absolute top-full left-0 mt-2 w-72 bg-surface border border-white/10 rounded-2xl shadow-2xl z-[100] overflow-hidden backdrop-blur-xl"
                     >
                         <div className="p-2 space-y-1">
                             <div className="px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -139,17 +139,17 @@ const WorkspaceSwitcher = ({ currentWorkspace, isCollapsed = false, onOpenModal 
                                     <button
                                         key={ws.id}
                                         onClick={() => handleSwitch(ws.id)}
-                                        className={`w-full flex items-center justify-between p-2 rounded-xl transition-all hover:bg-white/5 group ${ws.id === currentWorkspace?.id ? 'bg-indigo-500/10' : ''}`}
+                                        className={`w-full flex items-center justify-between p-2 rounded-xl transition-all hover:bg-white/5 group \${ws.id === currentWorkspace?.id ? 'bg-primary/10' : ''}`}
                                     >
                                         <div className="flex items-center gap-3">
                                             <div
                                                 className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs"
-                                                style={{ backgroundColor: ws.color || '#4F46E5' }}
+                                                style={{ backgroundColor: ws.color || 'var(--color-primary)' }}
                                             >
                                                 {getInitials(ws.name)}
                                             </div>
                                             <div className="text-left">
-                                                <p className="text-sm font-medium text-white truncate max-w-[140px]">{ws.name}</p>
+                                                <p className="text-sm font-medium text-foreground truncate max-w-[140px]">{ws.name}</p>
                                                 <div className="flex items-center gap-1.5">
                                                     <Shield className="w-3 h-3 text-slate-500" />
                                                     <span className="text-[10px] text-slate-500 font-medium">{ws.role}</span>
@@ -157,7 +157,7 @@ const WorkspaceSwitcher = ({ currentWorkspace, isCollapsed = false, onOpenModal 
                                             </div>
                                         </div>
                                         {ws.id === currentWorkspace?.id && (
-                                            <Check className="w-4 h-4 text-indigo-400" />
+                                            <Check className="w-4 h-4 text-primary" />
                                         )}
                                     </button>
                                 ))}
@@ -168,9 +168,9 @@ const WorkspaceSwitcher = ({ currentWorkspace, isCollapsed = false, onOpenModal 
                             {/* Actions */}
                             <button
                                 onClick={() => { setIsOpen(false); onOpenModal(); }}
-                                className="w-full flex items-center gap-3 p-2.5 rounded-xl text-indigo-400 hover:bg-indigo-500/10 transition-all font-medium text-sm"
+                                className="w-full flex items-center gap-3 p-2.5 rounded-xl text-primary hover:bg-primary/10 transition-all font-medium text-sm"
                             >
-                                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                                <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
                                     <Plus className="w-4 h-4" />
                                 </div>
                                 Create Workspace
@@ -181,7 +181,7 @@ const WorkspaceSwitcher = ({ currentWorkspace, isCollapsed = false, onOpenModal 
                                     onClick={() => { setIsOpen(false); router.push('/settings/workspace'); }}
                                     className="w-full flex items-center gap-3 p-2.5 rounded-xl text-slate-400 hover:bg-white/5 transition-all text-sm"
                                 >
-                                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center">
+                                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
                                         <Settings className="w-4 h-4" />
                                     </div>
                                     Workspace Settings

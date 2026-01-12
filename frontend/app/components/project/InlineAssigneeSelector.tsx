@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Search, Plus, Check, X, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import UserAvatar from '../shared/UserAvatar';
 
 interface InlineAssigneeSelectorProps {
     currentAssignees: any[];
@@ -84,9 +85,14 @@ export default function InlineAssigneeSelector({
                         className="relative group rounded-full border-2 border-[#020617] transition-transform hover:z-10 hover:scale-110"
                         title={`${assignee.projectMember.organizationMember.user.firstName} ${assignee.projectMember.organizationMember.user.lastName}`}
                     >
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-[8px] font-bold text-white uppercase ring-1 ring-white/10">
-                            {getInitials(assignee.projectMember.organizationMember.user)}
-                        </div>
+                        <UserAvatar
+                            userId={assignee.projectMember.organizationMember.userId}
+                            firstName={assignee.projectMember.organizationMember.user.firstName}
+                            lastName={assignee.projectMember.organizationMember.user.lastName}
+                            avatarUrl={assignee.projectMember.organizationMember.user.avatarUrl}
+                            size="sm"
+                            className="bg-gradient-to-br from-primary to-accent ring-1 ring-white/10 text-[8px]"
+                        />
                         {!readOnly && (
                             <button
                                 onClick={(e) => {
@@ -181,9 +187,14 @@ export default function InlineAssigneeSelector({
                                                 className={`w-full flex items-center gap-3 p-2 rounded-xl transition-all ${assigned ? 'bg-primary/10' : 'hover:bg-white/5'}`}
                                             >
                                                 <div className="relative">
-                                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-[10px] font-bold text-white uppercase ring-1 ring-white/10">
-                                                        {getInitials(member.user)}
-                                                    </div>
+                                                    <UserAvatar
+                                                        userId={member.user.id}
+                                                        firstName={member.user.firstName}
+                                                        lastName={member.user.lastName}
+                                                        avatarUrl={member.user.avatarUrl}
+                                                        size="md"
+                                                        className="bg-gradient-to-br from-slate-700 to-slate-800 ring-1 ring-white/10"
+                                                    />
                                                     {assigned && (
                                                         <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center shadow-lg border border-[#0F172A]">
                                                             <Check size={10} className="text-white" />
