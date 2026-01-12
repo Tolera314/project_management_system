@@ -7,15 +7,17 @@ interface CommentComposerProps {
     onPost: (content: string) => Promise<void>;
     members: any[]; // Project/Workspace members for mentions
     placeholder?: string;
+    onFileAttach?: (file: File) => void; // Optional file attach handler
 }
 
-export default function CommentComposer({ onPost, members, placeholder = "Write a comment..." }: CommentComposerProps) {
+export default function CommentComposer({ onPost, members, placeholder = "Write a comment...", onFileAttach }: CommentComposerProps) {
     const [content, setContent] = useState('');
     const [isMentionOpen, setIsMentionOpen] = useState(false);
     const [mentionQuery, setMentionQuery] = useState('');
     const [cursorPosition, setCursorPosition] = useState<{ top: number; left: number } | null>(null);
     const [mentionIndex, setMentionIndex] = useState(0);
     const composerRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [isLoading, setIsLoading] = useState(false);
 
     // Filter members for mentions
@@ -201,14 +203,14 @@ export default function CommentComposer({ onPost, members, placeholder = "Write 
                     <AtSign size={14} className="text-primary" />
                 </div>
                 <div className="flex-1 space-y-3">
-                    <div className="relative bg-background border border-white/10 rounded-xl transition-all focus-within:ring-2 focus-within:ring-primary/50 focus-within:border-transparent">
+                    <div className="relative bg-background border border-border rounded-xl transition-all focus-within:ring-2 focus-within:ring-primary/50 focus-within:border-transparent">
                         <div
                             ref={composerRef}
                             contentEditable={!isLoading}
                             onInput={handleInput}
                             onKeyDown={handleKeyDown}
                             onKeyUp={handleKeyUp}
-                            className="w-full p-4 text-sm text-white focus:outline-none min-h-[80px] max-h-[200px] overflow-y-auto whitespace-pre-wrap"
+                            className="w-full p-4 text-sm text-text-primary focus:outline-none min-h-[80px] max-h-[200px] overflow-y-auto whitespace-pre-wrap"
                             data-placeholder={placeholder}
                         />
                         {!content && (
@@ -217,18 +219,35 @@ export default function CommentComposer({ onPost, members, placeholder = "Write 
                             </div>
                         )}
 
+                        {/* Hidden file input */}
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file && onFileAttach) {
+                                    onFileAttach(file);
+                                }
+                                e.target.value = ''; // Reset for same file selection
+                            }}
+                            className="hidden"
+                        />
+
                         {/* Toolbar */}
-                        <div className="flex items-center justify-between px-3 py-2 border-t border-white/5 bg-white/[0.02]">
+                        <div className="flex items-center justify-between px-3 py-2 border-t border-border bg-foreground/[0.02]">
                             <div className="flex gap-2">
-                                <button className="p-1.5 hover:bg-white/10 rounded text-text-secondary hover:text-white transition-colors" title="Mention (@)">
+                                <button className="p-1.5 hover:bg-foreground/10 rounded text-text-secondary hover:text-text-primary transition-colors" title="Mention (@)">
                                     <AtSign size={16} />
                                 </button>
-                                <button className="p-1.5 hover:bg-white/10 rounded text-text-secondary hover:text-white transition-colors" title="Emoji">
-                                    <Smile size={16} />
-                                </button>
-                                <button className="p-1.5 hover:bg-white/10 rounded text-text-secondary hover:text-white transition-colors" title="Attach">
-                                    <Paperclip size={16} />
-                                </button>
+                                {onFileAttach && (
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="p-1.5 hover:bg-foreground/10 rounded text-text-secondary hover:text-text-primary transition-colors"
+                                        title="Attach file"
+                                    >
+                                        <Paperclip size={16} />
+                                    </button>
+                                )}
                             </div>
                             <button
                                 onClick={handleSubmit}

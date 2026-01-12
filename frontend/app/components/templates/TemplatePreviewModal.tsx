@@ -86,7 +86,7 @@ export default function TemplatePreviewModal({
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
                             transition={{ duration: 0.2 }}
-                            className="bg-surface border border-white/10 rounded-2xl shadow-2xl shadow-black/40 w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col"
+                            className="bg-surface border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col"
                         >
                             {/* Template Mode Banner */}
                             <div className="bg-purple-500/10 border-b border-purple-500/20 px-6 py-3 flex items-center justify-between">
@@ -96,7 +96,7 @@ export default function TemplatePreviewModal({
                                 </div>
                                 <button
                                     onClick={onClose}
-                                    className="p-1 hover:bg-white/10 rounded transition-colors text-purple-400 hover:text-white"
+                                    className="p-1 hover:bg-surface/10 rounded transition-colors text-purple-600 dark:text-purple-400 hover:text-text-primary"
                                 >
                                     <X size={18} />
                                 </button>
@@ -114,7 +114,7 @@ export default function TemplatePreviewModal({
                                     <div className="space-y-6">
                                         {/* Template Header */}
                                         <div>
-                                            <h2 className="text-2xl font-bold text-white mb-2">{template.name}</h2>
+                                            <h2 className="text-2xl font-bold text-text-primary mb-2">{template.name}</h2>
                                             <p className="text-text-secondary text-sm">{template.description || 'No description provided'}</p>
 
                                             {/* Stats */}
@@ -136,15 +136,15 @@ export default function TemplatePreviewModal({
 
                                         {/* Lists & Tasks */}
                                         <div className="space-y-3">
-                                            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Structure</h3>
+                                            <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">Structure</h3>
 
                                             {template.lists && template.lists.length > 0 ? (
                                                 template.lists.map((list: any) => (
-                                                    <div key={list.id} className="bg-background/30 border border-white/5 rounded-xl overflow-hidden">
+                                                    <div key={list.id} className="bg-surface-secondary border border-border rounded-xl overflow-hidden">
                                                         {/* List Header */}
                                                         <button
                                                             onClick={() => toggleList(list.id)}
-                                                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors"
+                                                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-foreground/5 transition-colors"
                                                         >
                                                             <div className="flex items-center gap-2">
                                                                 <svg
@@ -155,7 +155,7 @@ export default function TemplatePreviewModal({
                                                                 >
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                                                 </svg>
-                                                                <span className="font-medium text-white">{list.name}</span>
+                                                                <span className="font-medium text-text-primary">{list.name}</span>
                                                             </div>
                                                             <span className="text-xs text-text-secondary">
                                                                 {list.tasks?.filter((t: any) => !t.parentId).length || 0} tasks
@@ -166,7 +166,7 @@ export default function TemplatePreviewModal({
                                                         {expandedLists.has(list.id) && list.tasks && (
                                                             <div className="px-4 pb-3 space-y-1">
                                                                 {list.tasks.filter((t: any) => !t.parentId).map((task: any) => (
-                                                                    <div key={task.id} className="pl-6 py-2 border-l-2 border-white/5">
+                                                                    <div key={task.id} className="pl-6 py-2 border-l-2 border-border">
                                                                         <div className="flex items-center justify-between gap-4">
                                                                             <div className="text-sm text-white/80">{task.title}</div>
                                                                             <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider ${task.status === 'DONE' ? 'bg-green-500/20 text-green-400' :
@@ -214,13 +214,13 @@ export default function TemplatePreviewModal({
                                         {/* Milestones */}
                                         {template.milestones && template.milestones.length > 0 && (
                                             <div className="space-y-3">
-                                                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Milestones</h3>
+                                                <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">Milestones</h3>
                                                 <div className="space-y-2">
                                                     {template.milestones.map((milestone: any) => (
-                                                        <div key={milestone.id} className="bg-background/30 border border-white/5 rounded-lg px-4 py-3">
+                                                        <div key={milestone.id} className="bg-surface-secondary border border-border rounded-lg px-4 py-3">
                                                             <div className="flex items-center gap-2">
-                                                                <Diamond size={14} className="text-purple-400" />
-                                                                <span className="font-medium text-white text-sm">{milestone.name}</span>
+                                                                <Diamond size={14} className="text-purple-500" />
+                                                                <span className="font-medium text-text-primary text-sm">{milestone.name}</span>
                                                             </div>
                                                             {milestone.description && (
                                                                 <p className="text-xs text-text-secondary mt-1 ml-6">{milestone.description}</p>
@@ -239,10 +239,10 @@ export default function TemplatePreviewModal({
                             </div>
 
                             {/* Footer */}
-                            <div className="border-t border-white/5 px-6 py-4 flex items-center justify-between bg-background/50">
+                            <div className="border-t border-border px-6 py-4 flex items-center justify-between bg-surface-secondary">
                                 <button
                                     onClick={onClose}
-                                    className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-white transition-colors"
+                                    className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
                                 >
                                     Cancel
                                 </button>

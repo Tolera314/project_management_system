@@ -330,19 +330,24 @@ export const inviteToWorkspace = async (req: Request, res: Response) => {
         });
 
         // 5. Send Invitation Email
-        const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite/${token}`;
-        const emailHtml = getWorkspaceInvitationTemplate(
-            organization.name,
-            `${inviter.firstName} ${inviter.lastName}`,
-            role.name,
-            invitationLink
-        );
+        try {
+            const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite/${token}`;
+            const emailHtml = getWorkspaceInvitationTemplate(
+                organization.name,
+                `${inviter.firstName} ${inviter.lastName}`,
+                role.name,
+                invitationLink
+            );
 
-        await sendEmail({
-            to: email,
-            subject: `Invitation to join ${organization.name}`,
-            html: emailHtml
-        });
+            await sendEmail({
+                to: email,
+                subject: `Invitation to join ${organization.name}`,
+                html: emailHtml
+            });
+        } catch (emailError) {
+            console.error('Failed to send workspace invitation email:', emailError);
+            // We don't throw here so the user gets a success response for the database record
+        }
 
         res.status(200).json({
             message: 'Invitation sent successfully',

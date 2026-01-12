@@ -15,13 +15,9 @@ import {
     Terminal
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { AdminService, AdminStats } from '../services/admin.service';
 
-const healthCards = [
-    { label: 'Total Workspaces', value: '124', icon: Globe, color: 'text-blue-500', trend: '+12%' },
-    { label: 'Active Users', value: '1,842', icon: Users, color: 'text-purple-500', trend: '+5.4%' },
-    { label: 'Active Projects', value: '456', icon: LayoutGrid, color: 'text-emerald-500', trend: '+8%' },
-    { label: 'Storage Usage', value: '42.8 GB', icon: HardDrive, color: 'text-amber-500', trend: 'Healthy' },
-];
 
 const systemServices = [
     { name: 'API Server', status: 'Healthy', uptime: '99.99%', load: '12%', color: 'emerald' },
@@ -38,6 +34,33 @@ const recentActivity = [
 ];
 
 export default function AdminDashboard() {
+    const [stats, setStats] = useState<AdminStats | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        loadStats();
+    }, []);
+
+    const loadStats = async () => {
+        try {
+            const data = await AdminService.getStats();
+            setStats(data);
+        } catch (error) {
+            console.error("Failed to load admin stats", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const healthCards = stats ? [
+        { label: 'Total Workspaces', value: stats.workspaces.total.toString(), icon: Globe, color: 'text-blue-500', trend: `+${stats.workspaces.growth}%` },
+        { label: 'Active Users', value: stats.users.total.toString(), icon: Users, color: 'text-purple-500', trend: `+${stats.users.growth}%` },
+        { label: 'Total Projects', value: stats.projects.total.toString(), icon: LayoutGrid, color: 'text-emerald-500', trend: '+' },
+        { label: 'Revenue', value: '$0', icon: HardDrive, color: 'text-amber-500', trend: 'N/A' },
+    ] : [];
+
+    if (loading) return <div className="text-white">Loading...</div>;
+
     return (
         <AdminLayout>
             <div className="space-y-8">
