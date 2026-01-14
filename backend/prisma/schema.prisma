@@ -6,8 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
-
-// Enums
+// enums
 enum Priority {
   LOW
   MEDIUM
@@ -38,9 +37,9 @@ enum SystemRole {
 }
 
 enum TemplateVisibility {
-  SYSTEM      // Platform-wide (admin only)
-  WORKSPACE   // Organization-wide
-  PRIVATE     // Creator only
+  SYSTEM
+  WORKSPACE
+  PRIVATE
 }
 
 enum NotificationType {
@@ -59,6 +58,18 @@ enum NotificationType {
   SECURITY_ALERT
 }
 
+enum InvitationType {
+  WORKSPACE
+  PROJECT
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
 // Base models with relations
 model User {
   id        String   @id @default(cuid())
@@ -68,8 +79,10 @@ model User {
   lastName  String
   avatarUrl String?
   systemRole SystemRole @default(USER)
-  status    String   @default("ACTIVE") // active, suspended
+  status    String   @default("ACTIVE") // active, suspended, pending, deleted
   passwordVersion Int @default(1)
+  mfaEnabled Boolean  @default(false)
+  lastLogin DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
@@ -96,6 +109,8 @@ model User {
   mentionedIn     Mention[] @relation("UserMentionedIn")
   sentInvitations Invitation[] @relation("UserSentInvitations")
   watchedTasks    TaskWatcher[]
+  auditLogs       AdminAuditLog[] @relation("UserAuditLogs")
+  performedAudits AdminAuditLog[] @relation("AdminPerformedAudits")
 }
 
 model Organization {
@@ -689,4 +704,25 @@ model TaskTag {
   tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@unique([taskId, tagId])
+}
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  action      String   // e.g., USER_ROLE_CHANGED, USER_SUSPENDED, USER_ACTIVATED, etc.
+  targetUserId String? // User who was affected by the action
+  performedById String // Admin who performed the action
+  entityType  String   // USER, WORKSPACE, SYSTEM, etc.
+  entityId    String?  // ID of affected entity
+  metadata    Json?    // Additional data (old/new values, etc.)
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  targetUser  User?    @relation("UserAuditLogs", fields: [targetUserId], references: [id], onDelete: SetNull)
+  performedBy User     @relation("AdminPerformedAudits", fields: [performedById], references: [id], onDelete: Cascade)
+  
+  @@index([targetUserId])
+  @@index([performedById])
+  @@index([createdAt])
 }
