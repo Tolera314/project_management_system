@@ -128,6 +128,12 @@ export const login = async (req: Request, res: Response) => {
             return;
         }
 
+        // Update last login timestamp
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { lastLogin: new Date() }
+        });
+
         const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
         res.status(200).json({
