@@ -71,11 +71,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }, []);
 
     const navItems = [
-        { icon: Home, label: 'Dashboard', href: '/dashboard', active: true },
-        { icon: FolderKanban, label: 'Projects', href: '/dashboard/projects', active: false },
-        { icon: CheckSquare, label: 'Tasks', href: '/dashboard/tasks', active: false },
-        { icon: Calendar, label: 'Calendar', href: '/dashboard/calendar', active: false },
-        { icon: BarChart3, label: 'Reports', href: '/dashboard/reports', active: false },
+        { icon: Home, label: 'Dashboard', href: '/dashboard' },
+        { icon: FolderKanban, label: 'Projects', href: '/dashboard/projects' },
+        { icon: CheckSquare, label: 'Tasks', href: '/dashboard/tasks' },
+        { icon: Calendar, label: 'Calendar', href: '/dashboard/calendar' },
+        { icon: BarChart3, label: 'Reports', href: '/dashboard/reports' },
     ];
 
     // Check if user can manage templates (Admin or has manage_templates permission)
@@ -318,19 +318,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {/* Left Sidebar - Desktop */}
                 <aside className={`hidden md:flex flex-col w-64 border-r border-border bg-surface-secondary transition-all duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                     <nav className="flex-1 p-4 space-y-1">
-                        {navItems.map((item) => (
-                            <Link
-                                key={item.label}
-                                href={item.href}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${item.active
-                                    ? 'bg-primary/10 text-primary border border-primary/20'
-                                    : 'text-text-secondary hover:text-primary hover:bg-foreground/5'
-                                    }`}
-                            >
-                                <item.icon size={18} />
-                                <span className="text-sm font-medium">{item.label}</span>
-                            </Link>
-                        ))}
+                        {navItems.map((item) => {
+                            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                            return (
+                                <Link
+                                    key={item.label}
+                                    href={item.href}
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
+                                        ? 'bg-primary/10 text-primary border border-primary/20'
+                                        : 'text-text-secondary hover:text-primary hover:bg-foreground/5'
+                                        }`}
+                                >
+                                    <item.icon size={18} />
+                                    <span className="text-sm font-medium">{item.label}</span>
+                                </Link>
+                            );
+                        })}
 
                         {/* Templates Link (Admin/PM only) */}
                         {canManageTemplates && (

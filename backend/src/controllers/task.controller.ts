@@ -272,10 +272,10 @@ export const getTaskDetails = async (req: Request, res: Response) => {
             },
             include: {
                 dependencies: {
-                    include: { source: true }
+                    include: { target: true }
                 },
                 dependents: {
-                    include: { target: true }
+                    include: { source: true }
                 },
                 milestone: true,
                 createdBy: {
@@ -330,26 +330,22 @@ export const getTaskDetails = async (req: Request, res: Response) => {
                 },
                 files: {
                     include: {
-                        file: {
-                            include: {
-                                currentVersion: true
-                            }
-                        }
+                        file: true
                     }
                 }
             } as any
         });
 
-    if (!task) {
-        res.status(404).json({ error: 'Task not found' });
-        return;
-    }
+        if (!task) {
+            res.status(404).json({ error: 'Task not found' });
+            return;
+        }
 
-    res.json({ task });
-} catch (error) {
-    console.error('Get task details error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-}
+        res.json({ task });
+    } catch (error) {
+        console.error('Get task details error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 };
 
 export const addComment = async (req: Request, res: Response) => {
@@ -562,6 +558,19 @@ export const addAssignee = async (req: Request, res: Response) => {
                 });
             }
             targetProjectMemberId = projectMember.id;
+        }
+
+        // Check if already assigned
+        const existingAssignee = await prisma.taskAssignee.findFirst({
+            where: {
+                taskId,
+                projectMemberId: targetProjectMemberId
+            }
+        });
+
+        if (existingAssignee) {
+            res.status(400).json({ error: 'User is already assigned to this task' });
+            return;
         }
 
         const assignee = await prisma.taskAssignee.create({

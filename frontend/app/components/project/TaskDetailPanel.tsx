@@ -147,7 +147,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
             const currentlyWatching = isWatching(currentUser.id);
 
             const method = currentlyWatching ? 'DELETE' : 'POST';
-            const res = await fetch(`http://localhost:4000/tasks/${task.id}/watch`, {
+            const res = await fetch(`http://localhost:4000/tasks/${task?.id}/watch`, {
                 method,
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -169,7 +169,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ taskId: task.id, tagId })
+                body: JSON.stringify({ taskId: task?.id, tagId })
             });
 
             if (res.ok) {
@@ -184,7 +184,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
     const handleDetachTag = async (tagId: string) => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/tags/detach/${task.id}/${tagId}`, {
+            const res = await fetch(`http://localhost:4000/tags/detach/${task?.id}/${tagId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -327,6 +327,14 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
             const token = localStorage.getItem('token');
             let targetMemberId = memberIdOrString;
             if (!targetMemberId) return;
+
+            // 0. Duplicate assignment validation
+            const isAlreadyAssigned = task?.assignees?.some((a: any) =>
+                a.projectMemberId === targetMemberId ||
+                (targetMemberId.startsWith('org_') && a.projectMember?.organizationMemberId === targetMemberId.split('_')[1])
+            );
+
+            if (isAlreadyAssigned) return;
 
             // 1. Optimistic update (Move this to the top for speed)
             const memberData = projectMembers?.find((m: any) => m.id === targetMemberId) ||
@@ -521,15 +529,15 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                 initial={{ x: '100%' }}
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
-                className="fixed right-0 top-0 bottom-0 w-full md:w-[600px] bg-surface border-l border-white/10 z-50 p-6 flex flex-col gap-6 font-sans"
+                className="fixed right-0 top-0 bottom-0 w-full md:w-[600px] bg-surface border-l border-border z-50 p-6 flex flex-col gap-6 font-sans"
             >
                 <div className="animate-pulse flex flex-col gap-6">
-                    <div className="h-8 bg-white/5 rounded w-3/4" />
-                    <div className="h-4 bg-white/5 rounded w-full" />
-                    <div className="h-4 bg-white/5 rounded w-full" />
+                    <div className="h-8 bg-foreground/5 rounded w-3/4" />
+                    <div className="h-4 bg-foreground/5 rounded w-full" />
+                    <div className="h-4 bg-foreground/5 rounded w-full" />
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="h-10 bg-white/5 rounded" />
-                        <div className="h-10 bg-white/5 rounded" />
+                        <div className="h-10 bg-foreground/5 rounded" />
+                        <div className="h-10 bg-foreground/5 rounded" />
                     </div>
                 </div>
             </motion.div>
@@ -560,7 +568,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                                 {task?.status === 'DONE' ? <CheckCircle2 size={14} /> : <Circle size={14} />}
                                 <span className="hidden sm:inline">{task?.status === 'DONE' ? 'Completed' : 'Mark Complete'}</span>
                             </button>
-                            <div className="h-4 w-[1px] bg-white/10 hidden sm:block" />
+                            <div className="h-4 w-[1px] bg-border hidden sm:block" />
                             {!task?.isArchived && canEdit() && (
                                 <button className="flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-[10px] font-bold uppercase tracking-wider group hover:bg-indigo-500 hover:text-white transition-all">
                                     <Play size={12} className="group-hover:fill-current" />
@@ -577,6 +585,12 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                     {isTemplate && (
                         <div className="px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-bold uppercase tracking-wider">
                             Blueprint Mode
+                        </div>
+                    )}
+                    {task && !loading && (
+                        <div className="flex flex-col ml-4 border-l border-border pl-4 max-w-[150px] sm:max-w-[200px] md:max-w-[300px]">
+                            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest opacity-50 truncate">Task Overview</span>
+                            <h2 className="text-sm font-bold text-text-primary truncate">{task.title}</h2>
                         </div>
                     )}
                 </div>
@@ -624,7 +638,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                             {isWatching(JSON.parse(localStorage.getItem('user') || '{}').id) ? 'Watching' : 'Watch'}
                         </span>
                     </button>
-                    <div className="h-6 w-[1px] bg-white/10 mx-1" />
+                    <div className="h-6 w-[1px] bg-border mx-1" />
                     <button
                         onClick={handleDeleteTask}
                         className="p-2 hover:bg-rose-500/10 rounded-lg text-text-secondary hover:text-rose-500 transition-colors"
@@ -828,11 +842,11 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                         </div>
 
                         {task?.milestone && (
-                            <div className="col-span-2 mt-2 pt-4 border-t border-white/5 space-y-1.5">
+                            <div className="col-span-2 mt-2 pt-4 border-t border-border space-y-1.5">
                                 <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2">
                                     <Target size={12} /> Linked Milestone
                                 </label>
-                                <div className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/5 rounded-xl hover:border-primary/30 transition-all cursor-default">
+                                <div className="flex items-center gap-3 p-3 bg-foreground/[0.03] border border-border rounded-xl hover:border-primary/30 transition-all cursor-default">
                                     <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center text-primary">
                                         <Target size={14} />
                                     </div>
@@ -844,7 +858,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                             </div>
                         )}
 
-                        <div className="col-span-2 mt-2 pt-4 border-t border-white/5 space-y-3">
+                        <div className="col-span-2 mt-2 pt-4 border-t border-border space-y-3">
                             <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center justify-between">
                                 <span className="flex items-center gap-2"><TagIcon size={12} /> Tags</span>
                                 {canEdit() && (
@@ -890,14 +904,14 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                                         initial={{ opacity: 0, y: -10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: -10 }}
-                                        className="bg-surface-lighter border border-white/10 rounded-xl p-3 shadow-xl space-y-3"
+                                        className="bg-surface-lighter border border-border rounded-xl p-3 shadow-xl space-y-3"
                                     >
                                         <div className="grid grid-cols-2 gap-2">
                                             {allTags.filter(t => !task?.tags?.some((tt: any) => tt.tagId === t.id)).map(tag => (
                                                 <button
                                                     key={tag.id}
                                                     onClick={() => handleAttachTag(tag.id)}
-                                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[10px] font-bold text-left transition-all"
+                                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-foreground/5 hover:bg-foreground/10 text-[10px] font-bold text-left transition-all"
                                                 >
                                                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tag.color }} />
                                                     {tag.name}
@@ -997,8 +1011,8 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                                             <div className="text-[10px] text-text-secondary uppercase">{dep.type}</div>
                                         </div>
                                     </div>
-                                    <span className="text-[10px] font-bold text-text-secondary uppercase bg-white/5 px-2 py-0.5 rounded">
-                                        {dep.source.status}
+                                    <span className="text-[10px] font-bold text-text-secondary uppercase bg-foreground/10 px-2 py-0.5 rounded">
+                                        {dep.target?.status || 'TODO'}
                                     </span>
                                 </div>
                             ))}
@@ -1010,40 +1024,6 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                         </div>
                     </div>
 
-                    {/* Attachments Section */}
-                    <div className="space-y-4 pt-4 border-t border-border">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
-                                <Paperclip size={16} className="text-blue-500" />
-                                Attachments
-                            </h3>
-                        </div>
-
-                        {/* File List */}
-                        <div className="grid grid-cols-2 gap-3">
-                            {task?.links?.map((link: any) => {
-                                const file = link.file;
-                                return (
-                                    <div key={file.id} className="bg-foreground/[0.03] border border-border rounded-xl p-3 flex items-center gap-3 hover:bg-foreground/5 transition-colors group relative">
-                                        <div className="w-10 h-10 rounded-lg bg-surface-secondary flex items-center justify-center shrink-0">
-                                            <FileIcon size={20} className="text-blue-500" />
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-text-primary truncate">{file.name}</p>
-                                            <p className="text-[10px] text-text-secondary">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                                        </div>
-                                        <a
-                                            href={FileService.getFileUrl(file.url)}
-                                            download
-                                            className="p-1.5 hover:bg-foreground/10 rounded-lg text-text-secondary hover:text-text-primary transition-colors"
-                                        >
-                                            <Download size={14} />
-                                        </a>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    </div>
 
                     {/* Activity & Comments Tabs */}
                     <div className="space-y-6 pt-4 border-t border-border">
@@ -1126,12 +1106,12 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                             <div className="space-y-4">
                                 {task?.activityLogs?.map((log: any) => (
                                     <div key={log.id} className="flex gap-3 text-xs">
-                                        <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center shrink-0">
+                                        <div className="w-6 h-6 rounded-full bg-foreground/5 flex items-center justify-center shrink-0">
                                             <History size={12} className="text-text-secondary" />
                                         </div>
                                         <div className="flex-1 space-y-1">
-                                            <p className="text-white">
-                                                <span className="font-bold">{log.user.firstName}</span> {log.action.toLowerCase().replace('_', ' ')}
+                                            <p className="text-text-primary">
+                                                <span className="font-bold">{log.user?.firstName || 'User'}</span> {log.action.toLowerCase().replace(/_/g, ' ')}
                                             </p>
                                             <span className="text-[10px] text-text-secondary">{new Date(log.createdAt).toLocaleString()}</span>
                                         </div>
