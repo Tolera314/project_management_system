@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
+import { NotificationService } from '../services/notification.service';
 
 const registerSchema = z.object({
     firstName: z.string().min(1, 'First name is required'),
@@ -68,6 +69,9 @@ export const register = async (req: Request, res: Response) => {
             }
         });
 
+        // Send Welcome Email (Fire and forget or await if critical)
+        NotificationService.sendWelcomeEmail({ email: user.email, firstName: user.firstName });
+
         const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
         res.status(201).json({
@@ -123,6 +127,12 @@ export const login = async (req: Request, res: Response) => {
             res.status(401).json({ error: 'Invalid credentials' });
             return;
         }
+
+        // Update last login timestamp
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { lastLogin: new Date() }
+        });
 
         const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 

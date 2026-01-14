@@ -325,7 +325,7 @@ export default function ListDetailPanel({ listId, isOpen, onClose, onRefresh, pr
                                                 <div key={t.id} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
                                                     <div className="flex items-center gap-3">
                                                         {t.status === 'DONE' ? <CheckCircle2 size={14} className="text-emerald-500" /> : <Circle size={14} className="text-text-secondary" />}
-                                                        <span className={`text-xs ${t.status === 'DONE' ? 'line-through text-text-secondary' : 'text-white'}`}>{t.title}</span>
+                                                        <span className={`text-xs ${t.status === 'DONE' ? 'text-text-secondary' : 'text-white'}`}>{t.title}</span>
                                                     </div>
                                                 </div>
                                             ))}

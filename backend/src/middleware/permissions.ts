@@ -1,5 +1,38 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
+import { SystemRole } from '@prisma/client';
+
+// Middleware to check if user is a system admin
+export const requireSystemAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = (req as any).userId;
+        
+        if (!userId) {
+            res.status(401).json({ error: 'Authentication required' });
+            return;
+        }
+
+        const user = await prisma.user.findUnique({ 
+            where: { id: userId },
+            select: { systemRole: true, status: true }
+        });
+
+        if (!user || user.systemRole !== SystemRole.SYSTEM_ADMIN) {
+            res.status(403).json({ error: 'System admin access required' });
+            return;
+        }
+
+        if (user.status !== 'ACTIVE') {
+            res.status(403).json({ error: 'Account is not active' });
+            return;
+        }
+
+        next();
+    } catch (error) {
+        console.error('System admin check error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
 
 export const checkProjectPermission = (permissionName: string) => {
     return async (req: Request, res: Response, next: NextFunction) => {

@@ -13,6 +13,7 @@ import {
     User as UserIcon
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import UserAvatar from '../shared/UserAvatar';
 
 interface BoardViewProps {
     tasks: any[];
@@ -138,7 +139,7 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
                                     </span>
                                 </div>
                                 <div className="flex items-center">
-                                    <button className="p-1 hover:bg-white/5 rounded text-text-secondary hover:text-white transition-colors">
+                                    <button className="p-1 hover:bg-foreground/5 rounded text-text-secondary hover:text-primary transition-colors">
                                         <Plus size={16} />
                                     </button>
                                 </div>
@@ -165,7 +166,7 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
                                                             style={{
                                                                 ...provided.draggableProps.style,
                                                             }}
-                                                            className={`bg-[#0A0A0A] p-3 rounded-lg border border-white/5 hover:border-primary/50 group cursor-pointer shadow-sm transition-all ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/50 rotate-2' : 'hover:-translate-y-1'
+                                                            className={`bg-surface p-3 rounded-lg border border-foreground/5 hover:border-primary/50 group cursor-pointer shadow-sm transition-all ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/50 rotate-2' : 'hover:-translate-y-1'
                                                                 }`}
                                                         >
                                                             {/* Card Content */}
@@ -180,7 +181,7 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
                                                                 </div>
                                                             </div>
 
-                                                            <h4 className="text-sm font-medium text-white mb-3 line-clamp-2">
+                                                            <h4 className="text-sm font-medium text-text-primary mb-3 line-clamp-2">
                                                                 {task.title}
                                                             </h4>
 
@@ -188,17 +189,22 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
                                                                 <div className="flex items-center gap-2">
                                                                     {/* Assignee Avatar */}
                                                                     {!isTemplate ? (
-                                                                        <div className="w-6 h-6 rounded-full bg-surface-lighter flex items-center justify-center ring-1 ring-white/10" title={task.assignees?.[0]?.projectMember?.organizationMember?.user?.firstName || 'Unassigned'}>
-                                                                            {task.assignees?.[0]?.projectMember?.organizationMember?.user?.firstName ? (
-                                                                                <span className="text-[10px] font-bold text-text-secondary">
-                                                                                    {task.assignees[0].projectMember.organizationMember.user.firstName[0]}
-                                                                                </span>
-                                                                            ) : (
+                                                                        task.assignees?.[0]?.projectMember?.organizationMember?.user ? (
+                                                                            <UserAvatar
+                                                                                userId={task.assignees[0].projectMember.organizationMember.userId} // Assuming this field exists or we might need to adjust based on schema
+                                                                                firstName={task.assignees[0].projectMember.organizationMember.user.firstName}
+                                                                                lastName={task.assignees[0].projectMember.organizationMember.user.lastName}
+                                                                                avatarUrl={task.assignees[0].projectMember.organizationMember.user.avatarUrl}
+                                                                                size="sm"
+                                                                                className="ring-1 ring-white/10"
+                                                                            />
+                                                                        ) : (
+                                                                            <div className="w-6 h-6 rounded-full bg-surface-lighter flex items-center justify-center ring-1 ring-white/10" title="Unassigned">
                                                                                 <UserIcon size={12} className="text-text-secondary" />
-                                                                            )}
-                                                                        </div>
+                                                                            </div>
+                                                                        )
                                                                     ) : (
-                                                                        <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center border border-dashed border-white/10" title="Template Blueprint">
+                                                                        <div className="w-6 h-6 rounded-full bg-foreground/5 flex items-center justify-center border border-dashed border-foreground/10" title="Template Blueprint">
                                                                             <UserIcon size={10} className="text-text-secondary/50" />
                                                                         </div>
                                                                     )}

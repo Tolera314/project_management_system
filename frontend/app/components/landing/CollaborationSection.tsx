@@ -19,14 +19,14 @@ export default function CollaborationSection() {
                                 whileInView={{ opacity: 1, x: 0 }}
                                 viewport={{ once: true }}
                                 transition={{ delay: i * 0.2, duration: 0.6 }}
-                                className={`flex gap-4 p-4 rounded-2xl border ${i === 2 ? 'bg-primary/10 border-primary/20 ml-12' : 'bg-surface/80 border-white/10'
+                                className={`flex gap-4 p-4 rounded-2xl border ${i === 2 ? 'bg-primary/10 border-primary/20 ml-12' : 'bg-surface border-border'
                                     }`}
                             >
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex-shrink-0 border border-white/10" />
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex-shrink-0 border border-border" />
                                 <div className="flex-1">
-                                    <div className="h-3 w-24 bg-white/10 rounded mb-2" />
-                                    <div className="h-2 w-full bg-white/5 rounded mb-1" />
-                                    <div className="h-2 w-2/3 bg-white/5 rounded" />
+                                    <div className="h-3 w-24 bg-border rounded mb-2" />
+                                    <div className="h-2 w-full bg-surface-secondary rounded mb-1" />
+                                    <div className="h-2 w-2/3 bg-surface-secondary rounded" />
                                 </div>
                             </motion.div>
                         ))}
@@ -35,13 +35,13 @@ export default function CollaborationSection() {
                         <motion.div
                             animate={{ y: [0, -10, 0] }}
                             transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}
-                            className="absolute -top-10 -right-10 p-3 bg-surface border border-white/10 rounded-xl shadow-2xl"
+                            className="absolute -top-10 -right-10 p-3 bg-surface border border-border rounded-xl shadow-2xl"
                         >
                             <div className="flex -space-x-3">
                                 {[1, 2, 3, 4].map((i) => (
                                     <div key={i} className="w-10 h-10 rounded-full border-2 border-surface bg-gradient-to-br from-blue-500 to-purple-600" />
                                 ))}
-                                <div className="w-10 h-10 rounded-full border-2 border-surface bg-white/10 flex items-center justify-center text-xs text-white">
+                                <div className="w-10 h-10 rounded-full border-2 border-surface bg-surface-secondary flex items-center justify-center text-xs text-text-primary font-bold">
                                     +5
                                 </div>
                             </div>
@@ -75,9 +75,9 @@ export default function CollaborationSection() {
                                     whileInView={{ opacity: 1, x: 0 }}
                                     viewport={{ once: true }}
                                     transition={{ delay: 0.1 * i }}
-                                    className="flex items-center gap-4 text-white font-medium"
+                                    className="flex items-center gap-4 text-text-primary font-medium"
                                 >
-                                    <div className="p-2 rounded-lg bg-white/5 text-primary">
+                                    <div className="p-2 rounded-lg bg-surface-secondary text-primary">
                                         <item.icon size={20} />
                                     </div>
                                     {item.text}

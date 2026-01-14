@@ -94,7 +94,7 @@ export default function ProjectContextMenu({ isOpen, onClose, projectName, onAct
             initial={{ opacity: 0, scale: 0.95, x: -10 }}
             animate={{ opacity: 1, scale: 1, x: 0 }}
             exit={{ opacity: 0, scale: 0.95, x: -10 }}
-            className="absolute left-full top-1/2 -translate-y-1/2 ml-3 w-64 bg-surface border border-white/10 rounded-2xl shadow-2xl z-[60] overflow-hidden py-1.5"
+            className="absolute left-full top-1/2 -translate-y-1/2 ml-3 w-64 bg-surface border border-white/10 rounded-2xl shadow-2xl z-[60] overflow-hidden py-1.5 backdrop-blur-xl"
         >
             {sections.map((section, sIdx) => (
                 <div key={section.id}>
@@ -130,7 +130,7 @@ export default function ProjectContextMenu({ isOpen, onClose, projectName, onAct
                         ))}
                     </div>
                     {sIdx < sections.length - 1 && (
-                        <div className="mx-3 border-b border-white/5 my-1" />
+                        <div className="mx-3 border-b border-white/10 my-1" />
                     )}
                 </div>
             ))}

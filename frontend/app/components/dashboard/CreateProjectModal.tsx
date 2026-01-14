@@ -216,40 +216,40 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
                             transition={{ duration: 0.2 }}
-                            className="bg-surface border border-white/10 rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md overflow-hidden"
+                            className="bg-surface border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md overflow-hidden"
                         >
                             {/* Header */}
-                            <div className="flex items-center justify-between p-6 border-b border-white/5">
+                            <div className="flex items-center justify-between p-6 border-b border-border">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
                                         <FolderPlus className="w-5 h-5 text-primary" />
                                     </div>
                                     <div>
-                                        <h2 className="text-lg font-semibold text-white">Create New Project</h2>
+                                        <h2 className="text-lg font-semibold text-foreground">Create New Project</h2>
                                         <p className="text-xs text-text-secondary">Organize work into focused projects</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={handleClose}
                                     disabled={isSubmitting}
-                                    className="p-2 hover:bg-white/5 rounded-lg transition-colors disabled:opacity-50"
+                                    className="p-2 hover:bg-foreground/5 rounded-lg transition-colors disabled:opacity-50"
                                 >
                                     <X size={18} className="text-text-secondary" />
                                 </button>
                             </div>
 
                             {/* Mode Tabs */}
-                            <div className="flex px-6 border-b border-white/5">
+                            <div className="flex px-6 border-b border-border">
                                 <button
                                     onClick={() => setMode('BLANK')}
-                                    className={`pb-3 text-sm font-bold border-b-2 px-4 transition-colors ${mode === 'BLANK' ? 'border-primary text-white' : 'border-transparent text-text-secondary hover:text-white'}`}
+                                    className={`pb-3 text-sm font-bold border-b-2 px-4 transition-colors ${mode === 'BLANK' ? 'border-primary text-foreground' : 'border-transparent text-text-secondary hover:text-foreground'}`}
                                     type="button"
                                 >
                                     Blank Project
                                 </button>
                                 <button
                                     onClick={() => setMode('TEMPLATE')}
-                                    className={`pb-3 text-sm font-bold border-b-2 px-4 transition-colors ${mode === 'TEMPLATE' ? 'border-primary text-white' : 'border-transparent text-text-secondary hover:text-white'}`}
+                                    className={`pb-3 text-sm font-bold border-b-2 px-4 transition-colors ${mode === 'TEMPLATE' ? 'border-primary text-foreground' : 'border-transparent text-text-secondary hover:text-foreground'}`}
                                     type="button"
                                 >
                                     From Template
@@ -272,11 +272,11 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
                                                     onClick={() => handleTemplateSelect(t.id, t.color)}
                                                     className={`p-3 sm:p-4 rounded-xl border cursor-pointer transition-all ${selectedTemplateId === t.id
                                                         ? 'bg-primary/10 border-primary shadow-[0_0_15px_rgba(99,102,241,0.3)] ring-2 ring-primary/20'
-                                                        : 'bg-background border-white/10 hover:border-white/20 hover:bg-background/80'
+                                                        : 'bg-background border-border hover:border-text-secondary/20 hover:bg-surface-secondary'
                                                         }`}
                                                 >
                                                     <div className="flex items-start justify-between gap-2 mb-2">
-                                                        <div className="font-bold text-white text-sm">{t.name}</div>
+                                                        <div className="font-bold text-foreground text-sm">{t.name}</div>
                                                         {selectedTemplateId === t.id && (
                                                             <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                                                                 <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -296,7 +296,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
                                                 </div>
                                             ))}
                                             {templates.length === 0 && (
-                                                <div className="col-span-full text-center py-8 text-text-secondary text-xs italic border border-white/5 border-dashed rounded-xl">
+                                                <div className="col-span-full text-center py-8 text-text-secondary text-xs italic border border-border border-dashed rounded-xl">
                                                     No templates available. Create one from an existing project.
                                                 </div>
                                             )}
@@ -315,8 +315,8 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
                                         {...register('name')}
                                         placeholder="e.g., Website Redesign"
                                         autoFocus
-                                        className={`w-full bg-background/60 border ${errors.name ? 'border-danger' : 'border-white/10'
-                                            } rounded-xl px-4 py-3 text-white placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
+                                        className={`w-full bg-surface border ${errors.name ? 'border-danger' : 'border-border'
+                                            } rounded-xl px-4 py-3 text-foreground placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
                                     />
                                     {errors.name && (
                                         <p className="text-xs text-danger">{errors.name.message}</p>
@@ -332,7 +332,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
                                         {...register('description')}
                                         placeholder="Brief description of this project..."
                                         rows={2}
-                                        className="w-full bg-background/60 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all resize-none"
+                                        className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all resize-none"
                                     />
                                 </div>
 
@@ -342,7 +342,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
                                         <label className="text-sm font-medium text-text-primary">Status</label>
                                         <select
                                             {...register('status')}
-                                            className="w-full bg-background/60 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                                            className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
                                         >
                                             <option value="NOT_STARTED">Not Started</option>
                                             <option value="IN_PROGRESS">In Progress</option>
@@ -355,7 +355,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
                                         <label className="text-sm font-medium text-text-primary">Priority</label>
                                         <select
                                             {...register('priority')}
-                                            className="w-full bg-background/60 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                                            className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
                                         >
                                             <option value="LOW">Low</option>
                                             <option value="MEDIUM">Medium</option>
@@ -372,7 +372,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
                                         <input
                                             type="date"
                                             {...register('startDate')}
-                                            className="w-full bg-background/60 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                                            className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -380,7 +380,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
                                         <input
                                             type="date"
                                             {...register('dueDate')}
-                                            className="w-full bg-background/60 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                                            className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
                                         />
                                     </div>
                                 </div>
@@ -406,12 +406,12 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
                                             <input
                                                 type="text"
                                                 placeholder="Search projects to link..."
-                                                className="w-full bg-background border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                                className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
                                                 value={searchQuery}
                                                 onChange={(e) => setSearchQuery(e.target.value)}
                                             />
                                             {searchQuery && (
-                                                <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-white/10 rounded-xl shadow-2xl z-10 max-h-40 overflow-y-auto overflow-x-hidden py-1">
+                                                <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-border rounded-xl shadow-2xl z-10 max-h-40 overflow-y-auto overflow-x-hidden py-1">
                                                     {existingProjects
                                                         .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) && !selectedDependencies.includes(p.id))
                                                         .map(p => (
@@ -422,7 +422,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
                                                                     setValue('dependencyIds', [...selectedDependencies, p.id]);
                                                                     setSearchQuery('');
                                                                 }}
-                                                                className="w-full px-4 py-2 text-left text-xs text-white hover:bg-white/5 transition-colors flex items-center justify-between group"
+                                                                className="w-full px-4 py-2 text-left text-xs text-foreground hover:bg-foreground/5 transition-colors flex items-center justify-between group"
                                                             >
                                                                 <span className="truncate">{p.name}</span>
                                                                 <Plus size={12} className="text-primary opacity-0 group-hover:opacity-100" />
@@ -486,7 +486,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
                                         type="button"
                                         onClick={handleClose}
                                         disabled={isSubmitting}
-                                        className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-medium transition-all disabled:opacity-50"
+                                        className="flex-1 px-4 py-3 bg-surface-secondary hover:bg-border border border-border text-foreground rounded-xl font-medium transition-all disabled:opacity-50"
                                     >
                                         Cancel
                                     </button>
