@@ -39,7 +39,13 @@ export const markAsRead = async (req: Request, res: Response) => {
         const { id } = req.params;
         const userId = (req as any).userId;
 
-        await prisma.notification.update({
+        if (!id) {
+            res.status(400).json({ error: 'Notification ID is required' });
+            return;
+        }
+
+        // Use updateMany to allow filtering by both unique ID and userId
+        await prisma.notification.updateMany({
             where: { id, userId },
             data: { isRead: true, readAt: new Date() }
         });

@@ -1,10 +1,11 @@
 'use client';
 
 import AdminLayout from '../../components/admin/AdminLayout';
-import { Globe, Plus, Search, Filter, MoreHorizontal, Shield, Users as UsersIcon, HardDrive, Edit, Trash, Ban, CheckCircle } from 'lucide-react';
+import { Globe, Plus, Search, Filter, MoreHorizontal, Shield, Users as UsersIcon, HardDrive, Trash, Ban } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { AdminService, WorkspaceData } from '../../services/admin.service';
+import Link from 'next/link';
 
 export default function WorkspacesAdmin() {
     const [workspaces, setWorkspaces] = useState<WorkspaceData[]>([]);
@@ -43,7 +44,18 @@ export default function WorkspacesAdmin() {
         setActiveActionId(activeActionId === id ? null : id);
     };
 
-    // Close actions when clicking outside (simple version)
+    const handleSuspend = async (id: string, currentStatus: string) => {
+        try {
+            const nextStatus = currentStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+            await AdminService.updateWorkspaceStatus(id, nextStatus);
+            loadWorkspaces();
+            setActiveActionId(null);
+        } catch (error) {
+            alert("Action failed. Check admin permissions.");
+        }
+    };
+
+    // Close actions when clicking outside
     useEffect(() => {
         const handleClickOutside = () => setActiveActionId(null);
         window.addEventListener('click', handleClickOutside);
@@ -77,7 +89,7 @@ export default function WorkspacesAdmin() {
                     </div>
                     <div className="relative">
                         <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                        <select className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white appearance-none focus:outline-none">
+                        <select className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white appearance-none focus:outline-none cursor-pointer">
                             <option>All Plans</option>
                             <option>Enterprise</option>
                             <option>Business</option>
@@ -86,7 +98,7 @@ export default function WorkspacesAdmin() {
                     </div>
                     <div className="relative">
                         <Shield className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                        <select className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white appearance-none focus:outline-none">
+                        <select className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white appearance-none focus:outline-none cursor-pointer">
                             <option>All Statuses</option>
                             <option>Active</option>
                             <option>Suspended</option>
@@ -97,10 +109,10 @@ export default function WorkspacesAdmin() {
 
                 {/* table */}
                 <div className="bg-white/5 border border-white/5 rounded-3xl overflow-hidden min-h-[400px]">
-                    {loading ? (
-                        <div className="flex items-center justify-center h-full py-20 text-slate-500">Loading workspaces...</div>
+                    {loading && workspaces.length === 0 ? (
+                        <div className="flex items-center justify-center h-[400px] text-slate-500 italic">Interrogating global registry...</div>
                     ) : error ? (
-                        <div className="flex flex-col items-center justify-center h-full py-20 text-rose-500 gap-2">
+                        <div className="flex flex-col items-center justify-center h-[400px] text-rose-500 gap-2">
                             <Shield size={48} className="text-rose-500/50 mb-2" />
                             <p className="font-bold">{error}</p>
                             <p className="text-sm text-slate-500">Please log in with an admin account.</p>
@@ -118,17 +130,22 @@ export default function WorkspacesAdmin() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                {workspaces.map((ws, i) => (
+                                {workspaces.map((ws) => (
                                     <tr key={ws.id} className="hover:bg-white/[0.01] transition-colors group">
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold">
+                                            <Link href={`/admin/workspaces/${ws.id}`} className="flex items-center gap-3 group/link">
+                                                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold group-hover/link:bg-primary group-hover/link:text-white transition-all">
                                                     {ws.name[0]}
                                                 </div>
-                                                <span className="text-sm font-bold text-white">{ws.name}</span>
+                                                <span className="text-sm font-bold text-white group-hover/link:text-primary transition-colors">{ws.name}</span>
+                                            </Link>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-white tracking-tight">{ws.owner}</span>
+                                                <span className="text-[10px] text-slate-500 font-medium">{ws.ownerEmail}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-slate-400">{ws.owner}</td>
                                         <td className="px-6 py-4 text-sm text-slate-400">
                                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${ws.plan === 'Enterprise' ? 'bg-primary/20 text-primary' : 'bg-white/10 text-slate-400'}`}>
                                                 {ws.plan}
@@ -136,17 +153,17 @@ export default function WorkspacesAdmin() {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col gap-1">
-                                                <div className="flex items-center gap-2 text-xs text-slate-400">
-                                                    <UsersIcon size={12} /> {ws.members} Users
+                                                <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+                                                    <UsersIcon size={12} className="text-primary/50" /> {ws.members} Users
                                                 </div>
-                                                <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                                                <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium">
                                                     <HardDrive size={10} /> {ws.projects} Projects
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className={`flex items-center gap-1.5 text-xs font-bold ${ws.status === 'ACTIVE' ? 'text-emerald-500' : 'text-danger'}`}>
-                                                <div className={`w-1.5 h-1.5 rounded-full ${ws.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-danger'}`} />
+                                            <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider ${ws.status === 'ACTIVE' ? 'text-emerald-500' : 'text-danger'}`}>
+                                                <div className={`w-1.5 h-1.5 rounded-full ${ws.status === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' : 'bg-danger'}`} />
                                                 {ws.status}
                                             </div>
                                         </td>
@@ -168,15 +185,18 @@ export default function WorkspacesAdmin() {
                                                         initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                                         animate={{ opacity: 1, scale: 1, y: 0 }}
                                                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                        className="absolute right-8 top-8 z-50 bg-surface border border-white/10 rounded-xl shadow-xl w-48 overflow-hidden"
+                                                        className="absolute right-8 top-8 z-50 bg-[#0A0F1D] border border-white/10 rounded-xl shadow-xl w-48 overflow-hidden"
                                                         onClick={(e) => e.stopPropagation()}
                                                     >
                                                         <div className="p-1">
-                                                            <button className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:bg-white/5 rounded-lg transition-colors">
-                                                                <Edit size={14} /> Edit Workspace
-                                                            </button>
-                                                            <button className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:bg-white/5 rounded-lg transition-colors">
-                                                                <Ban size={14} /> Suspend Access
+                                                            <Link href={`/admin/workspaces/${ws.id}`} className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:bg-white/5 rounded-lg transition-colors">
+                                                                <Globe size={14} /> View Details
+                                                            </Link>
+                                                            <button
+                                                                onClick={() => handleSuspend(ws.id, ws.status)}
+                                                                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:bg-white/5 rounded-lg transition-colors"
+                                                            >
+                                                                <Ban size={14} /> {ws.status === 'ACTIVE' ? 'Suspend Access' : 'Restore Access'}
                                                             </button>
                                                             <div className="h-px bg-white/5 my-1" />
                                                             <button className="flex w-full items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
@@ -192,12 +212,23 @@ export default function WorkspacesAdmin() {
                             </tbody>
                         </table>
                     )}
+
+                    {/* Pagination stub */}
+                    {metadata.totalPages > 1 && (
+                        <div className="p-4 bg-white/[0.02] border-t border-white/5 flex items-center justify-between">
+                            <p className="text-xs text-slate-500">Global Registry Page {page} of {metadata.totalPages}</p>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-white disabled:opacity-30">Prev</button>
+                                <button onClick={() => setPage(p => p + 1)} disabled={page === metadata.totalPages} className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-white disabled:opacity-30">Next</button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Capacity Advisory */}
                 <div className="flex items-center justify-between p-6 rounded-3xl bg-primary/5 border border-primary/10">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center text-primary">
+                        <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center text-primary shadow-lg shadow-primary/20">
                             <Plus size={24} />
                         </div>
                         <div>

@@ -617,17 +617,7 @@ model FileLink {
   project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
-enum InvitationType {
-  WORKSPACE
-  PROJECT
-}
 
-enum InvitationStatus {
-  PENDING
-  ACCEPTED
-  EXPIRED
-  REVOKED
-}
 
 model Invitation {
   id             String           @id @default(cuid())

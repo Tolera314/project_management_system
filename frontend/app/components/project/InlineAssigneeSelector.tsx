@@ -82,7 +82,7 @@ export default function InlineAssigneeSelector({
                 {currentAssignees.map((assignee) => (
                     <div
                         key={assignee.id}
-                        className="relative group rounded-full border-2 border-[#020617] transition-transform hover:z-10 hover:scale-110"
+                        className="relative group rounded-full border-2 border-surface transition-transform hover:z-10 hover:scale-110"
                         title={`${assignee.projectMember.organizationMember.user.firstName} ${assignee.projectMember.organizationMember.user.lastName}`}
                     >
                         <UserAvatar
@@ -113,7 +113,7 @@ export default function InlineAssigneeSelector({
                             e.stopPropagation();
                             setIsOpen(!isOpen);
                         }}
-                        className="w-6 h-6 rounded-full border-2 border-[#020617] bg-white/5 border-dashed border-white/20 flex items-center justify-center hover:bg-white/10 hover:border-primary text-text-secondary hover:text-primary transition-all group"
+                        className="w-6 h-6 rounded-full border-2 border-surface bg-surface-secondary border-dashed border-border flex items-center justify-center hover:bg-surface hover:border-primary text-text-secondary hover:text-primary transition-all group"
                     >
                         <Plus size={12} />
                     </button>
@@ -126,10 +126,10 @@ export default function InlineAssigneeSelector({
                         initial={{ opacity: 0, scale: 0.95, y: 10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                        className="absolute bottom-full left-0 mb-2 w-72 bg-[#0F172A] border border-white/10 rounded-2xl shadow-2xl z-[100] overflow-hidden flex flex-col"
+                        className="absolute bottom-full left-0 mb-2 w-72 bg-surface border border-border rounded-2xl shadow-2xl z-[100] overflow-hidden flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="p-4 border-b border-white/5">
+                        <div className="p-4 border-b border-border">
                             <div className="relative">
                                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
                                 <input
@@ -137,7 +137,7 @@ export default function InlineAssigneeSelector({
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     placeholder="Search members..."
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-secondary focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                    className="w-full bg-surface-secondary border border-border rounded-xl pl-9 pr-3 py-2 text-xs text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-1 focus:ring-primary/50"
                                     autoFocus
                                 />
                             </div>
@@ -184,7 +184,7 @@ export default function InlineAssigneeSelector({
                                                         onAssign(uniqueId);
                                                     }
                                                 }}
-                                                className={`w-full flex items-center gap-3 p-2 rounded-xl transition-all ${assigned ? 'bg-primary/10' : 'hover:bg-white/5'}`}
+                                                className={`w-full flex items-center gap-3 p-2 rounded-xl transition-all ${assigned ? 'bg-primary/10' : 'hover:bg-surface-secondary'}`}
                                             >
                                                 <div className="relative">
                                                     <UserAvatar
@@ -196,13 +196,13 @@ export default function InlineAssigneeSelector({
                                                         className="bg-gradient-to-br from-slate-700 to-slate-800 ring-1 ring-white/10"
                                                     />
                                                     {assigned && (
-                                                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center shadow-lg border border-[#0F172A]">
+                                                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center shadow-lg border border-surface">
                                                             <Check size={10} className="text-white" />
                                                         </div>
                                                     )}
                                                 </div>
                                                 <div className="flex-1 text-left">
-                                                    <p className="text-xs font-bold text-white">{member.user.firstName} {member.user.lastName}</p>
+                                                    <p className="text-xs font-bold text-text-primary">{member.user.firstName} {member.user.lastName}</p>
                                                     <p className="text-[10px] text-text-secondary uppercase tracking-tighter">{member.projectRole}</p>
                                                 </div>
                                             </button>

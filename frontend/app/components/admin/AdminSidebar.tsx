@@ -19,6 +19,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { aside } from 'framer-motion/client';
 
 const menuItems = [
     { icon: LayoutDashboard, label: 'Overview', href: '/admin' },
@@ -57,17 +58,16 @@ export default function AdminSidebar() {
                 )}
             </div>
 
-            {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto custom-scrollbar py-6 px-4 space-y-1">
+            <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto custom-scrollbar">
                 {menuItems.map((item) => {
-                    const isActive = pathname === item.href;
+                    const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href));
                     return (
                         <Link
                             key={item.href}
                             href={item.href}
                             className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative ${isActive
-                                    ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                                : 'text-slate-400 hover:text-white hover:bg-white/5'
                                 }`}
                         >
                             <item.icon size={20} className={isActive ? 'text-white' : 'group-hover:text-primary transition-colors'} />
