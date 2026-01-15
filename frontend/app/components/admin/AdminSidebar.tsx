@@ -15,11 +15,9 @@ import {
     ChevronRight,
     Search
 } from 'lucide-react';
-import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { aside } from 'framer-motion/client';
 
 const menuItems = [
     { icon: LayoutDashboard, label: 'Overview', href: '/admin' },
@@ -34,9 +32,13 @@ const menuItems = [
     { icon: Mail, label: 'Email / Notifications', href: '/admin/email' },
 ];
 
-export default function AdminSidebar() {
+interface AdminSidebarProps {
+    isCollapsed: boolean;
+    setIsCollapsed: (collapsed: boolean) => void;
+}
+
+export default function AdminSidebar({ isCollapsed, setIsCollapsed }: AdminSidebarProps) {
     const pathname = usePathname();
-    const [isCollapsed, setIsCollapsed] = useState(false);
 
     return (
         <aside

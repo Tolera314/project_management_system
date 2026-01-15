@@ -18,6 +18,7 @@ import TimelineView from '../../components/project/TimelineView';
 import ProjectMembersModal from '../../components/project/ProjectMembersModal';
 import { AnimatePresence, motion } from 'framer-motion';
 import FileList from '../../components/files/FileList';
+import { socketService } from '../../services/socket.service';
 
 interface User {
     id: string;
@@ -131,6 +132,22 @@ export default function ProjectPage() {
             const lastProjects = JSON.parse(localStorage.getItem('lastProjectsPerWorkspace') || '{}');
             lastProjects[selectedId] = projectId;
             localStorage.setItem('lastProjectsPerWorkspace', JSON.stringify(lastProjects));
+
+            // Socket.io Real-time integration
+            socketService.connect(selectedId);
+
+            const handleTaskUpdate = (data: any) => {
+                // If the updated task belongs to this project, refresh
+                if (data.projectId === projectId || (data.task && data.task.projectId === projectId)) {
+                    fetchProjectData(true);
+                }
+            };
+
+            socketService.on('task-updated', handleTaskUpdate);
+
+            return () => {
+                socketService.off('task-updated', handleTaskUpdate);
+            };
         }
     }, [projectId, fetchProjectData]);
 
