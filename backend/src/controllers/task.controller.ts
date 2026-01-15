@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { PrismaClient, TaskStatusEnum } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { NotificationService } from '../services/notification.service';
+import { SocketService } from '../services/socket.service';
 
 const createTaskSchema = z.object({
     title: z.string().min(1, 'Task title is required').max(200),
@@ -133,7 +134,16 @@ export const updateTask = async (req: Request, res: Response) => {
                     : (status && status !== 'DONE')
                         ? null
                         : providedCompletedAt,
-            }
+            },
+            include: { project: true }
+        });
+
+        // Emit Socket Event for real-time update
+        SocketService.emitToWorkspace(updatedTask.project.organizationId, 'task-updated', {
+            taskId: updatedTask.id,
+            projectId: updatedTask.projectId,
+            action: 'UPDATE',
+            task: updatedTask
         });
 
         // Send Notification for Status Change
@@ -826,7 +836,7 @@ export const searchTasks = async (req: Request, res: Response) => {
             where,
             include: {
                 project: {
-                    select: { id: true, name: true }
+                    select: { id: true, name: true, color: true }
                 },
                 assignees: {
                     include: {

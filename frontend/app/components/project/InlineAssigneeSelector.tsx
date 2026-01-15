@@ -169,13 +169,13 @@ export default function InlineAssigneeSelector({
                                 </div>
                             ) : (
                                 <div className="space-y-1">
-                                    {filtered.map((member) => {
+                                    {filtered.map((member, idx) => {
                                         const assigned = isAssigned(member.user.id);
                                         const uniqueId = member.type === 'INVITATION' ? `inv_${invitations.find(i => i.email === member.user.email)?.id}` : (member.id || `org_${member.organizationMemberId}`);
 
                                         return (
                                             <button
-                                                key={member.type === 'INVITATION' ? member.user.email : member.organizationMemberId}
+                                                key={`${member.type}-${member.user.id}-${idx}`}
                                                 onClick={() => {
                                                     if (assigned) {
                                                         const assignee = currentAssignees.find(a => a.projectMember.organizationMember.userId === member.user.id);

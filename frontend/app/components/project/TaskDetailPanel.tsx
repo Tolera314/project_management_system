@@ -587,12 +587,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                             Blueprint Mode
                         </div>
                     )}
-                    {task && !loading && (
-                        <div className="flex flex-col ml-4 border-l border-border pl-4 max-w-[150px] sm:max-w-[200px] md:max-w-[300px]">
-                            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest opacity-50 truncate">Task Overview</span>
-                            <h2 className="text-sm font-bold text-text-primary truncate">{task.title}</h2>
-                        </div>
-                    )}
+                    
                 </div>
                 <div className="flex items-center gap-2">
                     {task?.isArchived ? (

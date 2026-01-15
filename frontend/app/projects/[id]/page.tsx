@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useParams } from 'next/navigation';
 import DashboardLayout from '../../components/dashboard/DashboardLayout';
 import ProjectHeader from '../../components/project/ProjectHeader';
 import ProjectOverviewStrip from '../../components/project/ProjectOverviewStrip';
@@ -11,21 +11,81 @@ import ListDetailPanel from '../../components/project/ListDetailPanel';
 import MilestoneDashboard from '../../components/project/MilestoneDashboard';
 import MilestoneDetailPanel from '../../components/project/MilestoneDetailPanel';
 import CreateListModal from '../../components/project/CreateListModal';
+import CreateTaskModal from '../../components/project/CreateTaskModal';
 import InviteMemberModal from '../../components/project/InviteMemberModal';
 import BoardView from '../../components/project/BoardView';
 import TimelineView from '../../components/project/TimelineView';
 import ProjectMembersModal from '../../components/project/ProjectMembersModal';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle2 } from 'lucide-react';
 import FileList from '../../components/files/FileList';
+
+interface User {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    avatarUrl?: string;
+    systemRole?: string;
+}
+
+interface MemberRole {
+    id: string;
+    name: string;
+    permissions: Array<{ permission: { name: string } }>;
+}
+
+interface ProjectMember {
+    id: string;
+    userId: string;
+    role: MemberRole;
+    user: User;
+}
+
+interface Task {
+    id: string;
+    title: string;
+    status: string;
+    priority: string;
+    dueDate?: string;
+    startDate?: string;
+    assignees?: ProjectMember[];
+    children?: Task[];
+    projectId: string;
+    project: { name: string };
+}
+
+interface List {
+    id: string;
+    name: string;
+    tasks: Task[];
+    position: number;
+}
+
+interface Milestone {
+    id: string;
+    name: string;
+    dueDate: string;
+}
+
+interface Project {
+    id: string;
+    name: string;
+    lists: List[];
+    members: ProjectMember[];
+    milestones?: Milestone[];
+    organization?: {
+        roles: MemberRole[];
+        members: ProjectMember[];
+    };
+}
 
 export default function ProjectPage() {
     const params = useParams();
     const projectId = params.id as string;
-    const [project, setProject] = useState<any>(null);
+    const [project, setProject] = useState<Project | null>(null);
     const [loading, setLoading] = useState(true);
-    const [selectedTask, setSelectedTask] = useState<any>(null);
-    const [selectedMilestone, setSelectedMilestone] = useState<any>(null);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
     const [selectedListId, setSelectedListId] = useState<string | null>(null);
     const [isCreateListModalOpen, setIsCreateListModalOpen] = useState(false);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -34,96 +94,12 @@ export default function ProjectPage() {
     const [sortBy, setSortBy] = useState<'default' | 'priority' | 'dueDate'>('default');
     const [filterStatus, setFilterStatus] = useState<string | null>(null);
     const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
+    const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false);
+    const [createTaskInitialStatus, setCreateTaskInitialStatus] = useState<string | undefined>(undefined);
 
     const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
 
-    useEffect(() => {
-        fetchProjectData();
-
-        // Remember this project as the last visited for the current workspace
-        const selectedId = localStorage.getItem('selectedWorkspaceId');
-        if (selectedId && projectId) {
-            const lastProjects = JSON.parse(localStorage.getItem('lastProjectsPerWorkspace') || '{}');
-            lastProjects[selectedId] = projectId;
-            localStorage.setItem('lastProjectsPerWorkspace', JSON.stringify(lastProjects));
-        }
-    }, [projectId]);
-
-    // Sync selectedTask when project data updates
-    useEffect(() => {
-        if (selectedTask && project) {
-            const updatedTask = project.lists
-                ?.flatMap((l: any) => l.tasks)
-                .reduce((found: any, t: any) => {
-                    if (found) return found;
-                    if (t.id === selectedTask.id) return t;
-                    return t.children?.find((c: any) => c.id === selectedTask.id);
-                }, null);
-
-            if (updatedTask) {
-                setSelectedTask(updatedTask);
-            }
-        }
-    }, [project]);
-
-    const hasPermission = (permissionName: string) => {
-        if (!project || !currentMemberId) return false;
-        const member = project.members.find((m: any) => m.id === currentMemberId);
-        if (!member) return false;
-        // Project Manager usually has all permissions, or check isSystem/name
-        if (member.role.name === 'Project Manager') return true;
-
-        return member.role.permissions.some((p: any) => p.permission.name === permissionName);
-    };
-
-    const processedProject = useMemo(() => {
-        if (!project) return null;
-
-        const priorityOrder = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-
-        const lists = project.lists.map((list: any) => {
-            // 1. Filter Tasks
-            let filteredTasks = list.tasks.filter((task: any) => {
-                // Status Filter
-                if (filterStatus && task.status !== filterStatus) return false;
-
-                // Assignee Filter
-                if (filterAssignee) {
-                    if (filterAssignee === 'unassigned') {
-                        if (task.assignees && task.assignees.length > 0) return false;
-                    } else if (filterAssignee === 'me') {
-                        if (!currentMemberId) return false;
-                        // Check if current user's org member ID is in task assignees
-                        // The task assignees are ProjectMembers. currentMemberId is a ProjectMember ID.
-                        const isAssigned = task.assignees?.some((a: any) => a.id === currentMemberId);
-                        if (!isAssigned) return false;
-                    }
-                }
-                return true;
-            });
-
-            // 2. Sort Tasks
-            if (sortBy !== 'default') {
-                filteredTasks = [...filteredTasks].sort((a: any, b: any) => {
-                    if (sortBy === 'priority') {
-                        return (priorityOrder[a.priority as keyof typeof priorityOrder] || 2) - (priorityOrder[b.priority as keyof typeof priorityOrder] || 2);
-                    }
-                    if (sortBy === 'dueDate') {
-                        if (!a.dueDate) return 1;
-                        if (!b.dueDate) return -1;
-                        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-                    }
-                    return 0;
-                });
-            }
-
-            return { ...list, tasks: filteredTasks };
-        });
-
-        return { ...project, lists };
-    }, [project, sortBy, filterStatus, filterAssignee, currentMemberId]);
-
-    const fetchProjectData = async (silent = false) => {
+    const fetchProjectData = useCallback(async (silent = false) => {
         try {
             if (!silent) setLoading(true);
             const token = localStorage.getItem('token');
@@ -144,7 +120,94 @@ export default function ProjectPage() {
         } finally {
             setLoading(false);
         }
+    }, [projectId]);
+
+    useEffect(() => {
+        fetchProjectData();
+
+        // Remember this project as the last visited for the current workspace
+        const selectedId = localStorage.getItem('selectedWorkspaceId');
+        if (selectedId && projectId) {
+            const lastProjects = JSON.parse(localStorage.getItem('lastProjectsPerWorkspace') || '{}');
+            lastProjects[selectedId] = projectId;
+            localStorage.setItem('lastProjectsPerWorkspace', JSON.stringify(lastProjects));
+        }
+    }, [projectId, fetchProjectData]);
+
+    // Sync selectedTask when project data updates
+    useEffect(() => {
+        if (selectedTask && project) {
+            const updatedTask = project.lists
+                ?.flatMap((l: List) => l.tasks)
+                .reduce((found: Task | null, t: Task) => {
+                    if (found) return found;
+                    if (t.id === selectedTask.id) return t;
+                    return t.children?.find((c: Task) => c.id === selectedTask.id) || null;
+                }, null);
+
+            if (updatedTask) {
+                setSelectedTask(updatedTask);
+            }
+        }
+    }, [project, selectedTask]);
+
+    const hasPermission = (permissionName: string) => {
+        if (!project || !currentMemberId) return false;
+        const member = project.members.find((m: ProjectMember) => m.id === currentMemberId);
+        if (!member) return false;
+        // Project Manager usually has all permissions, or check isSystem/name
+        if (member.role.name === 'Project Manager') return true;
+
+        return member.role.permissions.some((p: { permission: { name: string } }) => p.permission.name === permissionName);
     };
+
+    const processedProject = useMemo(() => {
+        if (!project) return null;
+
+        const priorityOrder: Record<string, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+
+        const lists = project.lists.map((list: List) => {
+            // 1. Filter Tasks
+            let filteredTasks = list.tasks.filter((task: Task) => {
+                // Status Filter
+                if (filterStatus && task.status !== filterStatus) return false;
+
+                // Assignee Filter
+                if (filterAssignee) {
+                    if (filterAssignee === 'unassigned') {
+                        if (task.assignees && task.assignees.length > 0) return false;
+                    } else if (filterAssignee === 'me') {
+                        if (!currentMemberId) return false;
+                        // Check if current user's org member ID is in task assignees
+                        // The task assignees are ProjectMembers. currentMemberId is a ProjectMember ID.
+                        const isAssigned = task.assignees?.some((a: ProjectMember) => a.id === currentMemberId);
+                        if (!isAssigned) return false;
+                    }
+                }
+                return true;
+            });
+
+            // 2. Sort Tasks
+            if (sortBy !== 'default') {
+                filteredTasks = [...filteredTasks].sort((a: Task, b: Task) => {
+                    if (sortBy === 'priority') {
+                        return (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2);
+                    }
+                    if (sortBy === 'dueDate') {
+                        if (!a.dueDate) return 1;
+                        if (!b.dueDate) return -1;
+                        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                    }
+                    return 0;
+                });
+            }
+
+            return { ...list, tasks: filteredTasks };
+        });
+
+        return { ...project, lists };
+    }, [project, sortBy, filterStatus, filterAssignee, currentMemberId]);
+
 
     const handleInviteMember = async (email: string, roleId: string) => {
         const token = localStorage.getItem('token');
@@ -220,7 +283,7 @@ export default function ProjectPage() {
                 <div className="flex items-center justify-center h-full">
                     <div className="text-center">
                         <h2 className="text-xl font-bold text-white mb-2">Project not found</h2>
-                        <p className="text-text-secondary">This project might have been deleted or you don't have access.</p>
+                        <p className="text-text-secondary">This project might have been deleted or you don&apos;t have access.</p>
                     </div>
                 </div>
             </DashboardLayout>
@@ -251,7 +314,7 @@ export default function ProjectPage() {
                     />
 
                     <div className="flex-1 overflow-auto custom-scrollbar">
-                        <div className="p-6 md:p-8 max-w-[1600px] mx-auto space-y-8">
+                        <div className="p-6 md:p-8 max-w-400 mx-auto space-y-8">
                             <ProjectOverviewStrip project={project} />
 
                             <AnimatePresence mode="wait">
@@ -264,10 +327,10 @@ export default function ProjectPage() {
                                         transition={{ duration: 0.3 }}
                                     >
                                         <TaskListView
-                                            lists={processedProject.lists}
+                                            lists={processedProject!.lists}
                                             projectId={projectId}
                                             project={project}
-                                            onTaskClick={(task: any) => setSelectedTask(task)}
+                                            onTaskClick={(task: Task) => setSelectedTask(task)}
                                             onListClick={(listId: string) => setSelectedListId(listId)}
                                             onRefresh={() => fetchProjectData(true)}
                                         />
@@ -284,11 +347,15 @@ export default function ProjectPage() {
                                         className="h-full"
                                     >
                                         <BoardView
-                                            tasks={processedProject.lists.flatMap((l: any) => l.tasks)}
+                                            tasks={processedProject!.lists.flatMap((l: List) => l.tasks)}
                                             projectId={projectId}
                                             project={project}
-                                            onTaskClick={(task: any) => setSelectedTask(task)}
+                                            onTaskClick={(task: Task) => setSelectedTask(task)}
                                             onRefresh={() => fetchProjectData(true)}
+                                            onAddTask={(status) => {
+                                                setCreateTaskInitialStatus(status);
+                                                setIsCreateTaskModalOpen(true);
+                                            }}
                                         />
                                     </motion.div>
                                 )}
@@ -304,8 +371,8 @@ export default function ProjectPage() {
                                         <MilestoneDashboard
                                             projectId={projectId}
                                             onRefresh={() => fetchProjectData(true)}
-                                            projectTasks={processedProject.lists.flatMap((list: any) => list.tasks)}
-                                            onMilestoneClick={(milestone: any) => setSelectedMilestone(milestone)}
+                                            projectTasks={processedProject!.lists.flatMap((list: List) => list.tasks)}
+                                            onMilestoneClick={(milestone: Milestone) => setSelectedMilestone(milestone)}
                                         />
                                     </motion.div>
                                 )}
@@ -320,10 +387,10 @@ export default function ProjectPage() {
                                         className="h-full"
                                     >
                                         <TimelineView
-                                            tasks={processedProject.lists.flatMap((l: any) => l.tasks)}
-                                            milestones={processedProject.milestones || []}
+                                            tasks={processedProject!.lists.flatMap((l: List) => l.tasks)}
+                                            milestones={processedProject!.milestones || []}
                                             projectId={projectId}
-                                            onTaskClick={(task: any) => setSelectedTask(task)}
+                                            onTaskClick={(task: Task) => setSelectedTask(task)}
                                             onRefresh={() => fetchProjectData(true)}
                                         />
                                     </motion.div>
@@ -378,6 +445,15 @@ export default function ProjectPage() {
                         projectId={projectId}
                         onSuccess={() => fetchProjectData(true)}
                     />
+                    <CreateTaskModal
+                        key="create-task-modal"
+                        isOpen={isCreateTaskModalOpen}
+                        onClose={() => setIsCreateTaskModalOpen(false)}
+                        projectId={projectId}
+                        onSuccess={() => fetchProjectData(true)}
+                        initialStatus={createTaskInitialStatus}
+                        lists={project?.lists || []}
+                    />
                     <InviteMemberModal
                         key="invite-member-modal"
                         isOpen={isInviteModalOpen}
@@ -396,7 +472,7 @@ export default function ProjectPage() {
                         onUpdateRole={handleUpdateMemberRole}
                         onRemoveMember={handleRemoveMember}
                         currentUser={{ id: currentMemberId }} // We need user info more than just member ID for "You" tag, but basic check works
-                        roles={(project?.organization?.roles || []).filter((r: any) =>
+                        roles={(project?.organization?.roles || []).filter((r: MemberRole) =>
                             ['Project Manager', 'Project Member', 'Project Viewer'].includes(r.name)
                         )}
                     />

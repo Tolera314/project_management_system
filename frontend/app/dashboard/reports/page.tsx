@@ -52,19 +52,37 @@ export default function ReportsPage() {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            const workspaceId = localStorage.getItem('selectedWorkspaceId');
-
             if (!token) {
                 router.push('/login');
                 return;
             }
 
+            let workspaceId = localStorage.getItem('selectedWorkspaceId');
+
+            if (!workspaceId || workspaceId === 'null' || workspaceId === 'undefined') {
+                const wsRes = await fetch('http://localhost:4000/workspaces/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const wsData = await wsRes.json();
+                if (wsData.workspace) {
+                    workspaceId = wsData.workspace.id;
+                    localStorage.setItem('selectedWorkspaceId', wsData.workspace.id);
+                }
+            }
+
+            if (!workspaceId || workspaceId === 'null' || workspaceId === 'undefined') {
+                setLoading(false);
+                return;
+            }
+
+            const finalWorkspaceId = workspaceId as string;
+
             // Fetch tasks and projects
             const [tasksRes, projectsRes] = await Promise.all([
-                fetch(`http://localhost:4000/tasks/search?workspaceId=${workspaceId}`, {
+                fetch(`http://localhost:4000/tasks/search?workspaceId=${finalWorkspaceId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 }),
-                fetch(`http://localhost:4000/projects?organizationId=${workspaceId}`, {
+                fetch(`http://localhost:4000/projects?organizationId=${finalWorkspaceId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 })
             ]);
@@ -177,7 +195,7 @@ export default function ReportsPage() {
                                     <PieChartIcon size={20} className="text-primary" />
                                     Task Status Distribution
                                 </div>
-                                <div className="flex-1 w-full">
+                                <div className="h-[300px] w-full mt-auto">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie
@@ -189,8 +207,8 @@ export default function ReportsPage() {
                                                 paddingAngle={5}
                                                 dataKey="value"
                                             >
-                                                {stats.statusData.map((entry: any, index: number) => (
-                                                    <Cell key={`cell-\${index}`} fill={entry.color} />
+                                                {stats.statusData.map((entry: any) => (
+                                                    <Cell key={`cell-${entry.name}`} fill={entry.color} />
                                                 ))}
                                             </Pie>
                                             <Tooltip
@@ -219,7 +237,7 @@ export default function ReportsPage() {
                                     <TrendingUp size={20} className="text-emerald-500" />
                                     Project Engagement (Top 5)
                                 </div>
-                                <div className="flex-1 w-full text-slate-400">
+                                <div className="h-[300px] w-full mt-auto text-slate-400">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart data={stats.projectData} layout="vertical">
                                             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} opacity={0.2} />
