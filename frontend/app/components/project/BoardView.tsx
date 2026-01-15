@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import {
     AlertTriangle,
@@ -21,6 +21,7 @@ interface BoardViewProps {
     project?: any;
     onTaskClick: (task: any) => void;
     onRefresh: () => void;
+    onAddTask?: (status: string) => void;
     isTemplate?: boolean;
 }
 
@@ -45,11 +46,14 @@ const STATUS_Map: { [key: string]: string } = {
     'Done': 'DONE'
 };
 
-export default function BoardView({ tasks, projectId, project, onTaskClick, onRefresh, isTemplate = false }: BoardViewProps) {
-    // Filter out tasks that belong to lists without status or ensure flat list
-    // The prompt says "Lists are abstracted away". So we take all tasks.
+export default function BoardView({ tasks, projectId, project, onTaskClick, onRefresh, onAddTask, isTemplate = false }: BoardViewProps) {
+    const [localTasks, setLocalTasks] = useState(tasks);
 
-    // Group tasks by status
+    // Keep localTasks in sync with props when they change (but not during a drag)
+    useEffect(() => {
+        setLocalTasks(tasks);
+    }, [tasks]);
+
     const tasksByStatus = useMemo(() => {
         const grouped: { [key: string]: any[] } = {
             TODO: [],
@@ -58,40 +62,47 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
             DONE: []
         };
 
-        tasks.forEach(task => {
+        localTasks.forEach(task => {
             if (grouped[task.status]) {
                 grouped[task.status].push(task);
-            } else if (task.status === 'BLOCKED') {
-                // For now, maybe map blocked to TODO or separate? 
-                // User didn't specify Blocked column. Let's put in TODO or ignore.
-                // Let's add them to TODO for now to avoid data loss in view
+            } else {
                 grouped['TODO'].push(task);
             }
         });
 
+        // Sort by position
+        Object.keys(grouped).forEach(status => {
+            grouped[status].sort((a, b) => (a.position || 0) - (b.position || 0));
+        });
+
         return grouped;
-    }, [tasks]);
+    }, [localTasks]);
 
     const onDragEnd = async (result: DropResult) => {
-        if (isTemplate) return; // Disable drag and drop in template mode for now (unless we want to support reordering)
-
+        if (isTemplate) return;
         const { destination, source, draggableId } = result;
 
         if (!destination) return;
+        if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
-        if (
-            destination.droppableId === source.droppableId &&
-            destination.index === source.index
-        ) {
-            return;
-        }
-
-        const newStatus = destination.droppableId;
-        const task = tasks.find(t => t.id === draggableId);
-
+        const task = localTasks.find(t => t.id === draggableId);
         if (!task) return;
 
-        // Optimistic update could happen here, but for now let's just call API
+        const oldStatus = source.droppableId;
+        const newStatus = destination.droppableId;
+        const oldIndex = source.index;
+        const newIndex = destination.index;
+
+        // Optimistic Update
+        const updatedTasks = [...localTasks];
+        const taskToMove = updatedTasks.find(t => t.id === draggableId);
+        if (taskToMove) {
+            taskToMove.status = newStatus as any;
+            // Actually reorder in the localTasks list requires more care if we rely on tasksByStatus sorting
+            // Let's just update the status and trigger the re-sort
+            setLocalTasks(updatedTasks);
+        }
+
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`http://localhost:4000/tasks/${draggableId}`, {
@@ -100,12 +111,19 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ status: newStatus })
+                body: JSON.stringify({
+                    status: newStatus,
+                    position: newIndex * 1000 // Simple position logic
+                })
             });
-            if (res.ok) {
-                onRefresh();
+            if (!res.ok) {
+                setLocalTasks(tasks); // Rollback
+                console.error('Failed to update task');
+            } else {
+                onRefresh(); // Get authoritative state
             }
         } catch (error) {
+            setLocalTasks(tasks); // Rollback
             console.error('Update task status error:', error);
         }
     };
@@ -139,7 +157,10 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
                                     </span>
                                 </div>
                                 <div className="flex items-center">
-                                    <button className="p-1 hover:bg-foreground/5 rounded text-text-secondary hover:text-primary transition-colors">
+                                    <button
+                                        onClick={() => onAddTask?.(statusKey)}
+                                        className="p-1 hover:bg-foreground/5 rounded text-text-secondary hover:text-primary transition-colors"
+                                    >
                                         <Plus size={16} />
                                     </button>
                                 </div>

@@ -44,14 +44,32 @@ export default function TasksPage() {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            const workspaceId = localStorage.getItem('selectedWorkspaceId');
-
             if (!token) {
                 router.push('/login');
                 return;
             }
+            let workspaceId = localStorage.getItem('selectedWorkspaceId');
 
-            let url = `http://localhost:4000/tasks/search?workspaceId=${workspaceId}`;
+            if (!workspaceId || workspaceId === 'null' || workspaceId === 'undefined') {
+                // Try to wait a bit or fetch current workspace as fallback
+                const wsRes = await fetch('http://localhost:4000/workspaces/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const wsData = await wsRes.json();
+                if (wsData.workspace) {
+                    workspaceId = wsData.workspace.id;
+                    localStorage.setItem('selectedWorkspaceId', wsData.workspace.id);
+                }
+            }
+
+            if (!workspaceId || workspaceId === 'null' || workspaceId === 'undefined') {
+                setTasks([]);
+                setLoading(false);
+                return;
+            }
+
+            const finalWorkspaceId = workspaceId as string;
+            let url = `http://localhost:4000/tasks/search?workspaceId=${finalWorkspaceId}`;
             if (statusFilter !== 'all') url += `&status=${statusFilter}`;
             if (priorityFilter !== 'all') url += `&priority=${priorityFilter}`;
 

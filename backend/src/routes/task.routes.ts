@@ -7,16 +7,16 @@ const router = Router();
 
 router.use(authMiddleware);
 
-router.post('/', checkProjectPermission('create_task'), createTask);
-router.patch('/:id', checkProjectPermission('edit_task'), updateTask);
-router.delete('/:id', checkProjectPermission('delete_task'), deleteTask);
-router.get('/:id', getTaskDetails);
-
 // Search & Filtering
 router.get('/search', searchTasks);
 
 // Bulk Actions
 router.patch('/bulk', checkProjectPermission('edit_task'), bulkUpdateTasks);
+
+router.post('/', checkProjectPermission('create_task'), createTask);
+router.patch('/:id', checkProjectPermission('edit_task'), updateTask);
+router.delete('/:id', checkProjectPermission('delete_task'), deleteTask);
+router.get('/:id', getTaskDetails);
 
 // Comments
 router.post('/:id/comments', checkProjectPermission('comment'), addComment);

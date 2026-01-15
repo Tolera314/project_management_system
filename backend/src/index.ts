@@ -20,9 +20,15 @@ import fileRoutes from './routes/file.routes';
 import templateRoutes from './routes/template.routes';
 import adminRoutes from './routes/admin.routes';
 
+import { createServer } from 'http';
+import { SocketService } from './services/socket.service';
+
 const app = express();
-// const prisma = new PrismaClient(); // Removed local instance
 const port = process.env.PORT || 4000;
+const httpServer = createServer(app);
+
+// Initialize Socket.io
+SocketService.initialize(httpServer);
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -57,8 +63,8 @@ prisma.$connect()
         console.error('❌ Database connection failed:', error.message);
     });
 
-const server = app.listen(port, () => {
+const server = httpServer.listen(port, () => {
     console.log(`🚀 Server running on port ${port}`);
 });
 
-export { app, prisma };
+export { app, prisma, httpServer, server };

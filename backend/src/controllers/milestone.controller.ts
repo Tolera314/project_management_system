@@ -93,23 +93,27 @@ export const createMilestone = async (req: Request, res: Response) => {
 
 export const getMilestones = async (req: Request, res: Response) => {
     try {
-        const { projectId } = req.query;
+        const { projectId, workspaceId } = req.query;
         const userId = (req as any).userId;
 
-        if (!projectId || typeof projectId !== 'string') {
-            res.status(400).json({ error: 'Project ID is required' });
+        if (!projectId && !workspaceId) {
+            res.status(400).json({ error: 'Project ID or Workspace ID is required' });
             return;
         }
 
-        const milestones = await prisma.milestone.findMany({
-            where: {
-                projectId,
-                project: {
-                    organization: {
-                        members: { some: { userId } }
-                    }
+        const where: any = {
+            project: {
+                organization: {
+                    members: { some: { userId } }
                 }
-            },
+            }
+        };
+
+        if (projectId) where.projectId = projectId;
+        if (workspaceId) where.project = { ...where.project, organizationId: workspaceId };
+
+        const milestones = await prisma.milestone.findMany({
+            where,
             include: {
                 tasks: {
                     select: { id: true, status: true, dueDate: true }
