@@ -81,6 +81,20 @@ export const createTask = async (req: Request, res: Response) => {
             }
         });
 
+        // Emit Socket Event
+        const projectWithOrg = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { organizationId: true }
+        });
+        if (projectWithOrg) {
+            SocketService.emitToWorkspace(projectWithOrg.organizationId, 'task-updated', {
+                taskId: task.id,
+                projectId: task.projectId,
+                action: 'CREATE',
+                task
+            });
+        }
+
         res.status(201).json({ task });
     } catch (error) {
         console.error('Create task error:', error);
@@ -116,6 +130,31 @@ export const updateTask = async (req: Request, res: Response) => {
         }
 
         const { title, description, listId, priority, status, startDate, dueDate, position, completedAt: providedCompletedAt } = validation.data;
+
+        // Date consistency check
+        if (startDate && dueDate && new Date(startDate) > new Date(dueDate)) {
+            res.status(400).json({ error: 'Start date cannot be after due date' });
+            return;
+        }
+
+        // Dependency check: Cannot complete if dependencies are not done
+        if (status === 'DONE') {
+            const unfinishedDependencies = await prisma.taskDependency.findMany({
+                where: {
+                    targetId: id,
+                    source: {
+                        status: { not: 'DONE' }
+                    }
+                },
+                include: { source: true }
+            });
+
+            if (unfinishedDependencies.length > 0) {
+                const sourceTitles = unfinishedDependencies.map(d => d.source.title).join(', ');
+                res.status(400).json({ error: `Cannot complete task: Waiting on unfinished dependencies (${sourceTitles})` });
+                return;
+            }
+        }
 
         const updatedTask = await prisma.task.update({
             where: { id },
@@ -258,7 +297,21 @@ export const deleteTask = async (req: Request, res: Response) => {
             return;
         }
 
+        const projectWithOrg = await prisma.project.findUnique({
+            where: { id: task.projectId },
+            select: { organizationId: true }
+        });
+
         await prisma.task.delete({ where: { id } });
+
+        if (projectWithOrg) {
+            SocketService.emitToWorkspace(projectWithOrg.organizationId, 'task-updated', {
+                taskId: id,
+                projectId: task.projectId,
+                action: 'DELETE'
+            });
+        }
+
         res.json({ message: 'Task deleted successfully' });
     } catch (error) {
         console.error('Delete task error:', error);

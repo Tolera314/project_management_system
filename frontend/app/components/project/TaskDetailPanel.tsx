@@ -120,6 +120,9 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
             if (projectData.currentMemberRole) setCurrentMemberRole(projectData.currentMemberRole);
         } catch (error) {
             console.error('Fetch task details error:', error);
+            if (error instanceof TypeError && error.message === 'Failed to fetch') {
+                alert('Connection to server failed. Please ensure the backend is running on port 4000.');
+            }
         } finally {
             setLoading(false);
         }
@@ -587,7 +590,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                             Blueprint Mode
                         </div>
                     )}
-                    
+
                 </div>
                 <div className="flex items-center gap-2">
                     {task?.isArchived ? (

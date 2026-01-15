@@ -62,12 +62,17 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
             DONE: []
         };
 
+        const mapStatus = (status: string) => {
+            const s = (status || '').toUpperCase().replace(/\s+/g, '_');
+            if (grouped[s]) return s;
+            if (s === 'TO_DO') return 'TODO';
+            if (s === 'REVIEW') return 'IN_REVIEW';
+            return 'TODO';
+        };
+
         localTasks.forEach(task => {
-            if (grouped[task.status]) {
-                grouped[task.status].push(task);
-            } else {
-                grouped['TODO'].push(task);
-            }
+            const s = mapStatus(task.status);
+            grouped[s].push(task);
         });
 
         // Sort by position
@@ -88,20 +93,51 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
         const task = localTasks.find(t => t.id === draggableId);
         if (!task) return;
 
-        const oldStatus = source.droppableId;
         const newStatus = destination.droppableId;
-        const oldIndex = source.index;
-        const newIndex = destination.index;
 
-        // Optimistic Update
-        const updatedTasks = [...localTasks];
-        const taskToMove = updatedTasks.find(t => t.id === draggableId);
-        if (taskToMove) {
-            taskToMove.status = newStatus as any;
-            // Actually reorder in the localTasks list requires more care if we rely on tasksByStatus sorting
-            // Let's just update the status and trigger the re-sort
-            setLocalTasks(updatedTasks);
+        // Optimistic Update: Calculate new position
+        const updatedTasks = localTasks.map(t => t.id === draggableId ? { ...t, status: newStatus as any } : t);
+
+        // Function to map status for consistent column matching
+        const mapStatus = (status: string) => {
+            const s = (status || '').toUpperCase().replace(/\s+/g, '_');
+            if (s === 'TODO' || s === 'TO_DO') return 'TODO';
+            if (s === 'IN_PROGRESS') return 'IN_PROGRESS';
+            if (s === 'IN_REVIEW' || s === 'REVIEW') return 'IN_REVIEW';
+            if (s === 'DONE') return 'DONE';
+            return 'TODO';
+        };
+
+        // Get sorted tasks in target column to find neighbors
+        const targetTasks = updatedTasks
+            .filter(t => mapStatus(t.status) === newStatus)
+            .sort((a, b) => (a.position || 0) - (b.position || 0));
+
+        let newPosition = 0;
+        if (targetTasks.length <= 1) { // 1 because the task is already in updatedTasks
+            newPosition = 1000;
+        } else if (destination.index === 0) {
+            // Drop at top
+            const firstInSource = targetTasks.find(t => t.id !== draggableId);
+            newPosition = (firstInSource?.position || 1000) / 2;
+        } else {
+            // Find neighbors in targetTasks correctly
+            const filteredTarget = targetTasks.filter(t => t.id !== draggableId);
+            if (destination.index >= filteredTarget.length) {
+                // Drop at bottom
+                newPosition = (filteredTarget[filteredTarget.length - 1].position || 0) + 1000;
+            } else {
+                // Drop in between
+                const before = filteredTarget[destination.index - 1].position || 0;
+                const after = filteredTarget[destination.index].position || 0;
+                newPosition = (before + after) / 2;
+            }
         }
+
+        const taskInArray = updatedTasks.find(t => t.id === draggableId);
+        if (taskInArray) taskInArray.position = newPosition;
+
+        setLocalTasks(updatedTasks);
 
         try {
             const token = localStorage.getItem('token');
@@ -113,18 +149,20 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
                 },
                 body: JSON.stringify({
                     status: newStatus,
-                    position: newIndex * 1000 // Simple position logic
+                    position: newPosition
                 })
             });
+
             if (!res.ok) {
-                setLocalTasks(tasks); // Rollback
-                console.error('Failed to update task');
+                const errorData = await res.json();
+                setLocalTasks(tasks);
+                alert(`Failed to move task: ${errorData.error || 'Server error'}`);
             } else {
-                onRefresh(); // Get authoritative state
+                onRefresh();
             }
         } catch (error) {
-            setLocalTasks(tasks); // Rollback
-            console.error('Update task status error:', error);
+            setLocalTasks(tasks);
+            alert('Connection to server failed. Please ensure the backend is running on port 4000.');
         }
     };
 

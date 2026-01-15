@@ -17,8 +17,8 @@ export class SocketService {
             console.log(`🔌 Client connected: ${socket.id}`);
 
             socket.on('join-workspace', (workspaceId: string) => {
-                socket.join(`workspace-\${workspaceId}`);
-                console.log(`📡 Socket \${socket.id} joined workspace-\${workspaceId}`);
+                socket.join(`workspace-${workspaceId}`);
+                console.log(`📡 Socket ${socket.id} joined workspace-${workspaceId}`);
             });
 
             socket.on('disconnect', () => {
@@ -31,7 +31,7 @@ export class SocketService {
 
     public static emitToWorkspace(workspaceId: string, event: string, data: any) {
         if (this.io) {
-            this.io.to(`workspace-\${workspaceId}`).emit(event, data);
+            this.io.to(`workspace-${workspaceId}`).emit(event, data);
         }
     }
 
