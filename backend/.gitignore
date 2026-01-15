@@ -10,9 +10,6 @@ backend/node_modules/
 .env.example
 .vscode
 # Prisma
-/prisma/migrations/
-/prisma/*.db
-/prisma/*.db-journal
 
 # Build output
 dist/
