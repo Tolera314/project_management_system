@@ -39,6 +39,23 @@ export const createDependency = async (req: Request, res: Response) => {
                 });
                 break;
             case 'TASK':
+                // Circular dependency check for Tasks
+                const checkCycle = async (source: string, target: string): Promise<boolean> => {
+                    if (source === target) return true;
+                    const deps = await prisma.taskDependency.findMany({
+                        where: { sourceId: target }
+                    });
+                    for (const dep of deps) {
+                        if (await checkCycle(source, dep.targetId)) return true;
+                    }
+                    return false;
+                };
+
+                if (await checkCycle(sourceId, targetId)) {
+                    res.status(400).json({ error: 'Circular dependency detected' });
+                    return;
+                }
+
                 await prisma.taskDependency.create({
                     data: { sourceId, targetId, type: dependencyType }
                 });

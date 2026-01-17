@@ -11,10 +11,15 @@ import {
     Filter,
     ArrowUpDown,
     CheckCircle2,
-    Diamond
+    Diamond,
+    Layout,
+    File as FileIcon
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import SaveAsTemplateModal from '../templates/SaveAsTemplateModal';
+import { useUser } from '../../context/UserContext';
+import UserAvatar from '../shared/UserAvatar';
 
 interface ProjectHeaderProps {
     project: any;
@@ -25,22 +30,49 @@ interface ProjectHeaderProps {
     canInvite?: boolean;
     sortBy?: 'default' | 'priority' | 'dueDate';
     onSortChange?: (sort: 'default' | 'priority' | 'dueDate') => void;
+    filterStatus?: string | null;
+    filterAssignee?: string | null;
+    onFilterChange?: (type: 'status' | 'assignee', value: string | null) => void;
+    onManageMembers?: () => void;
+    projectId?: string;
 }
 
-export default function ProjectHeader({ project, activeView, onViewChange, onCreateList, onInviteMember, canInvite = false, sortBy, onSortChange }: ProjectHeaderProps) {
-    const [showCreateMenu, setShowCreateMenu] = useState(false);
+export default function ProjectHeader({
+    project,
+    activeView,
+    onViewChange,
+    onCreateList,
+    onInviteMember,
+    canInvite = false,
+    sortBy,
+    onSortChange,
+    filterStatus,
+    filterAssignee,
+    onFilterChange,
+    onManageMembers,
+    projectId
+}: ProjectHeaderProps) {
+    const [showCreateMenu, setShowCreateMenu] = useState<boolean | 'more'>(false);
     const [showSortMenu, setShowSortMenu] = useState(false);
+    const [showFilterMenu, setShowFilterMenu] = useState(false);
+    const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
+    const { user } = useUser();
+
+    // ... views definition ...
     const views = [
         { id: 'list', label: 'List', icon: LayoutGrid },
         { id: 'board', label: 'Board', icon: LayoutGrid },
         { id: 'milestones', label: 'Milestones', icon: CheckCircle2 },
         { id: 'timeline', label: 'Timeline', icon: LayoutGrid },
+        { id: 'files', label: 'Files', icon: FileIcon },
     ];
+
+    const activeFilterCount = (filterStatus ? 1 : 0) + (filterAssignee ? 1 : 0);
 
     return (
         <div className="sticky top-0 z-20 bg-background/80 border-b border-white/5 px-6 py-4">
+            {/* ... Top Row ... */}
             <div className="flex flex-col gap-4">
-                {/* Top Row: Breadcrumbs and Actions */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2 text-xs font-medium text-text-secondary">
@@ -49,41 +81,94 @@ export default function ProjectHeader({ project, activeView, onViewChange, onCre
                             <span className="text-text-primary">Projects</span>
                         </div>
                     </div>
+                    {/* Members stack - Moved to right side per request */}
+                    <div className="flex items-center gap-2">
+                        <div className="flex -space-x-2 mr-2">
+                            {project.members?.filter((m: any) => m.organizationMember?.user).map((member: any) => {
+                                const isPM = member.role?.name === 'Project Manager';
+                                const user = member.organizationMember.user;
+                                return (
+                                    <div
+                                        key={member.id}
+                                        className={`w-8 h-8 rounded-full border-2 border-background bg-gradient-to-br \${isPM ? 'from-primary to-accent scale-110 z-10' : 'from-slate-200 to-slate-300'} flex items-center justify-center text-[10px] font-bold text-white ring-1 ring-white/5 uppercase overflow-hidden shadow-sm`}
+                                        title={`\${isPM ? '[PM] ' : ''}\${user.firstName} \${user.lastName}`}
+                                    >
+                                        {user.avatarUrl ? (
+                                            <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <span>{user.firstName[0]}{user.lastName[0]}</span>
+                                        )}
+                                    </div>
+                                );
+                            })}
 
-                    <div className="flex -space-x-2 mr-4">
-                        {project.members?.map((member: any) => (
-                            <div
-                                key={member.id}
-                                className="w-8 h-8 rounded-full border-2 border-[#020617] bg-gradient-to-br from-primary to-accent flex items-center justify-center text-[10px] font-bold text-white ring-1 ring-white/5 uppercase"
-                                title={`${member.organizationMember.user.firstName} ${member.organizationMember.user.lastName}`}
+                            <button
+                                onClick={onInviteMember}
+                                disabled={!canInvite}
+                                className={`w-8 h-8 rounded-full border-2 border-dashed border-white/20 hover:border-primary/50 flex items-center justify-center text-text-secondary hover:text-primary transition-all \${!canInvite ? 'opacity-50 cursor-not-allowed hidden' : ''}`}
                             >
-                                {member.organizationMember.user.firstName[0]}{member.organizationMember.user.lastName[0]}
-                            </div>
-                        ))}
-                        {project.invitations?.filter((inv: any) => inv.status === 'PENDING').map((invitation: any) => (
-                            <div
-                                key={invitation.id}
-                                className="w-8 h-8 rounded-full border-2 border-[#020617] bg-white/5 flex items-center justify-center text-[10px] font-bold text-white/40 ring-1 ring-white/5 uppercase opacity-60"
-                                title={`Invited: ${invitation.email}`}
-                            >
-                                {invitation.email[0]}
-                            </div>
-                        ))}
+                                <Plus size={14} />
+                            </button>
+                        </div>
+
+                        {/* Share Button */}
                         <button
-                            onClick={onInviteMember}
-                            disabled={!canInvite}
-                            className={`w-8 h-8 rounded-full border-2 border-dashed border-white/20 hover:border-primary/50 flex items-center justify-center text-text-secondary hover:text-primary transition-all ${!canInvite ? 'opacity-50 cursor-not-allowed hidden' : ''}`}
+                            onClick={() => {
+                                navigator.clipboard.writeText(window.location.href);
+                                alert('Project link copied to clipboard!');
+                            }}
+                            className="p-2 hover:bg-slate-100 dark:hover:bg-hover-bg rounded-lg transition-colors text-slate-600 dark:text-text-secondary hover:text-primary dark:hover:text-primary"
+                            title="Copy Project Link"
                         >
-                            <Plus size={14} />
+                            <Share2 size={18} />
                         </button>
-                    </div>
 
-                    <button className="p-2 hover:bg-white/5 rounded-lg transition-colors text-text-secondary hover:text-white">
-                        <Share2 size={18} />
-                    </button>
-                    <button className="p-2 hover:bg-white/5 rounded-lg transition-colors text-text-secondary hover:text-white">
-                        <MoreHorizontal size={18} />
-                    </button>
+                        {/* More Options Dropdown */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowCreateMenu(showCreateMenu === 'more' ? false : 'more' as any)}
+                                className="p-2 hover:bg-slate-100 dark:hover:bg-hover-bg rounded-lg transition-colors text-slate-600 dark:text-text-secondary hover:text-primary dark:hover:text-primary"
+                            >
+                                <MoreHorizontal size={18} />
+                            </button>
+                            {showCreateMenu === 'more' as any && (
+                                <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="p-1">
+                                        <button
+                                            onClick={() => {
+                                                setShowCreateMenu(false);
+                                                onManageMembers?.();
+                                            }}
+                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                        >
+                                            <Share2 size={16} />
+                                            Manage Members
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowCreateMenu(false);
+                                                alert('Project Settings coming soon!');
+                                            }}
+                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors flex items-center gap-2"
+                                        >
+                                            <LayoutGrid size={16} />
+                                            Project Settings
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowCreateMenu(false);
+                                                setShowSaveAsTemplate(true);
+                                            }}
+                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                        >
+                                            <Layout size={16} />
+                                            Save as Template
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -104,7 +189,7 @@ export default function ProjectHeader({ project, activeView, onViewChange, onCre
                     </div>
                     <div>
                         <div className="flex items-center gap-3">
-                            <h1 className="text-xl font-bold text-white tracking-tight">{project.name}</h1>
+                            <h1 className="text-xl font-bold text-text-primary tracking-tight">{project.name}</h1>
                             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-500 uppercase tracking-wider">
                                 <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
                                 On Track
@@ -134,10 +219,70 @@ export default function ProjectHeader({ project, activeView, onViewChange, onCre
                     <div className="h-6 w-[1px] bg-white/10 mx-1" />
 
                     <div className="flex items-center gap-1">
-                        <button className="p-2 hover:bg-white/5 rounded-lg transition-colors text-text-secondary hover:text-white flex items-center gap-2 text-xs font-medium">
-                            <Filter size={16} />
-                            Filter
-                        </button>
+                        {/* Filter Menu */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowFilterMenu(!showFilterMenu)}
+                                className={`p-2 hover:bg-white/5 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${activeFilterCount > 0 ? 'text-primary' : 'text-text-secondary hover:text-white'}`}
+                            >
+                                <Filter size={16} />
+                                Filter {activeFilterCount > 0 && <span className="bg-primary/20 text-primary px-1.5 rounded-full text-[10px]">{activeFilterCount}</span>}
+                            </button>
+                            {showFilterMenu && (
+                                <div className="absolute top-full right-0 mt-2 w-56 bg-[#0A0A0A] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 p-2 space-y-2">
+                                    {/* Assignee Filter */}
+                                    <div>
+                                        <div className="text-[10px] font-bold text-slate-500 uppercase px-2 mb-1">Assignee</div>
+                                        <div className="space-y-0.5">
+                                            <button onClick={() => { onFilterChange?.('assignee', null); setShowFilterMenu(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex justify-between ${!filterAssignee ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                                All Members {!filterAssignee && <CheckCircle2 size={12} />}
+                                            </button>
+                                            <button onClick={() => { onFilterChange?.('assignee', 'me'); setShowFilterMenu(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex justify-between ${filterAssignee === 'me' ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                                Assigned to Me {filterAssignee === 'me' && <CheckCircle2 size={12} />}
+                                            </button>
+                                            <button onClick={() => { onFilterChange?.('assignee', 'unassigned'); setShowFilterMenu(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex justify-between ${filterAssignee === 'unassigned' ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                                Unassigned {filterAssignee === 'unassigned' && <CheckCircle2 size={12} />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="h-[1px] bg-white/5" />
+
+                                    {/* Status Filter */}
+                                    <div>
+                                        <div className="text-[10px] font-bold text-slate-500 uppercase px-2 mb-1">Status</div>
+                                        <div className="space-y-0.5">
+                                            <button onClick={() => { onFilterChange?.('status', null); setShowFilterMenu(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex justify-between ${!filterStatus ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                                All Statuses {!filterStatus && <CheckCircle2 size={12} />}
+                                            </button>
+                                            {['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'].map(status => (
+                                                <button
+                                                    key={status}
+                                                    onClick={() => { onFilterChange?.('status', status); setShowFilterMenu(false); }}
+                                                    className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex justify-between items-center ${filterStatus === status ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                                >
+                                                    <span className="capitalize">{status.replace('_', ' ').toLowerCase()}</span>
+                                                    {filterStatus === status && <CheckCircle2 size={12} />}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {(filterStatus || filterAssignee) && (
+                                        <>
+                                            <div className="h-[1px] bg-white/5" />
+                                            <button
+                                                onClick={() => { onFilterChange?.('status', null); onFilterChange?.('assignee', null); setShowFilterMenu(false); }}
+                                                className="w-full text-center px-2 py-1.5 text-xs text-slate-500 hover:text-white transition-colors"
+                                            >
+                                                Clear Filters
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
                         <div className="relative">
                             <button
                                 onClick={() => setShowSortMenu(!showSortMenu)}
@@ -183,14 +328,14 @@ export default function ProjectHeader({ project, activeView, onViewChange, onCre
 
                         {/* Create Menu Dropdown */}
                         {showCreateMenu && (
-                            <div className="absolute top-full right-0 mt-2 w-48 bg-[#0A0A0A] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
                                 <div className="p-1">
                                     <button
                                         onClick={() => {
                                             setShowCreateMenu(false);
                                             onCreateList?.();
                                         }}
-                                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm text-text-secondary hover:text-white transition-colors flex items-center gap-2"
+                                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
                                     >
                                         <LayoutGrid size={16} />
                                         Create List
@@ -201,17 +346,19 @@ export default function ProjectHeader({ project, activeView, onViewChange, onCre
                                                 setShowCreateMenu(false);
                                                 onInviteMember?.();
                                             }}
-                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm text-text-secondary hover:text-white transition-colors flex items-center gap-2"
+                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
                                         >
                                             <Share2 size={16} />
                                             Invite Member
                                         </button>
                                     )}
-                                    <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm text-text-secondary hover:text-white transition-colors flex items-center gap-2">
+                                    <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                    >
                                         <CheckCircle2 size={16} />
                                         Create Task
                                     </button>
-                                    <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm text-text-secondary hover:text-white transition-colors flex items-center gap-2">
+                                    <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                    >
                                         <Diamond size={16} />
                                         Create Milestone
                                     </button>
@@ -221,7 +368,7 @@ export default function ProjectHeader({ project, activeView, onViewChange, onCre
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
 

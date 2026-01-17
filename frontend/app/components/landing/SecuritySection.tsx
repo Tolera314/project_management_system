@@ -25,9 +25,9 @@ export default function SecuritySection() {
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.1 }}
-                        className="p-6 rounded-xl bg-surface/50 border border-white/5 text-center hover:bg-surface/80 transition-colors"
+                        className="p-6 rounded-xl bg-surface/50 border border-border text-center hover:bg-surface transition-colors"
                     >
-                        <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 text-primary">
+                        <div className="w-12 h-12 bg-surface-secondary rounded-full flex items-center justify-center mx-auto mb-4 text-primary">
                             <item.icon size={24} />
                         </div>
                         <h3 className="text-lg font-semibold mb-2">{item.title}</h3>

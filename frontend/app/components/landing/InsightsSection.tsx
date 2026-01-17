@@ -10,10 +10,10 @@ export default function InsightsSection() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
                     <div className="relative">
-                        <div className="bg-surface border border-white/10 rounded-3xl p-8 shadow-2xl space-y-8">
+                        <div className="bg-surface border border-border rounded-3xl p-8 shadow-2xl space-y-8">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-xl font-bold">Project Health</h3>
-                                <button className="text-xs px-3 py-1 bg-white/5 rounded-full hover:bg-white/10 transition-colors">7 Days</button>
+                                <button className="text-xs px-3 py-1 bg-surface-secondary rounded-full hover:bg-border transition-colors">7 Days</button>
                             </div>
 
                             <div className="flex items-end gap-2 h-48">
@@ -29,21 +29,21 @@ export default function InsightsSection() {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-background p-4 rounded-xl border border-white/5 flex items-center gap-3">
+                                <div className="bg-background p-4 rounded-xl border border-border flex items-center gap-3">
                                     <div className="p-2 bg-success/10 rounded-lg text-success">
                                         <TrendingUp size={20} />
                                     </div>
                                     <div>
-                                        <div className="text-2xl font-bold text-white">98%</div>
+                                        <div className="text-2xl font-bold text-text-primary">98%</div>
                                         <div className="text-xs text-text-secondary">On Time</div>
                                     </div>
                                 </div>
-                                <div className="bg-background p-4 rounded-xl border border-white/5 flex items-center gap-3">
+                                <div className="bg-background p-4 rounded-xl border border-border flex items-center gap-3">
                                     <div className="p-2 bg-warning/10 rounded-lg text-warning">
                                         <AlertCircle size={20} />
                                     </div>
                                     <div>
-                                        <div className="text-2xl font-bold text-white">2</div>
+                                        <div className="text-2xl font-bold text-text-primary">2</div>
                                         <div className="text-xs text-text-secondary">At Risk</div>
                                     </div>
                                 </div>

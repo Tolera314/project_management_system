@@ -133,7 +133,7 @@ export default function MilestoneDetailPanel({ milestone, onClose, onRefresh }: 
                             <div key={task.id} className="flex items-center justify-between p-4 bg-white/[0.03] border border-white/5 rounded-xl hover:bg-white/5 transition-all group cursor-pointer">
                                 <div className="flex items-center gap-3 min-w-0">
                                     <div className={`w-2 h-2 rounded-full ${task.status === 'DONE' ? 'bg-emerald-500' : 'bg-primary'}`} />
-                                    <span className={`text-sm tracking-tight truncate ${task.status === 'DONE' ? 'text-text-secondary line-through' : 'text-white font-medium'}`}>
+                                    <span className={`text-sm tracking-tight truncate ${task.status === 'DONE' ? 'text-text-secondary' : 'text-white font-medium'}`}>
                                         {task.title}
                                     </span>
                                 </div>

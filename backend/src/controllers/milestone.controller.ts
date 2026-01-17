@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
+import { NotificationService } from '../services/notification.service';
 
 const createMilestoneSchema = z.object({
     name: z.string().min(1, 'Milestone name is required').max(100),
@@ -52,6 +53,11 @@ export const createMilestone = async (req: Request, res: Response) => {
             return;
         }
 
+        if (project.dueDate && dueDate > project.dueDate) {
+            res.status(400).json({ error: 'Milestone due date cannot be after project due date' });
+            return;
+        }
+
         const milestone = await prisma.milestone.create({
             data: {
                 name,
@@ -87,23 +93,27 @@ export const createMilestone = async (req: Request, res: Response) => {
 
 export const getMilestones = async (req: Request, res: Response) => {
     try {
-        const { projectId } = req.query;
+        const { projectId, workspaceId } = req.query;
         const userId = (req as any).userId;
 
-        if (!projectId || typeof projectId !== 'string') {
-            res.status(400).json({ error: 'Project ID is required' });
+        if (!projectId && !workspaceId) {
+            res.status(400).json({ error: 'Project ID or Workspace ID is required' });
             return;
         }
 
-        const milestones = await prisma.milestone.findMany({
-            where: {
-                projectId,
-                project: {
-                    organization: {
-                        members: { some: { userId } }
-                    }
+        const where: any = {
+            project: {
+                organization: {
+                    members: { some: { userId } }
                 }
-            },
+            }
+        };
+
+        if (projectId) where.projectId = projectId;
+        if (workspaceId) where.project = { ...where.project, organizationId: workspaceId };
+
+        const milestones = await prisma.milestone.findMany({
+            where,
             include: {
                 tasks: {
                     select: { id: true, status: true, dueDate: true }
@@ -206,6 +216,34 @@ export const updateMilestone = async (req: Request, res: Response) => {
                 owner: true
             }
         });
+
+        // Send Notification if milestone owner is set and changed, or if it's completed
+        try {
+            if (updatedMilestone.ownerId) {
+                const owner = await prisma.projectMember.findUnique({
+                    where: { id: updatedMilestone.ownerId },
+                    include: { organizationMember: true }
+                });
+
+                if (owner && owner.organizationMember.userId !== userId) {
+                    await NotificationService.notify({
+                        type: 'MILESTONE_COMPLETED', // Or generic MILESTONE_UPDATED if we want
+                        recipientId: owner.organizationMember.userId,
+                        actorId: userId,
+                        projectId: updatedMilestone.projectId,
+                        milestoneId: updatedMilestone.id,
+                        title: 'Milestone Updated',
+                        message: `Milestone "${updatedMilestone.name}" has been updated.`,
+                        link: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/projects/${updatedMilestone.projectId}`,
+                        metadata: {
+                            milestoneName: updatedMilestone.name
+                        }
+                    });
+                }
+            }
+        } catch (notifErr) {
+            console.error('Failed to send milestone notification:', notifErr);
+        }
 
         res.json({ milestone: updatedMilestone });
     } catch (error) {

@@ -74,6 +74,43 @@ export const getWelcomeEmailTemplate = (projectName: string, inviterName: string
     `;
 };
 
+export const getPlatformWelcomeTemplate = (userName: string) => {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f5; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header { background-color: #4F46E5; color: #ffffff; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+        .content { padding: 40px 30px; }
+        .btn { display: inline-block; background-color: #4F46E5; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 20px; }
+        .footer { background-color: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Welcome to ProjectOS!</h1>
+        </div>
+        <div class="content">
+            <p>Hello ${userName},</p>
+            <p>We're thrilled to have you join our platform. ProjectOS is designed to help you manage your tasks, collaborate with your team, and achieve your goals more efficiently.</p>
+            <p>Ready to get started? Create your first workspace and invite your team members.</p>
+            <div style="text-align: center;">
+                <a href="http://localhost:3000/dashboard" class="btn">Go to Dashboard</a>
+            </div>
+        </div>
+        <div class="footer">
+            &copy; ${new Date().getFullYear()} Project Management System. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
+    `;
+};
+
 export const getTaskAssignedEmailTemplate = (taskTitle: string, projectName: string, assignerName: string, link: string) => {
     return `
 <!DOCTYPE html>

@@ -185,6 +185,7 @@ API Endpoints Table (Key Endpoints, 68 total)
 We use a **premium, SaaS-oriented color palette**:
 
 ```js
+dark theme:
 colors: {
   primary: '#4F46E5'  // Brand primary: main actions, links, active states (Create, Save, Assign)
   background: '#020617' // App background (dark mode base), reduces eye strain for long sessions
@@ -196,6 +197,43 @@ colors: {
   danger: '#EF4444'      // Danger states: errors, overdue tasks, destructive actions (delete)
   accent: '#A78BFA'       // Accent highlight: charts, selected tabs, special badges
 }
+```js
+light theme:
+colors: {
+  primary: '#4F46E5', 
+  // Brand anchor stays the same for consistency (CTAs, links, active states)
+
+  background: '#F8FAFC', 
+  // Main app background (soft off-white, reduces glare vs pure white)
+
+  surface: '#FFFFFF', 
+  // Cards, modals, dropdowns, sidebars (clean elevation layer)
+
+  surfaceSecondary: '#F1F5F9', 
+  // Secondary panels, hover rows, list backgrounds
+
+  textPrimary: '#0F172A', 
+  // Headings and main content (strong contrast, professional)
+
+  textSecondary: '#475569', 
+  // Labels, meta info, placeholders (subtle but readable)
+
+  border: '#E2E8F0', 
+  // Dividers, table lines, card outlines
+
+  success: '#16A34A', 
+  // Completed tasks, positive indicators (calm green)
+
+  warning: '#D97706', 
+  // Deadlines, risk states (visible without shouting)
+
+  danger: '#DC2626', 
+  // Errors, destructive actions (serious, not neon)
+
+  accent: '#A78BFA', 
+  // Highlights, charts, selected states (ties back to brand)
+}
+
 
 
 

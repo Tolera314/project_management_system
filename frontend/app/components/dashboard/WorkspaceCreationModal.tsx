@@ -72,16 +72,22 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
                 throw new Error(result.error || 'Failed to create workspace');
             }
 
+            // Update selected workspace id
+            localStorage.setItem('selectedWorkspaceId', result.workspace.id);
+
             // Update local user data
             const userStr = localStorage.getItem('user');
             if (userStr) {
                 const user = JSON.parse(userStr);
-                user.organizations = [{
+                // Just add this to the list of organizations if we were tracking them, 
+                // but since we rely on selectedWorkspaceId + refresh, this is safer.
+                if (!user.organizations) user.organizations = [];
+                user.organizations.push({
                     id: result.workspace.id,
                     name: result.workspace.name,
                     color: result.workspace.color,
                     role: 'Admin'
-                }];
+                });
                 localStorage.setItem('user', JSON.stringify(user));
             }
 
@@ -121,7 +127,7 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
                                 <Building className="w-6 h-6 text-primary" />
                             </div>
                             <div>
-                                <h2 className="text-2xl font-bold text-white leading-tight">Create your workspace</h2>
+                                <h2 className="text-2xl font-bold text-foreground leading-tight">Create your workspace</h2>
                                 <p className="text-text-secondary text-sm">Every project lives inside a workspace.</p>
                             </div>
                         </div>
@@ -132,7 +138,7 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
                                 <input
                                     {...register('name')}
                                     placeholder="e.g. Acme Studio, Marketing Team"
-                                    className={`w-full bg-background/50 border ${errors.name ? 'border-danger' : 'border-white/10'} rounded-xl px-4 py-3.5 text-white placeholder:text-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
+                                    className={`w-full bg-surface border \${errors.name ? 'border-danger' : 'border-white/10'} rounded-xl px-4 py-3.5 text-foreground placeholder:text-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
                                 />
                                 {errors.name && <p className="text-xs text-danger">{errors.name.message}</p>}
                             </div>
@@ -151,7 +157,7 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
                                                 }`}
                                         >
                                             <type.icon size={20} className={selectedType === type.value ? 'text-primary' : 'text-text-secondary'} />
-                                            <span className="text-xs font-medium text-white">{type.label}</span>
+                                            <span className="text-xs font-medium text-foreground">{type.label}</span>
                                         </button>
                                     ))}
                                 </div>

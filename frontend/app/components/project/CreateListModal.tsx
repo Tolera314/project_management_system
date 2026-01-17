@@ -67,40 +67,40 @@ export default function CreateListModal({ isOpen, onClose, projectId, onSuccess 
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-[#0A0A0A] border border-white/10 rounded-2xl shadow-2xl z-[70] overflow-hidden"
+                        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl z-[70] overflow-hidden"
                     >
-                        <div className="p-6 border-b border-white/5 flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <div className="p-6 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                                 <LayoutGrid size={20} className="text-primary" />
                                 Create New List
                             </h2>
-                            <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
-                                <X size={20} className="text-text-secondary" />
+                            <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors">
+                                <X size={20} className="text-slate-500 dark:text-text-secondary" />
                             </button>
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-6">
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-text-secondary uppercase tracking-wider">List Name</label>
+                                <label className="text-xs font-bold text-slate-500 dark:text-text-secondary uppercase tracking-wider">List Name</label>
                                 <input
                                     type="text"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     placeholder="e.g. Backlog, In Progress..."
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-text-secondary focus:outline-none focus:border-primary/50 transition-colors"
+                                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-text-secondary focus:outline-none focus:border-primary/50 transition-colors"
                                     autoFocus
                                     required
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-text-secondary uppercase tracking-wider">Description</label>
+                                <label className="text-xs font-bold text-slate-500 dark:text-text-secondary uppercase tracking-wider">Description</label>
                                 <textarea
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
                                     placeholder="What's this list for?"
                                     rows={3}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-text-secondary focus:outline-none focus:border-primary/50 transition-colors resize-none"
+                                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-text-secondary focus:outline-none focus:border-primary/50 transition-colors resize-none"
                                 />
                             </div>
 

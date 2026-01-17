@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
+import { NotificationService } from '../services/notification.service';
 
 const registerSchema = z.object({
     firstName: z.string().min(1, 'First name is required'),
@@ -43,7 +44,7 @@ export const register = async (req: Request, res: Response) => {
             password,
         });
 
-        
+
         if (!validation.success) {
             console.warn('[Auth] Validation failed:', validation.error.issues[0].message);
             res.status(400).json({ error: validation.error.issues[0].message });
@@ -67,6 +68,9 @@ export const register = async (req: Request, res: Response) => {
                 password: hashedPassword,
             }
         });
+
+        // Send Welcome Email (Fire and forget or await if critical)
+        NotificationService.sendWelcomeEmail({ email: user.email, firstName: user.firstName });
 
         const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
@@ -139,7 +143,8 @@ export const login = async (req: Request, res: Response) => {
                 organizations: user.organizationMembers.map(om => ({
                     id: om.organization.id,
                     name: om.organization.name,
-                    role: om.role.name
+                    role: om.role.name,
+                    color: om.organization.color
                 }))
             }
         });

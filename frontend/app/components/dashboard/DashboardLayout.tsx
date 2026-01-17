@@ -1,17 +1,45 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Search, Plus, Settings, Menu, X, Home, FolderKanban, CheckSquare, Calendar, BarChart3 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+    Search, Plus, Settings, Menu, X, Home, FolderKanban,
+    CheckSquare, Calendar, BarChart3, Layout, User,
+    Shield, Palette, LogOut, ChevronDown
+} from 'lucide-react';
 import InviteToWorkspaceModal from '../workspace/InviteToWorkspaceModal';
+import NotificationCenter from '../shared/NotificationCenter';
+import WorkspaceSwitcher from './WorkspaceSwitcher';
+import WorkspaceCreationModal from './WorkspaceCreationModal';
+import { useUser } from '../../context/UserContext';
+import UserAvatar from '../shared/UserAvatar';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+    const { user } = useUser();
+    const router = useRouter();
+    const pathname = usePathname();
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [userDropdownOpen, setUserDropdownOpen] = useState(false);
     const [workspace, setWorkspace] = useState<any>(null);
-    const [user, setUser] = useState<any>(null);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [showSearchResults, setShowSearchResults] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     useEffect(() => {
         const fetchWorkspace = async () => {
@@ -19,33 +47,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             if (!token) return;
 
             try {
-                const res = await fetch('http://localhost:4000/workspaces/me', {
+                const selectedId = localStorage.getItem('selectedWorkspaceId');
+                const url = selectedId
+                    ? `http://localhost:4000/workspaces/me?workspaceId=${selectedId}`
+                    : 'http://localhost:4000/workspaces/me';
+
+                const res = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
                 if (data.workspace) {
                     setWorkspace(data.workspace);
+                    if (!selectedId) {
+                        localStorage.setItem('selectedWorkspaceId', data.workspace.id);
+                    }
                 }
             } catch (error) {
                 console.error('Failed to fetch workspace:', error);
             }
         };
 
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            setUser(JSON.parse(userStr));
-        }
-
         fetchWorkspace();
     }, []);
 
     const navItems = [
-        { icon: Home, label: 'Overview', href: '/dashboard', active: true },
-        { icon: FolderKanban, label: 'Projects', href: '/dashboard/projects', active: false },
-        { icon: CheckSquare, label: 'Tasks', href: '/dashboard/tasks', active: false },
-        { icon: Calendar, label: 'Calendar', href: '/dashboard/calendar', active: false },
-        { icon: BarChart3, label: 'Reports', href: '/dashboard/reports', active: false },
+        { icon: Home, label: 'Dashboard', href: '/dashboard' },
+        { icon: FolderKanban, label: 'Projects', href: '/dashboard/projects' },
+        { icon: CheckSquare, label: 'Tasks', href: '/dashboard/tasks' },
+        { icon: Calendar, label: 'Calendar', href: '/dashboard/calendar' },
+        { icon: BarChart3, label: 'Reports', href: '/dashboard/reports' },
     ];
+
+    // Check if user can manage templates (Admin or has manage_templates permission)
+    const canManageTemplates = user?.systemRole === 'SYSTEM_ADMIN' ||
+        workspace?.members?.some((m: any) =>
+            m.userId === user?.id && ['Admin', 'Project Manager'].includes(m.role?.name)
+        );
 
     const handleInviteToWorkspace = async (email: string, roleId: string) => {
         if (!workspace) return;
@@ -65,38 +102,262 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
     };
 
+    const handleSearch = async (query: string) => {
+        setSearchQuery(query);
+        if (!query.trim()) {
+            setSearchResults([]);
+            setShowSearchResults(false);
+            return;
+        }
+
+        try {
+            setIsSearching(true);
+            setShowSearchResults(true);
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:4000/tasks/search?q=\${encodeURIComponent(query)}&workspaceId=\${workspace?.id}`, {
+                headers: { 'Authorization': `Bearer \${token}` }
+            });
+            const data = await res.json();
+            setSearchResults(data.tasks || []);
+        } catch (error) {
+            console.error('Search error:', error);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
     // ... navItems and helper functions
 
     return (
         <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
-            {/* ... Header ... */}
+            {/* Global Header */}
+            <header className="h-16 border-b border-foreground/5 bg-surface flex items-center justify-between px-4 md:px-8 z-50 shrink-0">
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                        className="md:hidden p-2 text-slate-400 hover:text-white"
+                    >
+                        <Menu className="w-6 h-6" />
+                    </button>
+                    <WorkspaceSwitcher
+                        currentWorkspace={workspace}
+                        isCollapsed={!sidebarOpen || isMobile}
+                        onOpenModal={() => setIsCreateModalOpen(true)}
+                    />
+                </div>
+
+                <div className="flex items-center gap-2 md:gap-4">
+                    <div className="flex-1 md:flex-none flex items-center justify-end md:justify-start gap-1 bg-transparent md:bg-foreground/5 md:border md:border-foreground/10 rounded-full px-0 md:px-3 py-1.5 md:mr-4 focus-within:border-primary/50 transition-colors relative group">
+                        <button
+                            className="md:hidden p-2 text-slate-400 hover:text-white"
+                            onClick={() => setShowSearchResults(!showSearchResults)}
+                        >
+                            <Search className="w-5 h-5" />
+                        </button>
+                        <Search className="hidden md:block w-4 h-4 text-slate-500" />
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            className="hidden md:block bg-transparent border-none text-xs text-text-primary placeholder:text-text-secondary/50 focus:outline-none md:w-48 lg:w-64"
+                            value={searchQuery}
+                            onChange={(e) => handleSearch(e.target.value)}
+                            onFocus={() => searchQuery && setShowSearchResults(true)}
+                        />
+
+                        {/* Search Results Dropdown */}
+                        <AnimatePresence>
+                            {showSearchResults && (
+                                <>
+                                    <div
+                                        className="fixed inset-0 z-[-1]"
+                                        onClick={() => setShowSearchResults(false)}
+                                    />
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: 10 }}
+                                        className="absolute top-full right-0 md:left-0 mt-2 w-[calc(100vw-32px)] md:w-80 bg-surface border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[60]"
+                                    >
+                                        <div className="md:hidden p-3 border-b border-white/10 bg-white/5">
+                                            <input
+                                                autoFocus
+                                                type="text"
+                                                placeholder="Search everything..."
+                                                className="w-full bg-background/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                                value={searchQuery}
+                                                onChange={(e) => handleSearch(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="p-3 border-b border-white/10 flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Tasks & Results</span>
+                                            {isSearching && <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />}
+                                        </div>
+                                        <div className="max-h-96 overflow-y-auto custom-scrollbar">
+                                            {searchResults.length > 0 ? (
+                                                searchResults.map((task: any) => (
+                                                    <button
+                                                        key={task.id}
+                                                        onClick={() => {
+                                                            router.push(`/projects/\${task.projectId}?taskId=\${task.id}`);
+                                                            setShowSearchResults(false);
+                                                            setSearchQuery('');
+                                                        }}
+                                                        className="w-full p-3 flex items-start gap-3 hover:bg-white/5 transition-colors text-left group"
+                                                    >
+                                                        <div className={`mt-1 w-2 h-2 rounded-full shrink-0 \${
+                                                            task.priority === 'URGENT' ? 'bg-red-500' :
+                                                            task.priority === 'HIGH' ? 'bg-amber-500' :
+                                                            task.priority === 'MEDIUM' ? 'bg-blue-500' : 'bg-slate-500'
+                                                        }`} />
+                                                        <div className="min-w-0">
+                                                            <p className="text-xs font-medium text-foreground group-hover:text-primary transition-colors truncate">
+                                                                {task.title}
+                                                            </p>
+                                                            <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                                                                {task.project.name} • {task.status.replace('_', ' ')}
+                                                            </p>
+                                                        </div>
+                                                    </button>
+                                                ))
+                                            ) : (
+                                                !isSearching && (
+                                                    <div className="p-8 text-center">
+                                                        <Search size={24} className="mx-auto text-text-secondary/30 mb-2" />
+                                                        <p className="text-xs text-text-secondary">No results found for "{searchQuery}"</p>
+                                                    </div>
+                                                )
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                </>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    <NotificationCenter />
+
+                    <div className="relative">
+                        <button
+                            onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                            className="flex items-center gap-2 p-1 rounded-full border border-white/10 bg-surface/30 hover:bg-surface/50 transition-all pl-1 pr-3"
+                        >
+                            <UserAvatar
+                                userId={user?.id}
+                                firstName={user?.firstName}
+                                lastName={user?.lastName}
+                                avatarUrl={user?.avatarUrl}
+                                size="md"
+                                className="border-2 border-background"
+                            />
+                            <ChevronDown size={12} className={`text-slate-500 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        <AnimatePresence>
+                            {userDropdownOpen && (
+                                <>
+                                    <div
+                                        className="fixed inset-0 z-40"
+                                        onClick={() => setUserDropdownOpen(false)}
+                                    />
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        className="absolute right-0 mt-2 w-56 bg-surface border border-foreground/10 rounded-2xl shadow-2xl z-50 overflow-hidden py-1.5 backdrop-blur-xl"
+                                    >
+                                        <div className="px-4 py-3 border-b border-foreground/10 mb-1.5 bg-foreground/5">
+                                            <p className="text-xs font-semibold text-text-primary truncate">
+                                                {user?.firstName} {user?.lastName}
+                                            </p>
+                                            <p className="text-[10px] text-text-secondary truncate mt-0.5">{user?.email}</p>
+                                        </div>
+
+                                        <Link
+                                            href="/settings/profile"
+                                            className="flex items-center gap-3 px-4 py-2 text-xs text-text-secondary hover:text-primary hover:bg-foreground/5"
+                                            onClick={() => setUserDropdownOpen(false)}
+                                        >
+                                            <User size={14} /> My Profile
+                                        </Link>
+                                        <Link
+                                            href="/settings/notifications"
+                                            className="flex items-center gap-3 px-4 py-2 text-xs text-text-secondary hover:text-primary hover:bg-foreground/5"
+                                            onClick={() => setUserDropdownOpen(false)}
+                                        >
+                                            <Settings size={14} /> Notifications
+                                        </Link>
+                                        <Link
+                                            href="/settings/security"
+                                            className="flex items-center gap-3 px-4 py-2 text-xs text-text-secondary hover:text-primary hover:bg-foreground/5"
+                                            onClick={() => setUserDropdownOpen(false)}
+                                        >
+                                            <Shield size={14} /> Security
+                                        </Link>
+
+                                        <div className="h-px bg-foreground/10 my-1.5" />
+
+                                        <button
+                                            onClick={() => {
+                                                localStorage.removeItem('token');
+                                                localStorage.removeItem('user');
+                                                router.push('/login');
+                                            }}
+                                            className="w-full flex items-center gap-3 px-4 py-2 text-xs text-rose-400 hover:bg-rose-500/10"
+                                        >
+                                            <LogOut size={14} /> Sign out
+                                        </button>
+                                    </motion.div>
+                                </>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                </div>
+            </header>
+
             <div className="flex flex-1 overflow-hidden">
                 {/* Left Sidebar - Desktop */}
-                <aside className={`hidden md:flex flex-col w-64 border-r border-white/5 bg-surface/20 transition-all duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                <aside className={`hidden md:flex flex-col w-64 border-r border-border bg-surface-secondary transition-all duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                     <nav className="flex-1 p-4 space-y-1">
-                        {navItems.map((item) => (
+                        {navItems.map((item) => {
+                            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                            return (
+                                <Link
+                                    key={item.label}
+                                    href={item.href}
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
+                                        ? 'bg-primary/10 text-primary border border-primary/20'
+                                        : 'text-text-secondary hover:text-primary hover:bg-foreground/5'
+                                        }`}
+                                >
+                                    <item.icon size={18} />
+                                    <span className="text-sm font-medium">{item.label}</span>
+                                </Link>
+                            );
+                        })}
+
+                        {/* Templates Link (Admin/PM only) */}
+                        {canManageTemplates && (
                             <Link
-                                key={item.label}
-                                href={item.href}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${item.active
+                                href="/templates"
+                                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${pathname === '/templates'
                                     ? 'bg-primary/10 text-primary border border-primary/20'
-                                    : 'text-text-secondary hover:text-white hover:bg-white/5'
+                                    : 'text-text-secondary hover:text-primary hover:bg-foreground/5'
                                     }`}
                             >
-                                <item.icon size={18} />
-                                <span className="text-sm font-medium">{item.label}</span>
+                                <Layout size={18} />
+                                <span className="text-sm font-medium">Templates</span>
                             </Link>
-                        ))}
+                        )}
                     </nav>
 
                     {/* Sidebar Footer */}
-                    <div className="p-4 border-t border-white/5">
+                    <div className="p-4 border-t border-border-secondary">
                         <div className="p-3 bg-gradient-to-br from-primary/10 to-accent/10 rounded-xl border border-primary/20">
-                            <p className="text-xs font-semibold text-white mb-1">Invite Team</p>
+                            <p className="text-xs font-semibold text-text-primary mb-1">Invite Team</p>
                             <p className="text-xs text-text-secondary mb-3">Work better together</p>
                             <button
                                 onClick={() => setIsInviteModalOpen(true)}
-                                className="w-full py-2 bg-white/5 hover:bg-white/10 text-white text-xs font-medium rounded-lg transition-all border border-white/5"
+                                className="w-full py-2 bg-foreground/5 hover:bg-foreground/10 text-text-primary text-xs font-medium rounded-lg transition-all border border-foreground/5"
                             >
                                 Add Members
                             </button>
@@ -108,14 +369,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {/* ... */}
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-auto bg-[#020617]/50 relative">
+                <main className="flex-1 overflow-auto bg-background relative">
                     {children}
                     <InviteToWorkspaceModal
                         isOpen={isInviteModalOpen}
                         onClose={() => setIsInviteModalOpen(false)}
                         workspaceId={workspace?.id || ''}
                         onInvite={handleInviteToWorkspace}
-                        roles={workspace?.roles || []} // Need to ensure roles are fetched with workspace
+                        roles={workspace?.roles || []}
+                    />
+                    <WorkspaceCreationModal
+                        isOpen={isCreateModalOpen}
+                        onSuccess={() => window.location.reload()}
                     />
                 </main>
             </div >
