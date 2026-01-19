@@ -27,6 +27,10 @@ interface Notification {
     };
 }
 
+import { socketService } from '../../services/socket.service';
+
+const API_URL = 'http://localhost:4000';
+
 const NotificationCenter = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -38,7 +42,7 @@ const NotificationCenter = () => {
             const token = localStorage.getItem('token');
             if (!token) return;
 
-            const res = await fetch('http://localhost:4000/notifications', {
+            const res = await fetch(`${API_URL}/notifications`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -53,15 +57,27 @@ const NotificationCenter = () => {
 
     useEffect(() => {
         fetchNotifications();
-        // Poll every 60 seconds if not using WebSockets
-        const interval = setInterval(fetchNotifications, 60000);
-        return () => clearInterval(interval);
+
+        // Listen for real-time notifications
+        socketService.on('notification', (newNotification: Notification) => {
+            setNotifications(prev => [newNotification, ...prev]);
+            setUnreadCount(prev => prev + 1);
+
+            // Optional: Play sound or show toast
+        });
+
+        // Fallback polling (every 5 mins instead of 1)
+        const interval = setInterval(fetchNotifications, 300000);
+        return () => {
+            clearInterval(interval);
+            socketService.off('notification');
+        };
     }, []);
 
     const markAsRead = async (id: string) => {
         try {
             const token = localStorage.getItem('token');
-            await fetch(`http://localhost:4000/notifications/${id}/read`, {
+            await fetch(`${API_URL}/notifications/${id}/read`, {
                 method: 'PATCH',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -75,7 +91,7 @@ const NotificationCenter = () => {
     const markAllRead = async () => {
         try {
             const token = localStorage.getItem('token');
-            await fetch('http://localhost:4000/notifications/mark-all-read', {
+            await fetch(`${API_URL}/notifications/mark-all-read`, {
                 method: 'PATCH',
                 headers: { 'Authorization': `Bearer ${token}` }
             });

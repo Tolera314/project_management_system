@@ -19,6 +19,7 @@ import tagRoutes from './routes/tag.routes';
 import fileRoutes from './routes/file.routes';
 import templateRoutes from './routes/template.routes';
 import adminRoutes from './routes/admin.routes';
+import settingsRoutes from './routes/settings.routes';
 
 import { createServer } from 'http';
 import { SocketService } from './services/socket.service';
@@ -49,6 +50,7 @@ app.use('/users', userRoutes);
 app.use('/tags', tagRoutes);
 app.use('/files', fileRoutes);
 app.use('/admin', adminRoutes);
+app.use('/settings', settingsRoutes);
 
 app.get('/', (req, res) => {
     res.send('ProjectOS Backend Running');

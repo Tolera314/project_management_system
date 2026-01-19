@@ -85,7 +85,7 @@ export default function CreateMilestoneModal({ isOpen, onClose, projectId, onSuc
                                 <Target size={20} />
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-text-primary">Create Milestone</h2>
+                                <h2 className="text-xl font-bold text-text-secondary">Create Milestone</h2>
                                 <p className="text-xs text-text-secondary">Define a major project checkpoint</p>
                             </div>
                         </div>

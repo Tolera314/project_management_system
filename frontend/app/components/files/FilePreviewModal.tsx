@@ -1,5 +1,5 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download, Clock, FileText, MoreVertical, Upload, Trash2, Calendar } from 'lucide-react';
 import { FileData, FileService } from '../../services/file.service';
@@ -21,7 +21,34 @@ export default function FilePreviewModal({
     onUpdate
 }: FilePreviewModalProps) {
     const [uploadingVersion, setUploadingVersion] = useState(false);
+    const [textContent, setTextContent] = useState<string | null>(null);
+    const [loadingContent, setLoadingContent] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (isOpen && file) {
+            const isText = file.mimeType.startsWith('text/') ||
+                file.mimeType === 'application/json' ||
+                file.mimeType === 'application/javascript' ||
+                file.mimeType === 'application/x-typescript' ||
+                file.name.endsWith('.ts') ||
+                file.name.endsWith('.tsx') ||
+                file.name.endsWith('.md');
+
+            if (isText) {
+                setLoadingContent(true);
+                const url = FileService.getFileUrl(file.url);
+                fetch(url)
+                    .then(res => res.text())
+                    .then(text => setTextContent(text))
+                    .catch(err => console.error("Failed to load text content", err))
+                    .finally(() => setLoadingContent(false));
+            } else {
+                setTextContent(null);
+                setLoadingContent(false);
+            }
+        }
+    }, [isOpen, file]);
 
     if (!isOpen || !file) return null;
 
@@ -54,7 +81,18 @@ export default function FilePreviewModal({
     };
 
     const isImage = file.mimeType.startsWith('image/');
-    const downloadUrl = FileService.getFileUrl(file.url); // Use backend serve URL
+    // Office documents
+    const isOffice = [
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+        'application/msword', // .doc
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+        'application/vnd.ms-powerpoint', // .ppt
+        'application/vnd.ms-excel', // .xls
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' // .xlsx
+    ].includes(file.mimeType) || /\.(docx|doc|pptx|ppt|xlsx|xls)$/i.test(file.name);
+
+    const downloadUrl = FileService.getFileUrl(file.url);
+    const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(downloadUrl)}`;
 
     return (
         <AnimatePresence>
@@ -75,39 +113,111 @@ export default function FilePreviewModal({
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
                             className="bg-surface border border-border w-full max-w-5xl h-[80vh] rounded-2xl shadow-2xl flex overflow-hidden pointer-events-auto"
                         >
-                            {/* Main Prevention Area */}
-                            <div className="flex-1 flex flex-col bg-background/50 relative">
-                                <div className="absolute top-4 left-4 z-10 flex gap-2">
-                                    <h2 className="text-lg font-bold text-text-primary px-3 py-1 bg-surface/80 backdrop-blur rounded-lg border border-border shadow-sm">
-                                        {file.name}
-                                    </h2>
-                                </div>
+                            {/* Main Preview Area */}
+                            <div className="flex-1 flex items-center justify-center p-8 overflow-auto bg-surface-secondary/20 relative">
+                                {loadingContent ? (
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                                        <p className="text-sm text-text-secondary">Loading content...</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {/* Image */}
+                                        {file.mimeType.startsWith('image/') && (
+                                            <img
+                                                src={downloadUrl}
+                                                alt={file.name}
+                                                className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                                            />
+                                        )}
 
-                                <div className="flex-1 flex items-center justify-center p-8 overflow-auto">
-                                    {isImage ? (
-                                        <img
-                                            src={downloadUrl}
-                                            alt={file.name}
-                                            className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
-                                        />
-                                    ) : (
-                                        <div className="text-center p-12 bg-surface border border-border rounded-2xl shadow-sm">
-                                            <FileText size={64} className="text-text-secondary mx-auto mb-4" />
-                                            <p className="text-text-primary font-medium">Preview not available</p>
-                                            <p className="text-sm text-text-secondary mt-1">
-                                                {file.mimeType} • {(file.size / 1024 / 1024).toFixed(2)} MB
-                                            </p>
-                                            <a
-                                                href={downloadUrl}
-                                                download
-                                                className="inline-flex items-center gap-2 mt-6 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-                                            >
-                                                <Download size={16} />
-                                                Download File
-                                            </a>
-                                        </div>
-                                    )}
-                                </div>
+                                        {/* Video */}
+                                        {file.mimeType.startsWith('video/') && (
+                                            <video controls className="max-w-full max-h-full rounded-lg shadow-lg">
+                                                <source src={downloadUrl} type={file.mimeType} />
+                                                Your browser does not support the video tag.
+                                            </video>
+                                        )}
+
+                                        {/* Audio */}
+                                        {file.mimeType.startsWith('audio/') && (
+                                            <div className="p-12 bg-surface rounded-2xl shadow-xl flex flex-col items-center gap-6 border border-border">
+                                                <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center text-primary">
+                                                    <Upload size={32} />
+                                                </div>
+                                                <audio controls className="w-80">
+                                                    <source src={downloadUrl} type={file.mimeType} />
+                                                    Your browser does not support the audio element.
+                                                </audio>
+                                            </div>
+                                        )}
+
+                                        {/* Office Doc Viewer */}
+                                        {isOffice && (
+                                            <iframe
+                                                src={officeViewerUrl}
+                                                className="w-full h-full rounded-lg shadow-lg bg-white"
+                                                title={file.name}
+                                                frameBorder="0"
+                                            />
+                                        )}
+
+                                        {/* PDF */}
+                                        {file.mimeType === 'application/pdf' && (
+                                            <iframe
+                                                src={`${downloadUrl}#toolbar=0`}
+                                                className="w-full h-full rounded-lg shadow-lg bg-white"
+                                                title={file.name}
+                                            />
+                                        )}
+
+                                        {/* Text/Code */}
+                                        {(file.mimeType.startsWith('text/') ||
+                                            file.mimeType === 'application/json' ||
+                                            file.mimeType === 'application/javascript' ||
+                                            file.mimeType === 'application/x-typescript' ||
+                                            file.name.endsWith('.ts') ||
+                                            file.name.endsWith('.tsx') ||
+                                            file.name.endsWith('.md')
+                                        ) && (
+                                                <div className="w-full h-full bg-surface border border-border rounded-lg shadow-lg overflow-auto p-4 text-sm font-mono text-text-primary">
+                                                    <pre className="whitespace-pre-wrap break-words">
+                                                        {textContent}
+                                                    </pre>
+                                                </div>
+                                            )}
+
+                                        {/* Fallback */}
+                                        {!file.mimeType.startsWith('image/') &&
+                                            !file.mimeType.startsWith('video/') &&
+                                            !file.mimeType.startsWith('audio/') &&
+                                            !isOffice &&
+                                            file.mimeType !== 'application/pdf' &&
+                                            !file.mimeType.startsWith('text/') &&
+                                            !file.mimeType.includes('json') &&
+                                            !file.mimeType.includes('javascript') &&
+                                            !file.mimeType.includes('typescript') &&
+                                            !file.name.endsWith('.ts') &&
+                                            !file.name.endsWith('.tsx') &&
+                                            !file.name.endsWith('.md') && (
+                                                <div className="text-center p-12 bg-surface border border-border rounded-2xl shadow-sm">
+                                                    <FileText size={64} className="text-text-secondary mx-auto mb-4" />
+                                                    <p className="text-text-primary font-medium">Preview not available</p>
+                                                    <p className="text-sm text-text-secondary mt-1">
+                                                        {file.mimeType} • {(file.size / 1024 / 1024).toFixed(2)} MB
+                                                    </p>
+                                                    <a
+                                                        href={downloadUrl}
+                                                        download
+                                                        className="inline-flex items-center gap-2 mt-6 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                                                    >
+                                                        <Download size={16} />
+                                                        Download File
+                                                    </a>
+                                                </div>
+                                            )}
+                                    </>
+                                )}
                             </div>
 
                             {/* Sidebar Info */}

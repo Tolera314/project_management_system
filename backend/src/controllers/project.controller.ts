@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { NotificationService } from '../services/notification.service';
+import { startOfWeek, subWeeks, endOfWeek } from 'date-fns';
 
 const createProjectSchema = z.object({
     name: z.string().min(1, 'Project name is required').max(100, 'Project name is too long'),
@@ -476,6 +476,93 @@ export const getProjectDetails = async (req: Request, res: Response) => {
     }
 };
 
+export const getProjectStats = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).userId;
+
+        // Verify Access
+        const project = await prisma.project.findFirst({
+            where: {
+                id,
+                organization: {
+                    members: { some: { userId } }
+                }
+            },
+            include: {
+                invitations: { where: { status: 'PENDING' } },
+                members: true
+            }
+        });
+
+        if (!project) {
+            res.status(404).json({ error: 'Project not found' });
+            return;
+        }
+
+        const now = new Date();
+        const startOfCurrentWeek = startOfWeek(now);
+        const startOfLastWeek = startOfWeek(subWeeks(now, 1));
+        const endOfLastWeek = endOfWeek(subWeeks(now, 1));
+
+        // 1. Task Counts
+        const [totalTasks, completedTasks, openTasks, overdueTasks] = await Promise.all([
+            prisma.task.count({ where: { projectId: id } }),
+            prisma.task.count({ where: { projectId: id, status: 'DONE' } }),
+            prisma.task.count({ where: { projectId: id, status: { not: 'DONE' } } }),
+            prisma.task.count({
+                where: {
+                    projectId: id,
+                    status: { not: 'DONE' },
+                    dueDate: { lt: now }
+                }
+            })
+        ]);
+
+        // 2. Velocity (Completed tasks this week vs last week)
+        const completedThisWeek = await prisma.task.count({
+            where: {
+                projectId: id,
+                status: 'DONE',
+                completedAt: { gte: startOfCurrentWeek }
+            }
+        });
+
+        const completedLastWeek = await prisma.task.count({
+            where: {
+                projectId: id,
+                status: 'DONE',
+                completedAt: { gte: startOfLastWeek, lte: endOfLastWeek }
+            }
+        });
+
+        let velocityChange = 0;
+        if (completedLastWeek === 0) {
+            velocityChange = completedThisWeek > 0 ? 100 : 0;
+        } else {
+            velocityChange = Math.round(((completedThisWeek - completedLastWeek) / completedLastWeek) * 100);
+        }
+
+        // 3. Progress
+        const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+        res.json({
+            progress,
+            openTasks,
+            overdueTasks,
+            totalMembers: (project.members.length || 0) + (project.invitations.length || 0),
+            velocity: {
+                value: velocityChange,
+                direction: velocityChange >= 0 ? 'up' : 'down'
+            }
+        });
+
+    } catch (error) {
+        console.error('Get project stats error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 // Add Member
 export const addMember = async (req: Request, res: Response) => {
     try {
@@ -501,30 +588,65 @@ export const addMember = async (req: Request, res: Response) => {
             return;
         }
 
-        // 2. Find User by Email or provision new one
-        let userToAdd = await prisma.user.findUnique({
+        // 2. Find User by Email
+        const userToAdd = await prisma.user.findUnique({
             where: { email }
         });
 
         if (!userToAdd) {
-            console.log(`[ProjectService] User ${email} not found. Provisioning new user.`);
-            // Provision new user
-            const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
-            const hashedPassword = await bcrypt.hash(tempPassword, 10);
+            console.log(`[ProjectService] User ${email} not found. Sending invitation.`);
 
-            const nameParts = email.split('@')[0].split('.');
-            const firstName = nameParts[0] || 'Invited';
-            const lastName = nameParts.length > 1 ? nameParts[1] : 'User';
+            // Generate Token
+            const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + 7);
 
-            userToAdd = await prisma.user.create({
-                data: {
-                    email,
-                    password: hashedPassword,
-                    firstName: firstName.charAt(0).toUpperCase() + firstName.slice(1),
-                    lastName: lastName.charAt(0).toUpperCase() + lastName.slice(1),
+            // Create Invitation
+            await prisma.invitation.upsert({
+                where: { token },
+                create: {
+                    token,
+                    email: email.toLowerCase(),
+                    type: 'PROJECT',
+                    projectId: id,
+                    roleId: roleId,
+                    invitedById: userId,
+                    expiresAt
+                },
+                update: {
+                    token,
+                    roleId: roleId,
+                    expiresAt
                 }
             });
-            console.log(`[ProjectService] Provisioned user ${email} with temp password: ${tempPassword}`);
+
+            // Send Email
+            const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+            const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite/${token}`;
+
+            try {
+                const role = await prisma.role.findUnique({ where: { id: roleId } });
+                const html = getProjectInvitationTemplate(
+                    project.name,
+                    currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'A Project Manager',
+                    role ? role.name : 'Member',
+                    inviteLink
+                );
+
+                await sendEmail({
+                    to: email,
+                    subject: `Invitation to join project: ${project.name}`,
+                    html
+                });
+            } catch (emailErr) {
+                console.error('Failed to send invite email:', emailErr);
+            }
+
+            res.status(200).json({
+                message: 'User not found. Project invitation sent successfully.',
+                token // Optional: Remove in prod if security concern, but useful for debug
+            });
+            return;
         }
 
         // 3. Check/Add to Organization

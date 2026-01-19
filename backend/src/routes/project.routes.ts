@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { createProject, getProjects, getProjectDetails, addMember, removeMember, updateMemberRole } from '../controllers/project.controller';
+import { createProject, getProjects, getProjectDetails, addMember, removeMember, updateMemberRole, getProjectStats } from '../controllers/project.controller';
+import { getProjectReport } from '../controllers/report.controller';
 import { convertProjectToTemplate } from '../controllers/template.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { checkProjectPermission } from '../middleware/permissions';
@@ -11,6 +12,8 @@ router.use(authMiddleware);
 router.post('/', createProject);
 router.get('/', getProjects);
 router.get('/:id', getProjectDetails);
+router.get('/:id/stats', getProjectStats);
+router.get('/:id/report', checkProjectPermission('view_reports'), getProjectReport);
 
 // Member Management
 router.post('/:id/members', checkProjectPermission('manage_project_members'), addMember);

@@ -8,6 +8,7 @@ export interface AdminStats {
     workspaces: { total: number; active: number; growth: number };
     projects: { total: number; active: number; growth: number };
     revenue: { total: number; growth: number };
+    recentActivity: { action: string; target: string; user: string; time: string }[];
 }
 
 export interface WorkspaceData {

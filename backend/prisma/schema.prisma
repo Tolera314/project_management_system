@@ -716,3 +716,23 @@ model AdminAuditLog {
   @@index([performedById])
   @@index([createdAt])
 }
+model SystemSetting {
+  id          String   @id @default(cuid())
+  group       String   // GENERAL, SECURITY, EMAIL, BACKUP
+  key         String
+  value       Json
+  description String?
+  isPublic    Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([group, key])
+}
+
+model SystemBackup {
+  id          String   @id @default(cuid())
+  filename    String
+  sizeBytes   BigInt
+  status      String   // PENDING, COMPLETED, FAILED
+  createdAt   DateTime @default(now())
+}
+

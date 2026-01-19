@@ -91,7 +91,7 @@ export default function MilestoneDashboard({ projectId, onRefresh, projectTasks,
                     <div>
                         <div className="flex items-center gap-3 mb-2">
                             <Target className="text-primary" size={24} />
-                            <h2 className="text-xl font-bold text-white">Project Milestones</h2>
+                            <h2 className="text-xl font-bold text-text-secondary">Project Milestones</h2>
                         </div>
                         <p className="text-text-secondary text-sm mb-6">
                             {completedMilestones} of {milestones.length} structural milestones completed
@@ -99,7 +99,7 @@ export default function MilestoneDashboard({ projectId, onRefresh, projectTasks,
 
                         <div className="flex items-center gap-12">
                             <div>
-                                <div className="text-3xl font-black text-white mb-1">{projectProgress}%</div>
+                                <div className="text-3xl font-black text-text-secondary mb-1">{projectProgress}%</div>
                                 <div className="text-[10px] font-bold text-text-secondary uppercase tracking-widest text-primary">Overall Delivery</div>
                             </div>
                             <div className="h-10 w-[1px] bg-white/10" />
@@ -113,7 +113,7 @@ export default function MilestoneDashboard({ projectId, onRefresh, projectTasks,
                     </div>
 
                     <div className="md:w-1/3 flex flex-col gap-4">
-                        <div className="flex justify-between text-xs font-bold text-white uppercase tracking-tighter">
+                        <div className="flex justify-between text-xs font-bold text-text-secondary uppercase tracking-tighter">
                             <span>Completion Rate</span>
                             <span>{projectProgress}%</span>
                         </div>
@@ -141,13 +141,13 @@ export default function MilestoneDashboard({ projectId, onRefresh, projectTasks,
                     <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
                         <Target className="text-text-secondary" />
                     </div>
-                    <h3 className="text-lg font-bold text-white mb-2">No Milestones Yet</h3>
+                    <h3 className="text-lg font-bold text-text-secondary mb-2">No Milestones Yet</h3>
                     <p className="text-text-secondary max-w-sm mx-auto mb-8">
                         Milestones help you track major project checkpoints and delivery targets.
                     </p>
                     <button
                         onClick={() => setIsCreateModalOpen(true)}
-                        className="px-8 py-3 bg-white/5 text-white font-bold rounded-xl border border-white/10 hover:bg-white/10 transition-all"
+                        className="px-8 py-3 bg-primary text-white font-bold rounded-xl border border-white/10 hover:bg-primary/80 transition-all"
                     >
                         Create your first milestone
                     </button>

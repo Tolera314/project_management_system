@@ -26,12 +26,6 @@ const systemServices = [
     { name: 'Push Notifications', status: 'Maintenance', uptime: '98.5%', load: '-', color: 'amber' },
 ];
 
-const recentActivity = [
-    { action: 'Workspace Created', target: 'Tech-Nova Ltd', user: 'Sarah Jeon', time: '2 mins ago' },
-    { action: 'Permission Modified', target: 'Role: Editor', user: 'Master Admin', time: '14 mins ago' },
-    { action: 'Security Alert', target: 'Failed Login Threshold', user: 'System', time: '45 mins ago' },
-    { action: 'Database Backup', target: 'Auto-Backup Success', user: 'System', time: '1 hour ago' },
-];
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState<AdminStats | null>(null);
@@ -160,7 +154,7 @@ export default function AdminDashboard() {
                             </h2>
                         </div>
                         <div className="bg-white/5 border border-white/5 rounded-3xl p-6 space-y-6">
-                            {recentActivity.map((log, i) => (
+                            {stats && stats.recentActivity && stats.recentActivity.map((log, i) => (
                                 <div key={i} className="flex gap-4 group">
                                     <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center shrink-0 group-hover:border-primary/50 transition-colors">
                                         <Terminal size={16} className="text-slate-500 group-hover:text-primary" />
@@ -168,7 +162,7 @@ export default function AdminDashboard() {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2 mb-1">
                                             <p className="text-sm font-bold text-white truncate">{log.action}</p>
-                                            <span className="text-[10px] text-slate-500 whitespace-nowrap">{log.time}</span>
+                                            <span className="text-[10px] text-slate-500 whitespace-nowrap">{new Date(log.time).toLocaleTimeString()}</span>
                                         </div>
                                         <p className="text-xs text-slate-400 truncate">
                                             <span className="text-primary font-medium">{log.user}</span> → {log.target}
@@ -176,6 +170,9 @@ export default function AdminDashboard() {
                                     </div>
                                 </div>
                             ))}
+                            {(!stats || !stats.recentActivity || stats.recentActivity.length === 0) && (
+                                <div className="text-center text-slate-500 text-sm py-4">No recent activity</div>
+                            )}
                             <button className="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-white transition-all uppercase tracking-widest">
                                 View Full Audit Trail
                             </button>
