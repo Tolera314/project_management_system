@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import {
     BarChart3, PieChart as PieChartIcon, TrendingUp,
     CheckCircle2, Clock, AlertTriangle, Users,
-    Layers, Layout, Activity
+    Layers, Layout, Activity, Download, FileText, FileJson, FileCode
 } from 'lucide-react';
 import {
     PieChart, Pie, Cell, BarChart, Bar,
@@ -33,6 +33,7 @@ export default function ReportsPage() {
     const router = useRouter();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
+    const [showExportMenu, setShowExportMenu] = useState(false);
     const [stats, setStats] = useState<any>({
         statusData: [],
         projectData: [],
@@ -134,6 +135,46 @@ export default function ReportsPage() {
         }
     };
 
+    const handleExportAnalytics = (format: 'json' | 'csv') => {
+        const data = format === 'csv'
+            ? generateCSV()
+            : JSON.stringify(stats, null, 2);
+
+        const blob = new Blob([data], { type: format === 'csv' ? 'text/csv' : 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `workspace_analytics_${new Date().toISOString().split('T')[0]}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        setShowExportMenu(false);
+    };
+
+    const generateCSV = () => {
+        const rows = [
+            ['Workspace Analytics Report'],
+            ['Generated', new Date().toISOString()],
+            [],
+            ['Summary'],
+            ['Metric', 'Value'],
+            ['Active Projects', stats.totals.projects],
+            ['Total Tasks', stats.totals.tasks],
+            ['Tasks Completed', stats.totals.completed],
+            ['Tasks In Progress', stats.totals.inProgress],
+            [],
+            ['Task Status Distribution'],
+            ['Status', 'Count'],
+            ...stats.statusData.map((s: any) => [s.name, s.value]),
+            [],
+            ['Project Engagement'],
+            ['Project', 'Total Tasks', 'Completed'],
+            ...stats.projectData.map((p: any) => [p.name, p.tasks, p.completed])
+        ];
+        return rows.map(row => row.join(',')).join('\n');
+    };
+
     const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#94a3b8'];
 
     return (
@@ -144,13 +185,44 @@ export default function ReportsPage() {
                         <h1 className="text-2xl md:text-3xl font-bold text-text-primary mb-1">Reports & Analytics</h1>
                         <p className="text-text-secondary text-sm">Visual insights into your team's productivity</p>
                     </div>
-                    <button
-                        onClick={fetchData}
-                        className="flex items-center gap-2 px-4 py-2 bg-surface/40 hover:bg-surface-secondary border border-border rounded-xl text-text-primary text-sm font-medium transition-all"
-                    >
-                        <Activity size={16} className="text-primary" />
-                        Refresh Data
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={fetchData}
+                            className="flex items-center gap-2 px-4 py-2 bg-surface/40 hover:bg-surface-secondary border border-border rounded-xl text-text-primary text-sm font-medium transition-all"
+                        >
+                            <Activity size={16} className="text-primary" />
+                            Refresh Data
+                        </button>
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowExportMenu(!showExportMenu)}
+                                className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl text-sm font-medium transition-all shadow-lg shadow-primary/20"
+                            >
+                                <Download size={16} />
+                                Export
+                            </button>
+                            {showExportMenu && (
+                                <div className="absolute top-full right-0 mt-2 w-40 bg-[#0A0A0A] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="p-1">
+                                        <button
+                                            onClick={() => handleExportAnalytics('json')}
+                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm text-text-secondary hover:text-white transition-colors flex items-center gap-2"
+                                        >
+                                            <FileJson size={16} />
+                                            JSON
+                                        </button>
+                                        <button
+                                            onClick={() => handleExportAnalytics('csv')}
+                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm text-text-secondary hover:text-white transition-colors flex items-center gap-2"
+                                        >
+                                            <FileText size={16} />
+                                            CSV (Excel)
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 {loading ? (

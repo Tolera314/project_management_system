@@ -48,11 +48,14 @@ export const getPlatformStats = async (req: Request, res: Response) => {
         });
 
         // Format for recharts
-        const growthData = last30Days.map(date => ({
-            date: format(new Date(date), 'MMM dd'),
-            users: Math.floor(Math.random() * 10) + 1, // Placeholder for real aggregation
-            workspaces: Math.floor(Math.random() * 5)
-        }));
+        const growthData = last30Days.map(dateStr => {
+            const count = userGrowth.find(g => format(g.createdAt, 'yyyy-MM-dd') === dateStr)?._count || 0;
+            return {
+                date: format(new Date(dateStr), 'MMM dd'),
+                users: count,
+                workspaces: Math.floor(Math.random() * 5) // Keep workspace random or implement similar groupBy
+            };
+        });
 
         // 3. Storage Usage (Mock for now)
         const storageUsage = [

@@ -1,14 +1,43 @@
 import nodemailer from 'nodemailer';
+import prisma from '../lib/prisma'; // Import prisma
 
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_SERVER,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
-});
+// Helper to get transporter dynamically
+const getTransporter = async () => {
+    // 1. Try to fetch settings from DB
+    try {
+        const settings = await prisma.systemSetting.findMany({
+            where: { group: 'EMAIL' }
+        });
+
+        const config: Record<string, string> = {};
+        settings.forEach(s => config[s.key] = s.value as string);
+
+        if (config['SMTP_SERVER'] && config['SMTP_USER']) {
+            return nodemailer.createTransport({
+                host: config['SMTP_SERVER'],
+                port: parseInt(config['SMTP_PORT'] || '587'),
+                secure: config['SMTP_SECURE'] === 'true',
+                auth: {
+                    user: config['SMTP_USER'],
+                    pass: config['SMTP_PASS'],
+                },
+            });
+        }
+    } catch (e) {
+        console.warn('Failed to fetch email settings from DB, falling back to ENV', e);
+    }
+
+    // 2. Fallback to ENV
+    return nodemailer.createTransport({
+        host: process.env.SMTP_SERVER,
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+        },
+    });
+};
 
 const defaultSender = `"${process.env.SENDER_NAME}" <${process.env.SENDER_EMAIL}>`;
 
@@ -20,8 +49,19 @@ interface EmailOptions {
 
 export const sendEmail = async ({ to, subject, html }: EmailOptions) => {
     try {
+        const transporter = await getTransporter();
+
+        // Get dynamic sender name if available
+        let from = defaultSender;
+        const fromName = await prisma.systemSetting.findUnique({ where: { group_key: { group: 'EMAIL', key: 'SENDER_NAME' } } });
+        const fromEmail = await prisma.systemSetting.findUnique({ where: { group_key: { group: 'EMAIL', key: 'SENDER_EMAIL' } } });
+
+        if (fromName && fromEmail) {
+            from = `"${fromName.value}" <${fromEmail.value}>`;
+        }
+
         const info = await transporter.sendMail({
-            from: defaultSender,
+            from,
             to,
             subject,
             html,

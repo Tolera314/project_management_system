@@ -18,7 +18,8 @@ export const getOverviewStats = async (req: Request, res: Response) => {
             totalUsers,
             totalWorkspaces,
             totalProjects,
-            activeUsersLast7Days
+            activeUsersLast7Days,
+            recentLogs
         ] = await Promise.all([
             prisma.user.count(),
             prisma.organization.count(),
@@ -27,14 +28,26 @@ export const getOverviewStats = async (req: Request, res: Response) => {
                 // Placeholder for "Active" - ideally based on last login session
                 where: { status: 'ACTIVE' }
             }),
-            // Add more stats as needed
+            prisma.adminAuditLog.findMany({
+                take: 5,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    performedBy: { select: { firstName: true, lastName: true } }
+                }
+            })
         ]);
 
         const stats = {
             users: { total: totalUsers, active: activeUsersLast7Days, growth: 12 }, // Growth is mock for now or calc simple
             workspaces: { total: totalWorkspaces, growth: 5 },
             projects: { total: totalProjects, active: totalProjects }, // Approximation
-            revenue: { total: 0, growth: 0 } // No billing yet
+            revenue: { total: 0, growth: 0 }, // No billing yet
+            recentActivity: recentLogs.map(log => ({
+                action: log.action.replace(/_/g, ' '),
+                target: `${log.entityType} ${(log.entityId || '').substring(0, 8)}...`,
+                user: log.performedBy ? `${log.performedBy.firstName} ${log.performedBy.lastName}` : 'System',
+                time: log.createdAt
+            }))
         };
 
         res.json(stats);

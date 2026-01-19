@@ -27,9 +27,6 @@ const menuItems = [
     { icon: History, label: 'Activity & Audit Logs', href: '/admin/logs' },
     { icon: BarChart3, label: 'Reports & Analytics', href: '/admin/reports' },
     { icon: Settings, label: 'System Settings', href: '/admin/settings' },
-    { icon: Lock, label: 'Security', href: '/admin/security' },
-    { icon: Database, label: 'Backups & Data', href: '/admin/backups' },
-    { icon: Mail, label: 'Email / Notifications', href: '/admin/email' },
 ];
 
 interface AdminSidebarProps {

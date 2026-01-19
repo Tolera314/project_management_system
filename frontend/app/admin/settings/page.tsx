@@ -1,31 +1,479 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { Save, AlertTriangle, CheckCircle, Database, Mail, Shield, Settings as SettingsIcon } from 'lucide-react';
 import AdminLayout from '../../components/admin/AdminLayout';
-import { Settings, Globe, Shield, Braces } from 'lucide-react';
 
-export default function SettingsAdmin() {
+type SettingsTab = 'general' | 'security' | 'backups' | 'email';
+
+interface SystemSettings {
+    [key: string]: any;
+}
+
+interface Backup {
+    id: string;
+    filename: string;
+    sizeBytes: number;
+    status: string;
+    createdAt: string;
+}
+
+export default function SettingsPage() {
+    const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+    const [settings, setSettings] = useState<SystemSettings>({});
+    const [backups, setBackups] = useState<Backup[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+    const [testEmailStatus, setTestEmailStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+
+    useEffect(() => {
+        fetchSettings();
+        if (activeTab === 'backups') {
+            fetchBackups();
+        }
+    }, [activeTab]);
+
+    const fetchSettings = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('http://localhost:4000/settings', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setSettings(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch settings', error);
+        }
+    };
+
+    const fetchBackups = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('http://localhost:4000/settings/backups', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setBackups(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch backups', error);
+        }
+    };
+
+    const saveSettings = async (group: string, updatedSettings: SystemSettings) => {
+        setSaveStatus('saving');
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('http://localhost:4000/settings', {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ group, settings: updatedSettings })
+            });
+
+            if (res.ok) {
+                setSaveStatus('success');
+                setTimeout(() => setSaveStatus('idle'), 2000);
+            } else {
+                setSaveStatus('error');
+            }
+        } catch (error) {
+            console.error('Failed to save settings', error);
+            setSaveStatus('error');
+        }
+    };
+
+    const triggerBackup = async () => {
+        setLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('http://localhost:4000/settings/backup', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                fetchBackups();
+            }
+        } catch (error) {
+            console.error('Backup failed', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const sendTestEmail = async () => {
+        const email = prompt('Enter test email address:');
+        if (!email) return;
+
+        setTestEmailStatus('sending');
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('http://localhost:4000/settings/test-email', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email })
+            });
+
+            if (res.ok) {
+                setTestEmailStatus('success');
+                setTimeout(() => setTestEmailStatus('idle'), 3000);
+            } else {
+                setTestEmailStatus('error');
+            }
+        } catch (error) {
+            console.error('Test email failed', error);
+            setTestEmailStatus('error');
+        }
+    };
+
+    const tabs = [
+        { id: 'general' as SettingsTab, label: 'General', icon: SettingsIcon },
+        { id: 'security' as SettingsTab, label: 'Security', icon: Shield },
+        { id: 'backups' as SettingsTab, label: 'Backups & Data', icon: Database },
+        { id: 'email' as SettingsTab, label: 'Email & Notifications', icon: Mail },
+    ];
+
     return (
         <AdminLayout>
             <div className="space-y-8">
-                <h1 className="text-2xl font-bold text-white tracking-tight">Platform Configuration</h1>
-                <div className="divide-y divide-white/5 bg-white/5 rounded-3xl overflow-hidden border border-white/5">
-                    {[
-                        { icon: Globe, label: 'Platform Branding', desc: 'Custom logos, primary colors, and landing page URLs.' },
-                        { icon: Braces, label: 'API Configuration', desc: 'Manage public API keys and webhooks.' },
-                        { icon: Shield, label: 'Compliance & GDPR', desc: 'Data retention policies and privacy settings.' },
-                    ].map((item, i) => (
-                        <button key={i} className="w-full flex items-center gap-6 p-6 hover:bg-white/[0.02] transition-colors text-left group">
-                            <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-slate-500 group-hover:text-primary transition-colors">
-                                <item.icon size={24} />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-white">{item.label}</h3>
-                                <p className="text-sm text-slate-500">{item.desc}</p>
-                            </div>
-                        </button>
-                    ))}
+                {/* Header */}
+                <div>
+                    <h1 className="text-3xl font-bold text-text-primary">System Settings</h1>
+                    <p className="text-text-secondary mt-2">Configure global platform behavior and security</p>
+                </div>
+
+                {/* Tabs */}
+                <div className="border-b border-border">
+                    <div className="flex gap-4">
+                        {tabs.map(tab => {
+                            const Icon = tab.icon;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === tab.id
+                                            ? 'border-primary text-primary font-semibold'
+                                            : 'border-transparent text-text-secondary hover:text-text-primary'
+                                        }`}
+                                >
+                                    <Icon size={18} />
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Content */}
+                <div className="bg-surface border border-border rounded-xl p-6">
+                    {activeTab === 'general' && <GeneralTab settings={settings} onSave={saveSettings} saveStatus={saveStatus} />}
+                    {activeTab === 'security' && <SecurityTab settings={settings} onSave={saveSettings} saveStatus={saveStatus} />}
+                    {activeTab === 'backups' && <BackupsTab backups={backups} onTriggerBackup={triggerBackup} loading={loading} />}
+                    {activeTab === 'email' && <EmailTab settings={settings} onSave={saveSettings} sendTest={sendTestEmail} saveStatus={saveStatus} testEmailStatus={testEmailStatus} />}
                 </div>
             </div>
         </AdminLayout>
+    );
+}
+
+function GeneralTab({ settings, onSave, saveStatus }: { settings: SystemSettings; onSave: (group: string, settings: SystemSettings) => void; saveStatus: string }) {
+    const [formData, setFormData] = useState({
+        platformName: settings['platformName'] || 'ProjectOS',
+        timezone: settings['timezone'] || 'UTC',
+        dateFormat: settings['dateFormat'] || 'YYYY-MM-DD',
+    });
+
+    const handleSave = () => {
+        onSave('GENERAL', formData);
+    };
+
+    return (
+        <div className="space-y-6">
+            <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Platform Name</label>
+                <input
+                    type="text"
+                    value={formData.platformName}
+                    onChange={(e) => setFormData({ ...formData, platformName: e.target.value })}
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Default Timezone</label>
+                <select
+                    value={formData.timezone}
+                    onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                    <option value="UTC">UTC</option>
+                    <option value="America/New_York">America/New_York</option>
+                    <option value="Europe/London">Europe/London</option>
+                    <option value="Asia/Tokyo">Asia/Tokyo</option>
+                </select>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Date Format</label>
+                <select
+                    value={formData.dateFormat}
+                    onChange={(e) => setFormData({ ...formData, dateFormat: e.target.value })}
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                    <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                    <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                </select>
+            </div>
+
+            <SaveButton onClick={handleSave} status={saveStatus} />
+        </div>
+    );
+}
+
+function SecurityTab({ settings, onSave, saveStatus }: { settings: SystemSettings; onSave: (group: string, settings: SystemSettings) => void; saveStatus: string }) {
+    const [formData, setFormData] = useState({
+        mfaEnabled: settings['mfaEnabled'] || false,
+        sessionTimeout: settings['sessionTimeout'] || '30',
+        passwordExpiry: settings['passwordExpiry'] || '90',
+    });
+
+    const handleSave = () => {
+        onSave('SECURITY', formData);
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-border">
+                <div>
+                    <p className="font-medium text-text-primary">Enforce Multi-Factor Authentication</p>
+                    <p className="text-sm text-text-secondary">Require all users to enable MFA</p>
+                </div>
+                <input
+                    type="checkbox"
+                    checked={formData.mfaEnabled}
+                    onChange={(e) => setFormData({ ...formData, mfaEnabled: e.target.checked })}
+                    className="w-5 h-5"
+                />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Session Timeout (minutes)</label>
+                <input
+                    type="number"
+                    value={formData.sessionTimeout}
+                    onChange={(e) => setFormData({ ...formData, sessionTimeout: e.target.value })}
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Password Expiry (days)</label>
+                <input
+                    type="number"
+                    value={formData.passwordExpiry}
+                    onChange={(e) => setFormData({ ...formData, passwordExpiry: e.target.value })}
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+            </div>
+
+            <SaveButton onClick={handleSave} status={saveStatus} />
+        </div>
+    );
+}
+
+function BackupsTab({ backups, onTriggerBackup, loading }: { backups: Backup[]; onTriggerBackup: () => void; loading: boolean }) {
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h3 className="text-lg font-semibold text-text-primary">Database Backups</h3>
+                    <p className="text-sm text-text-secondary">Automated backups run daily at 2:00 AM UTC</p>
+                </div>
+                <button
+                    onClick={onTriggerBackup}
+                    disabled={loading}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                >
+                    <Database size={18} />
+                    {loading ? 'Creating...' : 'Backup Now'}
+                </button>
+            </div>
+
+            <div className="border border-border rounded-lg overflow-hidden">
+                <table className="w-full">
+                    <thead className="bg-surface-secondary">
+                        <tr>
+                            <th className="text-left px-4 py-3 text-sm font-medium text-text-primary">Filename</th>
+                            <th className="text-left px-4 py-3 text-sm font-medium text-text-primary">Size</th>
+                            <th className="text-left px-4 py-3 text-sm font-medium text-text-primary">Status</th>
+                            <th className="text-left px-4 py-3 text-sm font-medium text-text-primary">Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {backups.map(backup => (
+                            <tr key={backup.id} className="border-t border-border">
+                                <td className="px-4 py-3 text-sm text-text-primary">{backup.filename}</td>
+                                <td className="px-4 py-3 text-sm text-text-secondary">
+                                    {(Number(backup.sizeBytes) / 1024 / 1024).toFixed(2)} MB
+                                </td>
+                                <td className="px-4 py-3">
+                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${backup.status === 'COMPLETED' ? 'bg-green-500/10 text-green-600' : 'bg-yellow-500/10 text-yellow-600'
+                                        }`}>
+                                        {backup.status}
+                                    </span>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-text-secondary">
+                                    {new Date(backup.createdAt).toLocaleString()}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+function EmailTab({ settings, onSave, sendTest, saveStatus, testEmailStatus }: {
+    settings: SystemSettings;
+    onSave: (group: string, settings: SystemSettings) => void;
+    sendTest: () => void;
+    saveStatus: string;
+    testEmailStatus: string;
+}) {
+    const [formData, setFormData] = useState({
+        SMTP_SERVER: settings['SMTP_SERVER'] || '',
+        SMTP_PORT: settings['SMTP_PORT'] || '587',
+        SMTP_USER: settings['SMTP_USER'] || '',
+        SMTP_PASS: settings['SMTP_PASS'] || '',
+        SENDER_NAME: settings['SENDER_NAME'] || 'ProjectOS',
+        SENDER_EMAIL: settings['SENDER_EMAIL'] || '',
+    });
+
+    const handleSave = () => {
+        onSave('EMAIL', formData);
+    };
+
+    return (
+        <div className="space-y-6">
+            <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">SMTP Server</label>
+                <input
+                    type="text"
+                    value={formData.SMTP_SERVER}
+                    onChange={(e) => setFormData({ ...formData, SMTP_SERVER: e.target.value })}
+                    placeholder="smtp.example.com"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-text-primary mb-2">SMTP Port</label>
+                    <input
+                        type="text"
+                        value={formData.SMTP_PORT}
+                        onChange={(e) => setFormData({ ...formData, SMTP_PORT: e.target.value })}
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-text-primary mb-2">SMTP Username</label>
+                    <input
+                        type="text"
+                        value={formData.SMTP_USER}
+                        onChange={(e) => setFormData({ ...formData, SMTP_USER: e.target.value })}
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                </div>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">SMTP Password</label>
+                <input
+                    type="password"
+                    value={formData.SMTP_PASS}
+                    onChange={(e) => setFormData({ ...formData, SMTP_PASS: e.target.value })}
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-text-primary mb-2">Sender Name</label>
+                    <input
+                        type="text"
+                        value={formData.SENDER_NAME}
+                        onChange={(e) => setFormData({ ...formData, SENDER_NAME: e.target.value })}
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-text-primary mb-2">Sender Email</label>
+                    <input
+                        type="email"
+                        value={formData.SENDER_EMAIL}
+                        onChange={(e) => setFormData({ ...formData, SENDER_EMAIL: e.target.value })}
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                </div>
+            </div>
+
+            <div className="flex gap-3">
+                <SaveButton onClick={handleSave} status={saveStatus} />
+                <button
+                    onClick={sendTest}
+                    disabled={testEmailStatus === 'sending'}
+                    className={`flex items-center gap-2 px-4 py-2 border border-border rounded-lg transition-colors ${testEmailStatus === 'success' ? 'bg-green-500/10 text-green-600 border-green-500' :
+                            testEmailStatus === 'error' ? 'bg-red-500/10 text-red-600 border-red-500' :
+                                'hover:bg-surface-secondary'
+                        }`}
+                >
+                    <Mail size={18} />
+                    {testEmailStatus === 'sending' ? 'Sending...' : testEmailStatus === 'success' ? 'Sent!' : 'Send Test Email'}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function SaveButton({ onClick, status }: { onClick: () => void; status: string }) {
+    return (
+        <button
+            onClick={onClick}
+            disabled={status === 'saving'}
+            className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-all ${status === 'success'
+                    ? 'bg-green-500 text-white'
+                    : status === 'error'
+                        ? 'bg-red-500 text-white'
+                        : 'bg-primary text-white hover:bg-primary/90'
+                }`}
+        >
+            {status === 'success' ? (
+                <>
+                    <CheckCircle size={18} />
+                    Saved!
+                </>
+            ) : status === 'error' ? (
+                <>
+                    <AlertTriangle size={18} />
+                    Failed
+                </>
+            ) : (
+                <>
+                    <Save size={18} />
+                    {status === 'saving' ? 'Saving...' : 'Save Changes'}
+                </>
+            )}
+        </button>
     );
 }

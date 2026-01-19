@@ -198,12 +198,12 @@ export default function DashboardPage() {
                     className="mb-8 flex items-start justify-between"
                 >
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
+                        <h1 className="text-2xl md:text-3xl font-bold text-text-secondary mb-2">
                             {getTimeGreeting()}, {userName}
                         </h1>
                         {hasData ? (
                             <p className="text-text-secondary text-sm">
-                                You're working in <span className="text-white font-medium">{projects[0].name}</span>
+                                You're working in <span className="text-text-secondary font-medium">{projects[0].name}</span>
                             </p>
                         ) : (
                             <p className="text-text-secondary text-sm">

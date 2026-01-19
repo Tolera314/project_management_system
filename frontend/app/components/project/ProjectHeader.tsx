@@ -13,7 +13,11 @@ import {
     CheckCircle2,
     Diamond,
     Layout,
-    File as FileIcon
+    File as FileIcon,
+    Download,
+    FileText,
+    FileJson,
+    FileCode
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
@@ -52,11 +56,86 @@ export default function ProjectHeader({
     onManageMembers,
     projectId
 }: ProjectHeaderProps) {
-    const [showCreateMenu, setShowCreateMenu] = useState<boolean | 'more'>(false);
+    const [showCreateMenu, setShowCreateMenu] = useState<boolean | 'more' | 'export'>(false);
     const [showSortMenu, setShowSortMenu] = useState(false);
     const [showFilterMenu, setShowFilterMenu] = useState(false);
     const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
     const { user } = useUser();
+
+    const handleExportReport = async (format: 'json' | 'csv' | 'pdf') => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!projectId || !token) return;
+
+            if (format === 'pdf') {
+                // For PDF, open in new tab for browser print
+                const response = await fetch(`http://localhost:4000/projects/${projectId}/report`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+
+                const printWindow = window.open('', '_blank');
+                if (!printWindow) return;
+
+                printWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Project Report - ${project.name}</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; padding: 40px; }
+                            h1 { color: #4f46e5; }
+                            .metric { margin: 10px 0; }
+                            .risk { color: #ef4444; }
+                            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                            th { background-color: #f3f4f6; }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>Project Report: ${data.project?.name}</h1>
+                        <p><strong>Generated:</strong> ${new Date(data.project?.generatedAt).toLocaleString()}</p>
+                        <h2>Metrics</h2>
+                        <div class="metric"><strong>Total Tasks:</strong> ${data.metrics?.totalTasks}</div>
+                        <div class="metric"><strong>Completed:</strong> ${data.metrics?.completedTasks}</div>
+                        <div class="metric"><strong>In Progress:</strong> ${data.metrics?.inProgressTasks}</div>
+                        <div class="metric"><strong>Blocked:</strong> ${data.metrics?.blockedTasks}</div>
+                        <div class="metric"><strong>Progress:</strong> ${data.status?.progress}%</div>
+                        <h2>Risks</h2>
+                        ${data.risks?.length > 0 ? data.risks.map((r: any) =>
+                    `<div class="risk">⚠ ${r.type}: ${r.title}</div>`
+                ).join('') : '<p>No risks identified</p>'}
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+                setTimeout(() => { printWindow.print(); }, 500);
+                setShowCreateMenu(false);
+                return;
+            }
+
+            const url = `http://localhost:4000/projects/${projectId}/report?format=${format}`;
+            const response = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) throw new Error('Export failed');
+
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = `${project.name}_report_${new Date().toISOString().split('T')[0]}.${format}`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(downloadUrl);
+            setShowCreateMenu(false);
+        } catch (error) {
+            console.error('Export failed:', error);
+            alert('Export failed. Please try again.');
+        }
+    };
 
     // ... views definition ...
     const views = [
@@ -136,6 +215,15 @@ export default function ProjectHeader({
                                     <div className="p-1">
                                         <button
                                             onClick={() => {
+                                                setShowCreateMenu('export' as any);
+                                            }}
+                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                        >
+                                            <Download size={16} />
+                                            Export Report
+                                        </button>
+                                        <button
+                                            onClick={() => {
                                                 setShowCreateMenu(false);
                                                 onManageMembers?.();
                                             }}
@@ -163,6 +251,42 @@ export default function ProjectHeader({
                                         >
                                             <Layout size={16} />
                                             Save as Template
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            {/* Export Format Menu */}
+                            {showCreateMenu === 'export' as any && (
+                                <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="p-1">
+                                        <div className="px-3 py-2 text-xs font-bold text-slate-500 dark:text-text-secondary uppercase">Export Format</div>
+                                        <button
+                                            onClick={() => handleExportReport('json')}
+                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                        >
+                                            <FileJson size={16} />
+                                            JSON
+                                        </button>
+                                        <button
+                                            onClick={() => handleExportReport('csv')}
+                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                        >
+                                            <FileText size={16} />
+                                            CSV (Excel)
+                                        </button>
+                                        <button
+                                            onClick={() => handleExportReport('pdf')}
+                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                        >
+                                            <FileCode size={16} />
+                                            PDF (Print)
+                                        </button>
+                                        <div className="h-px bg-slate-200 dark:bg-white/10 my-1" />
+                                        <button
+                                            onClick={() => setShowCreateMenu('more' as any)}
+                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                                        >
+                                            ← Back
                                         </button>
                                     </div>
                                 </div>

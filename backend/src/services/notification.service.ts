@@ -1,6 +1,7 @@
 import { NotificationType } from '@prisma/client';
 import { sendEmail, getTaskAssignedEmailTemplate, getPlatformWelcomeTemplate } from '../lib/email';
 import prisma from '../lib/prisma';
+import { SocketService } from './socket.service';
 
 export interface NotificationPayload {
     type: NotificationType;
@@ -46,7 +47,7 @@ export class NotificationService {
 
             // 2. Create In-App Notification if enabled
             if (shouldSendInApp) {
-                await prisma.notification.create({
+                const notification = await prisma.notification.create({
                     data: {
                         type: payload.type,
                         userId: payload.recipientId,
@@ -58,6 +59,19 @@ export class NotificationService {
                         message: payload.message,
                         metadata: payload.metadata
                     }
+                });
+
+                // Emit real-time event
+                SocketService.emitToUser(payload.recipientId, 'notification', {
+                    id: notification.id,
+                    type: notification.type,
+                    title: notification.title,
+                    message: notification.message,
+                    createdAt: notification.createdAt,
+                    isRead: false,
+                    actor: payload.actorId ? { id: payload.actorId } : undefined, // Minimal actor info, frontend should re-fetch if needed or we enrich
+                    project: payload.projectId ? { id: payload.projectId } : undefined,
+                    task: payload.taskId ? { id: payload.taskId } : undefined
                 });
             }
 

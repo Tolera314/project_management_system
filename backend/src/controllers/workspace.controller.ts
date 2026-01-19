@@ -50,8 +50,8 @@ export const createWorkspace = async (req: Request, res: Response) => {
             // 2. Define Roles & Permissions
             const roleDefinitions = [
                 {
-                    name: 'Admin',
-                    description: 'Workspace Admin with full access',
+                    name: 'Workspace Manager',
+                    description: 'Workspace Manager with full access',
                     isSystem: true,
                     permissions: [] // Implicit superuser
                 },
@@ -113,7 +113,7 @@ export const createWorkspace = async (req: Request, res: Response) => {
                     }
                 });
 
-                if (def.name === 'Admin') createdAdminRole = role;
+                if (def.name === 'Workspace Manager') createdAdminRole = role;
 
                 if (def.permissions.length > 0) {
                     const permIds = getPermIds(def.permissions);
@@ -128,7 +128,7 @@ export const createWorkspace = async (req: Request, res: Response) => {
                 }
             }
 
-            if (!createdAdminRole) throw new Error('Failed to create Admin role');
+            if (!createdAdminRole) throw new Error('Failed to create Workspace Manager role');
             const adminRole = createdAdminRole; // For scope guarantees
 
             await tx.organizationMember.create({
@@ -269,8 +269,8 @@ export const inviteToWorkspace = async (req: Request, res: Response) => {
             include: { role: true }
         });
 
-        if (!inviterMember || inviterMember.role.name !== 'Admin') {
-            res.status(403).json({ error: 'Only admins can invite members' });
+        if (!inviterMember || inviterMember.role.name !== 'Workspace Manager') {
+            res.status(403).json({ error: 'Only managers can invite members' });
             return;
         }
 
@@ -375,8 +375,8 @@ export const removeWorkspaceMember = async (req: Request, res: Response) => {
             include: { role: true }
         });
 
-        if (!requester || requester.role.name !== 'Admin') {
-            res.status(403).json({ error: 'Only admins can remove members' });
+        if (!requester || requester.role.name !== 'Workspace Manager') {
+            res.status(403).json({ error: 'Only managers can remove members' });
             return;
         }
 
@@ -394,17 +394,17 @@ export const removeWorkspaceMember = async (req: Request, res: Response) => {
             return;
         }
 
-        // Safety Rule: Prevent removing the last Admin
-        if (memberToRemove.role.name === 'Admin') {
+        // Safety Rule: Prevent removing the last Manager
+        if (memberToRemove.role.name === 'Workspace Manager') {
             const adminCount = await prisma.organizationMember.count({
                 where: {
                     organizationId: id,
-                    role: { name: 'Admin' }
+                    role: { name: 'Workspace Manager' }
                 }
             });
 
             if (adminCount <= 1) {
-                res.status(400).json({ error: 'Cannot remove the last Admin from the workspace' });
+                res.status(400).json({ error: 'Cannot remove the last Manager from the workspace' });
                 return;
             }
         }
@@ -477,8 +477,8 @@ export const updateWorkspaceMemberRole = async (req: Request, res: Response) => 
             include: { role: true }
         });
 
-        if (!requesterMembership || (requesterMembership.role.name !== 'Admin' && requesterMembership.role.name !== 'Owner')) {
-            res.status(403).json({ error: 'Only Admins can manage workspace roles' });
+        if (!requesterMembership || (requesterMembership.role.name !== 'Workspace Manager' && requesterMembership.role.name !== 'Owner')) {
+            res.status(403).json({ error: 'Only Managers can manage workspace roles' });
             return;
         }
 
@@ -493,16 +493,16 @@ export const updateWorkspaceMemberRole = async (req: Request, res: Response) => 
             return;
         }
 
-        // Safety: Prevent removing last Admin
-        if (targetMember.role.name === 'Admin') {
+        // Safety: Prevent removing last Manager
+        if (targetMember.role.name === 'Workspace Manager') {
             const adminCount = await prisma.organizationMember.count({
                 where: {
                     organizationId: id,
-                    role: { name: 'Admin' }
+                    role: { name: 'Workspace Manager' }
                 }
             });
             if (adminCount <= 1 && roleId !== targetMember.roleId) { // If trying to change role
-                res.status(400).json({ error: 'Cannot remove the last Admin from the workspace' });
+                res.status(400).json({ error: 'Cannot remove the last Manager from the workspace' });
                 return;
             }
         }
@@ -569,6 +569,43 @@ export const getWorkspaceRoles = async (req: Request, res: Response) => {
         res.status(200).json({ roles });
     } catch (error) {
         console.error('Get workspace roles error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+/**
+ * MIGRATION: Rename "Admin" roles to "Workspace Manager"
+ * Should be run once by System Admin
+ */
+export const migrateRoles = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+
+        // Only System Admin can trigger this global migration
+        if (!user || user.systemRole !== 'SYSTEM_ADMIN') {
+            res.status(403).json({ error: 'Access denied' });
+            return;
+        }
+
+        // Find all roles named 'Admin' that are NOT global (have organizationId)
+        const result = await prisma.role.updateMany({
+            where: {
+                name: 'Admin'
+            },
+            data: {
+                name: 'Workspace Manager',
+                description: 'Workspace Manager with full access'
+            }
+        });
+
+        res.json({
+            message: 'Migration completed',
+            updatedCount: result.count
+        });
+
+    } catch (error) {
+        console.error('Migration error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };

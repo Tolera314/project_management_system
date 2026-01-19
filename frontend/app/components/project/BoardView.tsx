@@ -39,12 +39,6 @@ const COLUMN_COLORS: { [key: string]: string } = {
     DONE: 'bg-emerald-500/10 border-emerald-500/20'
 };
 
-const STATUS_Map: { [key: string]: string } = {
-    'To Do': 'TODO',
-    'In Progress': 'IN_PROGRESS',
-    'Review': 'IN_REVIEW',
-    'Done': 'DONE'
-};
 
 export default function BoardView({ tasks, projectId, project, onTaskClick, onRefresh, onAddTask, isTemplate = false }: BoardViewProps) {
     const [localTasks, setLocalTasks] = useState(tasks);
@@ -119,7 +113,7 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
         } else if (destination.index === 0) {
             // Drop at top
             const firstInSource = targetTasks.find(t => t.id !== draggableId);
-            newPosition = (firstInSource?.position || 1000) / 2;
+            newPosition = Math.round((firstInSource?.position || 1000) / 2);
         } else {
             // Find neighbors in targetTasks correctly
             const filteredTarget = targetTasks.filter(t => t.id !== draggableId);
@@ -130,7 +124,7 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
                 // Drop in between
                 const before = filteredTarget[destination.index - 1].position || 0;
                 const after = filteredTarget[destination.index].position || 0;
-                newPosition = (before + after) / 2;
+                newPosition = Math.round((before + after) / 2);
             }
         }
 
