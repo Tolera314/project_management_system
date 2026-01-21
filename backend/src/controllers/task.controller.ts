@@ -102,6 +102,104 @@ export const createTask = async (req: Request, res: Response) => {
     }
 };
 
+export const duplicateTask = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).userId;
+
+        const originalTask = await prisma.task.findUnique({
+            where: { id },
+            include: {
+                children: true,
+                tags: true,
+                assignees: true,
+                dependents: true, // Things this task depends on
+            }
+        });
+
+        if (!originalTask) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+
+        // Calculate position (put it right after original)
+        const nextPosition = (originalTask.position || 0) + 1;
+
+        const newTask = await prisma.task.create({
+            data: {
+                title: `${originalTask.title} (Copy)`,
+                description: originalTask.description,
+                priority: originalTask.priority,
+                status: 'TODO', // Reset status for new task
+                startDate: originalTask.startDate,
+                dueDate: originalTask.dueDate,
+                projectId: originalTask.projectId,
+                listId: originalTask.listId,
+                parentId: originalTask.parentId,
+                position: nextPosition,
+                createdById: userId,
+                updatedById: userId,
+                tags: {
+                    create: originalTask.tags.map(t => ({
+                        tagId: t.tagId
+                    }))
+                },
+                assignees: {
+                    create: originalTask.assignees.map(a => ({
+                        projectMemberId: a.projectMemberId,
+                        assignedById: userId
+                    }))
+                },
+                dependents: {
+                    create: originalTask.dependents.map(d => ({
+                        sourceId: d.sourceId,
+                        type: d.type
+                    }))
+                },
+                children: {
+                    create: originalTask.children.map(child => ({
+                        title: child.title,
+                        description: child.description,
+                        priority: child.priority,
+                        status: 'TODO',
+                        startDate: child.startDate,
+                        dueDate: child.dueDate,
+                        projectId: child.projectId,
+                        listId: child.listId,
+                        position: child.position,
+                        createdById: userId,
+                        updatedById: userId,
+                    }))
+                }
+            },
+            include: {
+                children: true,
+                tags: { include: { tag: true } },
+                assignees: { include: { projectMember: { include: { organizationMember: { include: { user: true } } } } } }
+            }
+        });
+
+        // Emit Socket Event
+        const project = await prisma.project.findUnique({
+            where: { id: originalTask.projectId },
+            select: { organizationId: true }
+        });
+
+        if (project) {
+            SocketService.emitToWorkspace(project.organizationId, 'task-updated', {
+                taskId: newTask.id,
+                projectId: newTask.projectId,
+                action: 'CREATE',
+                task: newTask
+            });
+        }
+
+        res.status(201).json({ task: newTask });
+    } catch (error) {
+        console.error('Duplicate task error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 export const updateTask = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
@@ -152,6 +250,19 @@ export const updateTask = async (req: Request, res: Response) => {
             if (unfinishedDependencies.length > 0) {
                 const sourceTitles = unfinishedDependencies.map(d => d.source.title).join(', ');
                 res.status(400).json({ error: `Cannot complete task: Waiting on unfinished dependencies (${sourceTitles})` });
+                return;
+            }
+
+            // Subtask check: Cannot complete if children are not done
+            const unfinishedSubtasks = await prisma.task.findMany({
+                where: {
+                    parentId: id,
+                    status: { not: 'DONE' }
+                }
+            });
+
+            if (unfinishedSubtasks.length > 0) {
+                res.status(400).json({ error: 'Cannot complete task: Waiting on unfinished subtasks' });
                 return;
             }
         }

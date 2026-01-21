@@ -353,6 +353,7 @@ export const getProjectDetails = async (req: Request, res: Response) => {
         const { id } = req.params;
         const userId = (req as any).userId;
 
+        // Check Permissions: Actor must be PM or have 'manage_project_members'
         const project = await prisma.project.findFirst({
             where: {
                 id,
@@ -588,6 +589,28 @@ export const addMember = async (req: Request, res: Response) => {
             return;
         }
 
+        // Check Permissions: Actor must be PM or have 'manage_project_members'
+        const actor = await prisma.projectMember.findFirst({
+            where: {
+                projectId: id,
+                organizationMember: { userId }
+            },
+            include: { role: { include: { permissions: { include: { permission: true } } } } }
+        });
+
+        const isProjectManager = actor?.role.name === 'Project Manager';
+        const hasMemberPermission = actor?.role.permissions.some(p => p.permission.name === 'manage_project_members');
+
+        // Also allow Workspace Admins/Owners
+        const workspaceMember = await prisma.organizationMember.findFirst({
+            where: { organizationId: project.organizationId, userId, role: { name: { in: ['Owner', 'Admin'] } } }
+        });
+
+        if (!isProjectManager && !hasMemberPermission && !workspaceMember) {
+            res.status(403).json({ error: 'Access denied. You do not have permission to manage project members.' });
+            return;
+        }
+
         // 2. Find User by Email
         const userToAdd = await prisma.user.findUnique({
             where: { email }
@@ -780,6 +803,23 @@ export const removeMember = async (req: Request, res: Response) => {
         const { id, memberId } = req.params;
         const userId = (req as any).userId;
 
+        // Check Permissions: Actor must be PM or have 'manage_project_members'
+        const project = await prisma.project.findUnique({ where: { id } });
+        if (!project) return res.status(404).json({ error: 'Project not found' });
+
+        const actor = await prisma.projectMember.findFirst({
+            where: { projectId: id, organizationMember: { userId } },
+            include: { role: { include: { permissions: { include: { permission: true } } } } }
+        });
+
+        const workspaceMember = await prisma.organizationMember.findFirst({
+            where: { organizationId: project.organizationId, userId, role: { name: { in: ['Owner', 'Admin'] } } }
+        });
+
+        if (actor?.role.name !== 'Project Manager' && !actor?.role.permissions.some(p => p.permission.name === 'manage_project_members') && !workspaceMember) {
+            return res.status(403).json({ error: 'Access denied. You do not have permission to manage project members.' });
+        }
+
         // Find the member to be removed
         const memberToRemove = await prisma.projectMember.findFirst({
             where: { id: memberId, projectId: id },
@@ -834,6 +874,23 @@ export const updateMemberRole = async (req: Request, res: Response) => {
             return;
         }
 
+        // Check Permissions: Actor must be PM or have 'manage_project_members'
+        const project = await prisma.project.findUnique({ where: { id } });
+        if (!project) return res.status(404).json({ error: 'Project not found' });
+
+        const actor = await prisma.projectMember.findFirst({
+            where: { projectId: id, organizationMember: { userId } },
+            include: { role: { include: { permissions: { include: { permission: true } } } } }
+        });
+
+        const workspaceMember = await prisma.organizationMember.findFirst({
+            where: { organizationId: project.organizationId, userId, role: { name: { in: ['Owner', 'Admin'] } } }
+        });
+
+        if (actor?.role.name !== 'Project Manager' && !actor?.role.permissions.some(p => p.permission.name === 'manage_project_members') && !workspaceMember) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
         const member = await prisma.projectMember.findFirst({
             where: { id: memberId, projectId: id },
             include: { role: true, organizationMember: { include: { user: true } } }
@@ -850,16 +907,13 @@ export const updateMemberRole = async (req: Request, res: Response) => {
             return;
         }
 
-        // Validate role belongs to the same organization
-        const project = await prisma.project.findUnique({
-            where: { id },
-            select: { organizationId: true }
-        });
-
+        // Since we already fetched project above, we can reuse organizationId if select was used or it was included.
+        // Let's just use the organizationId from the 'project' variable we already have at line 861.
         if (project && newRole.organizationId !== project.organizationId) {
             res.status(400).json({ error: 'Role does not belong to this organization' });
             return;
         }
+
 
         // Safety Rule: Cannot downgrade/change own role via this endpoint
         // (Prevents accidental self-lockout or privilege escalation)

@@ -79,9 +79,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ];
 
     // Check if user can manage templates (Admin or has manage_templates permission)
+    const currentOrgRole = user?.organizations?.find(
+        org => org.id === (workspace?.id || (typeof window !== 'undefined' ? localStorage.getItem('selectedWorkspaceId') : null))
+    )?.role;
+
     const canManageTemplates = user?.systemRole === 'SYSTEM_ADMIN' ||
+        ['Admin', 'Project Manager', 'OWNER'].includes(currentOrgRole || '') ||
         workspace?.members?.some((m: any) =>
-            m.userId === user?.id && ['Admin', 'Project Manager'].includes(m.role?.name)
+            m.userId === user?.id && ['Admin', 'Project Manager', 'OWNER'].includes(m.role?.name)
         );
 
     const handleInviteToWorkspace = async (email: string, roleId: string) => {

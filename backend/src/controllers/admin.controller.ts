@@ -25,8 +25,11 @@ export const getOverviewStats = async (req: Request, res: Response) => {
             prisma.organization.count(),
             prisma.project.count(),
             prisma.user.count({
-                // Placeholder for "Active" - ideally based on last login session
-                where: { status: 'ACTIVE' }
+                where: {
+                    lastLogin: {
+                        gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+                    }
+                }
             }),
             prisma.adminAuditLog.findMany({
                 take: 5,
@@ -208,7 +211,7 @@ export const updateUser = async (req: Request, res: Response) => {
     try {
         const adminId = (req as any).userId;
         const { id: targetUserId } = req.params;
-        const { systemRole, status } = req.body;
+        const { systemRole, status, resetMFA } = req.body;
 
         const adminUser = await prisma.user.findUnique({ where: { id: adminId } });
         if (!adminUser || adminUser.systemRole !== SystemRole.SYSTEM_ADMIN) {
@@ -222,12 +225,17 @@ export const updateUser = async (req: Request, res: Response) => {
             return;
         }
 
+        const data: any = {};
+        if (systemRole) data.systemRole = systemRole;
+        if (status) data.status = status;
+        if (resetMFA) {
+            data.mfaEnabled = false;
+            data.passwordVersion = { increment: 1 }; // Force logout/session invalidation for safety
+        }
+
         const updatedUser = await prisma.user.update({
             where: { id: targetUserId },
-            data: {
-                ...(systemRole && { systemRole }),
-                ...(status && { status })
-            }
+            data
         });
 
         // Audit log

@@ -609,3 +609,81 @@ export const migrateRoles = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+export const getWorkspacePermissions = async (req: Request, res: Response) => {
+    try {
+        const permissions = await prisma.permission.findMany({
+            orderBy: { category: 'asc' }
+        });
+
+        // Group by category for easier UI display
+        const grouped = permissions.reduce((acc: any, p) => {
+            if (!acc[p.category]) acc[p.category] = [];
+            acc[p.category].push(p);
+            return acc;
+        }, {});
+
+        res.json(grouped);
+    } catch (error) {
+        console.error('Get workspace permissions error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const updateWorkspaceRolePermissions = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id: workspaceId, roleId } = req.params;
+        const { permissionIds } = req.body;
+
+        // Verify user is Workspace Manager or Owner
+        const member = await prisma.organizationMember.findFirst({
+            where: {
+                organizationId: workspaceId,
+                userId,
+                role: { name: { in: ['Owner', 'Admin', 'Workspace Manager'] } }
+            }
+        });
+
+        if (!member) {
+            res.status(403).json({ error: 'Access denied. Only workspace managers can update permissions.' });
+            return;
+        }
+
+        const role = await prisma.role.findUnique({
+            where: { id: roleId }
+        });
+
+        if (!role || role.organizationId !== workspaceId) {
+            res.status(404).json({ error: 'Role not found in this workspace' });
+            return;
+        }
+
+        if (role.isSystem && (role.name === 'Owner' || role.name === 'Admin')) {
+            res.status(400).json({ error: 'System base roles cannot be modified for stability.' });
+            return;
+        }
+
+        await prisma.$transaction(async (tx) => {
+            // Remove existing permissions
+            await tx.rolePermission.deleteMany({
+                where: { roleId }
+            });
+
+            // Add new permissions
+            if (permissionIds && permissionIds.length > 0) {
+                await tx.rolePermission.createMany({
+                    data: permissionIds.map((pId: string) => ({
+                        roleId,
+                        permissionId: pId
+                    }))
+                });
+            }
+        });
+
+        res.json({ message: 'Permissions updated successfully' });
+    } catch (error) {
+        console.error('Update workspace role permissions error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
