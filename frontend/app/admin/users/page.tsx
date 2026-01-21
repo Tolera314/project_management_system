@@ -5,6 +5,8 @@ import { Search, Filter, MoreHorizontal, Shield, User, UserX, Mail, Key, LayoutG
 import { useState, useEffect } from 'react';
 import { AdminService } from '../../services/admin.service';
 import { motion, AnimatePresence } from 'framer-motion';
+import ConfirmationModal from '../../components/shared/ConfirmationModal';
+import UserAvatar from '../../components/shared/UserAvatar';
 
 export default function UsersAdmin() {
     const [users, setUsers] = useState<any[]>([]);
@@ -18,6 +20,7 @@ export default function UsersAdmin() {
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const [selectedUser, setSelectedUser] = useState<any | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [confirmAction, setConfirmAction] = useState<{ type: 'SUSPEND' | 'RESTORE' | 'RESET_MFA' | 'DELETE', user: any } | null>(null);
 
     useEffect(() => {
         loadUsers();
@@ -64,6 +67,33 @@ export default function UsersAdmin() {
             alert("Failed to update user role");
         } finally {
             setIsUpdating(false);
+        }
+    };
+
+    const executeConfirmAction = async () => {
+        if (!confirmAction) return;
+        const { type, user } = confirmAction;
+
+        try {
+            setIsUpdating(true);
+            if (type === 'SUSPEND') {
+                await AdminService.updateUser(user.id, { status: 'SUSPENDED' });
+            } else if (type === 'RESTORE') {
+                await AdminService.updateUser(user.id, { status: 'ACTIVE' });
+            } else if (type === 'RESET_MFA') {
+                await AdminService.updateUser(user.id, { resetMFA: true });
+            }
+            loadUsers();
+            if (selectedUser?.id === user.id) {
+                const updatedStatus = type === 'SUSPEND' ? 'SUSPENDED' : (type === 'RESTORE' ? 'ACTIVE' : user.status);
+                const updatedMfa = type === 'RESET_MFA' ? false : user.mfaEnabled;
+                setSelectedUser({ ...user, status: updatedStatus, mfaEnabled: updatedMfa });
+            }
+        } catch (error) {
+            alert(`Failed to perform ${type.toLowerCase()} action`);
+        } finally {
+            setIsUpdating(false);
+            setConfirmAction(null);
         }
     };
 
@@ -153,13 +183,13 @@ export default function UsersAdmin() {
                                         >
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center gap-3">
-                                                    {user.avatarUrl ? (
-                                                        <img src={user.avatarUrl} className="w-10 h-10 rounded-full object-cover border border-white/10" alt="" />
-                                                    ) : (
-                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-indigo-500/20 flex items-center justify-center text-xs font-bold text-white border border-white/10">
-                                                            {user.firstName[0]}{user.lastName[0]}
-                                                        </div>
-                                                    )}
+                                                    <UserAvatar
+                                                        userId={user.id}
+                                                        firstName={user.firstName}
+                                                        lastName={user.lastName}
+                                                        avatarUrl={user.avatarUrl}
+                                                        size="md"
+                                                    />
                                                     <div>
                                                         <p className="text-sm font-bold text-white group-hover:text-primary transition-colors">{user.firstName} {user.lastName}</p>
                                                         <p className="text-[10px] text-slate-500">{user.email}</p>
@@ -211,12 +241,20 @@ export default function UsersAdmin() {
                                                                     <User size={14} /> View Intelligence
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => handleUpdateStatus(user, user.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE')}
+                                                                    onClick={() => setConfirmAction({ type: user.status === 'ACTIVE' ? 'SUSPEND' : 'RESTORE', user })}
                                                                     className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:bg-white/5 transition-colors"
                                                                 >
                                                                     {user.status === 'ACTIVE' ? <UserX size={14} className="text-rose-400" /> : <UserCheck size={14} className="text-emerald-400" />}
                                                                     {user.status === 'ACTIVE' ? 'Suspend Access' : 'Restore Access'}
                                                                 </button>
+                                                                {user.mfaEnabled && (
+                                                                    <button
+                                                                        onClick={() => setConfirmAction({ type: 'RESET_MFA', user })}
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:bg-white/5 transition-colors"
+                                                                    >
+                                                                        <ShieldCheck size={14} className="text-blue-400" /> Reset MFA
+                                                                    </button>
+                                                                )}
                                                                 <div className="h-px bg-white/5 my-1" />
                                                                 <button
                                                                     onClick={() => alert('Password reset link sent to ' + user.email)}
@@ -297,13 +335,15 @@ export default function UsersAdmin() {
 
                                     {/* User Profiling */}
                                     <div className="flex flex-col items-center text-center p-6 bg-white/[0.02] border border-white/10 rounded-3xl">
-                                        {selectedUser.avatarUrl ? (
-                                            <img src={selectedUser.avatarUrl} className="w-24 h-24 rounded-full border-2 border-primary shadow-xl mb-4" alt="" />
-                                        ) : (
-                                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/30 to-indigo-500/30 flex items-center justify-center text-3xl font-bold text-white border-2 border-primary mb-4">
-                                                {selectedUser.firstName[0]}{selectedUser.lastName[0]}
-                                            </div>
-                                        )}
+                                        <div className="mb-4">
+                                            <UserAvatar
+                                                userId={selectedUser.id}
+                                                firstName={selectedUser.firstName}
+                                                lastName={selectedUser.lastName}
+                                                avatarUrl={selectedUser.avatarUrl}
+                                                size="xl"
+                                            />
+                                        </div>
                                         <h3 className="text-lg font-bold text-white">{selectedUser.firstName} {selectedUser.lastName}</h3>
                                         <p className="text-slate-500 text-sm mb-4">{selectedUser.email}</p>
 
@@ -320,15 +360,19 @@ export default function UsersAdmin() {
                                     {/* Actions */}
                                     <div className="grid grid-cols-2 gap-3">
                                         <button
-                                            onClick={() => handleUpdateStatus(selectedUser, selectedUser.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE')}
+                                            onClick={() => setConfirmAction({ type: selectedUser.status === 'ACTIVE' ? 'SUSPEND' : 'RESTORE', user: selectedUser })}
                                             className={`p-4 rounded-2xl border transition-all flex flex-col items-center gap-2 ${selectedUser.status === 'ACTIVE' ? 'bg-danger/5 border-danger/20 text-danger hover:bg-danger/10' : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10'}`}
                                         >
                                             {selectedUser.status === 'ACTIVE' ? <UserX size={20} /> : <UserCheck size={20} />}
                                             <span className="text-[10px] font-bold uppercase tracking-widest">{selectedUser.status === 'ACTIVE' ? 'Suspend' : 'Activate'}</span>
                                         </button>
-                                        <button className="p-4 rounded-2xl bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 transition-all flex flex-col items-center gap-2">
-                                            <Key size={20} />
-                                            <span className="text-[10px] font-bold uppercase tracking-widest">Reset Pass</span>
+                                        <button
+                                            onClick={() => setConfirmAction({ type: 'RESET_MFA', user: selectedUser })}
+                                            className={`p-4 rounded-2xl bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 transition-all flex flex-col items-center gap-2 ${!selectedUser.mfaEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            disabled={!selectedUser.mfaEnabled}
+                                        >
+                                            <ShieldCheck size={20} />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest">Reset MFA</span>
                                         </button>
                                     </div>
 
@@ -401,6 +445,33 @@ export default function UsersAdmin() {
                         </>
                     )}
                 </AnimatePresence>
+
+                {/* Global Confirmation Modal */}
+                <ConfirmationModal
+                    isOpen={!!confirmAction}
+                    onClose={() => setConfirmAction(null)}
+                    onConfirm={executeConfirmAction}
+                    title={
+                        confirmAction?.type === 'SUSPEND' ? 'Suspend User Access?' :
+                            confirmAction?.type === 'RESTORE' ? 'Restore User Access?' :
+                                confirmAction?.type === 'RESET_MFA' ? 'Reset Multi-Factor Authentication?' :
+                                    'Confirm Action'
+                    }
+                    message={
+                        confirmAction?.type === 'SUSPEND' ? `Are you sure you want to suspend ${confirmAction.user.firstName}? They will be immediately logged out and unable to access the platform.` :
+                            confirmAction?.type === 'RESTORE' ? `This will restore platform access for ${confirmAction.user.firstName}.` :
+                                confirmAction?.type === 'RESET_MFA' ? `This will disable MFA for ${confirmAction.user.firstName}. They should re-enable it immediately for security.` :
+                                    `Are you sure you want to perform this action on ${confirmAction?.user?.firstName}?`
+                    }
+                    confirmText={
+                        confirmAction?.type === 'SUSPEND' ? 'Suspend User' :
+                            confirmAction?.type === 'RESTORE' ? 'Restore User' :
+                                confirmAction?.type === 'RESET_MFA' ? 'Reset MFA' :
+                                    'Confirm'
+                    }
+                    variant={confirmAction?.type === 'SUSPEND' ? 'danger' : (confirmAction?.type === 'RESET_MFA' ? 'warning' : 'primary')}
+                    isLoading={isUpdating}
+                />
             </div>
         </AdminLayout>
     );

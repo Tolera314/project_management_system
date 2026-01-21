@@ -123,10 +123,10 @@ export default function InlineAssigneeSelector({
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                        className="absolute bottom-full left-0 mb-2 w-72 bg-surface border border-border rounded-2xl shadow-2xl z-[100] overflow-hidden flex flex-col"
+                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                        className="absolute top-full left-0 mt-2 w-72 bg-surface border border-border rounded-2xl shadow-2xl z-[100] overflow-hidden flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="p-4 border-b border-border">

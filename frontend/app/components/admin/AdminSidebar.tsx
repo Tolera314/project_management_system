@@ -8,12 +8,8 @@ import {
     History,
     BarChart3,
     Settings,
-    Lock,
-    Database,
-    Mail,
     ChevronLeft,
     ChevronRight,
-    Search
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';

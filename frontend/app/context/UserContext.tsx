@@ -9,6 +9,12 @@ interface User {
     lastName: string;
     avatarUrl?: string | null;
     systemRole: string;
+    organizations?: {
+        id: string;
+        name: string;
+        role: string;
+        color?: string;
+    }[];
 }
 
 interface UserContextType {

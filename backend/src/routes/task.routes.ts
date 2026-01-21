@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createTask, updateTask, deleteTask, getTaskDetails, addComment, addAssignee, removeAssignee, watchTask, unwatchTask, archiveTask, restoreTask, searchTasks, bulkUpdateTasks } from '../controllers/task.controller';
+import { createTask, updateTask, deleteTask, getTaskDetails, addComment, addAssignee, removeAssignee, watchTask, unwatchTask, archiveTask, restoreTask, searchTasks, bulkUpdateTasks, duplicateTask } from '../controllers/task.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { checkProjectPermission } from '../middleware/permissions';
 
@@ -16,6 +16,7 @@ router.patch('/bulk', checkProjectPermission('edit_task'), bulkUpdateTasks);
 router.post('/', checkProjectPermission('create_task'), createTask);
 router.patch('/:id', checkProjectPermission('edit_task'), updateTask);
 router.delete('/:id', checkProjectPermission('delete_task'), deleteTask);
+router.post('/:id/duplicate', checkProjectPermission('create_task'), duplicateTask);
 router.get('/:id', getTaskDetails);
 
 // Comments

@@ -26,7 +26,8 @@ import {
     Archive,
     BarChart3,
     FileIcon,
-    Download
+    Download,
+    Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserAvatar from '../shared/UserAvatar';
@@ -266,6 +267,28 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
             }
         } catch (error) {
             console.error('Delete task error:', error);
+        }
+    };
+
+    const handleDuplicateTask = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:4000/tasks/${task.id}/duplicate`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setShowMoreMenu(false);
+                onUpdate();
+                // Optionally select the new task? For now just refresh
+                if (data.task) {
+                    setTask(data.task);
+                }
+            }
+        } catch (error) {
+            console.error('Duplicate task error:', error);
         }
     };
 
@@ -660,6 +683,13 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                                     className="absolute right-0 top-full mt-1 w-48 bg-surface dark:bg-surface-lighter border border-border rounded-xl shadow-xl z-50 overflow-hidden"
                                 >
                                     <button
+                                        onClick={handleDuplicateTask}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-text-secondary hover:text-primary hover:bg-foreground/5 transition-colors"
+                                    >
+                                        <Copy size={14} />
+                                        Duplicate Task
+                                    </button>
+                                    <button
                                         onClick={() => {
                                             navigator.clipboard.writeText(`${window.location.origin}/projects/${task?.projectId}?task=${task?.id}`);
                                             setShowMoreMenu(false);
@@ -667,16 +697,6 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                                         className="w-full px-4 py-2.5 text-left text-xs font-medium text-text-primary hover:bg-foreground/5 transition-colors flex items-center gap-2"
                                     >
                                         <LinkIcon size={14} /> Copy Task Link
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            // Duplicate task logic
-                                            setShowMoreMenu(false);
-                                            alert('Duplicate task feature coming soon');
-                                        }}
-                                        className="w-full px-4 py-2.5 text-left text-xs font-medium text-text-primary hover:bg-foreground/5 transition-colors flex items-center gap-2"
-                                    >
-                                        <Plus size={14} /> Duplicate Task
                                     </button>
                                     <div className="border-t border-border" />
                                     <button
@@ -700,10 +720,10 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                         <X size={18} />
                     </button>
                 </div>
-            </div>
+            </div >
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-auto custom-scrollbar p-8">
+            < div className="flex-1 overflow-auto custom-scrollbar p-8" >
                 <div className="space-y-8">
                     {/* Title & Description */}
                     <div className="space-y-4">
@@ -1076,9 +1096,14 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                                 <div className="space-y-6">
                                     {task?.comments?.map((c: any) => (
                                         <div key={c.id} className="flex gap-4 group">
-                                            <div className="w-8 h-8 rounded-full bg-surface-lighter flex items-center justify-center shrink-0 border border-border">
-                                                {c.createdBy?.firstName?.charAt(0)}
-                                            </div>
+                                            <UserAvatar
+                                                userId={c.createdBy?.id}
+                                                firstName={c.createdBy?.firstName}
+                                                lastName={c.createdBy?.lastName}
+                                                avatarUrl={c.createdBy?.avatarUrl}
+                                                size="md"
+                                                className="shrink-0 ring-1 ring-white/10"
+                                            />
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <span className="text-xs font-bold text-text-primary">{c.createdBy?.firstName} {c.createdBy?.lastName}</span>
@@ -1124,15 +1149,15 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                         )}
                     </div>
                 </div>
-            </div>
+            </div >
 
             {/* Bottom Sticky Action */}
-            <div className="p-4 border-t border-border bg-surface/50">
+            < div className="p-4 border-t border-border bg-surface/50" >
                 <div className="flex items-center gap-4 text-[10px] font-bold text-text-secondary uppercase tracking-widest px-4">
                     <History size={12} />
                     Last updated {new Date(task?.updatedAt).toLocaleString()}
                 </div>
-            </div>
+            </div >
 
             <DependencyModal
                 isOpen={isDependencyModalOpen}
@@ -1142,6 +1167,6 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                 projectId={task?.projectId}
                 onSuccess={fetchTaskDetails}
             />
-        </motion.div>
+        </motion.div >
     );
 }

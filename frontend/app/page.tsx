@@ -1,3 +1,7 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Navbar from './components/landing/Navbar';
 import HeroSection from './components/landing/HeroSection';
 import FeaturesSection from './components/landing/FeaturesSection';
@@ -10,6 +14,16 @@ import CTASection from './components/landing/CTASection';
 import Footer from './components/landing/Footer';
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    if (token && user) {
+      router.replace('/dashboard');
+    }
+  }, [router]);
+
   return (
     <main className="min-h-screen bg-background text-foreground selection:bg-primary/30">
       <Navbar />

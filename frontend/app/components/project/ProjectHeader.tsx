@@ -24,6 +24,8 @@ import Link from 'next/link';
 import SaveAsTemplateModal from '../templates/SaveAsTemplateModal';
 import { useUser } from '../../context/UserContext';
 import UserAvatar from '../shared/UserAvatar';
+import { useToast } from '../ui/Toast';
+import { Loader2 } from 'lucide-react';
 
 interface ProjectHeaderProps {
     project: any;
@@ -60,22 +62,29 @@ export default function ProjectHeader({
     const [showSortMenu, setShowSortMenu] = useState(false);
     const [showFilterMenu, setShowFilterMenu] = useState(false);
     const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
     const { user } = useUser();
+    const { showToast } = useToast();
 
     const handleExportReport = async (format: 'json' | 'csv' | 'pdf') => {
         try {
+            setIsExporting(true);
             const token = localStorage.getItem('token');
             if (!projectId || !token) return;
 
             if (format === 'pdf') {
-                // For PDF, open in new tab for browser print
+                showToast('info', 'Preparing PDF...', 'Your report is being generated.');
                 const response = await fetch(`http://localhost:4000/projects/${projectId}/report`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await response.json();
 
                 const printWindow = window.open('', '_blank');
-                if (!printWindow) return;
+                if (!printWindow) {
+                    showToast('error', 'Popup Blocked', 'Please allow popups for this site to view the PDF.');
+                    setIsExporting(false);
+                    return;
+                }
 
                 printWindow.document.write(`
                     <!DOCTYPE html>
@@ -83,37 +92,69 @@ export default function ProjectHeader({
                     <head>
                         <title>Project Report - ${project.name}</title>
                         <style>
-                            body { font-family: Arial, sans-serif; padding: 40px; }
-                            h1 { color: #4f46e5; }
-                            .metric { margin: 10px 0; }
-                            .risk { color: #ef4444; }
-                            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                            th { background-color: #f3f4f6; }
+                            @page { size: A4; margin: 2cm; }
+                            body { font-family: 'Inter', sans-serif; color: #1e293b; line-height: 1.5; }
+                            .header { border-bottom: 2px solid #4f46e5; padding-bottom: 1rem; margin-bottom: 2rem; }
+                            h1 { color: #4f46e5; margin: 0; font-size: 24pt; }
+                            .meta { color: #64748b; font-size: 10pt; margin-top: 5px; }
+                            .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 20px; }
+                            .card { border: 1px solid #e2e8f0; padding: 15px; rounded: 8px; }
+                            .card-label { font-size: 9pt; font-weight: bold; color: #64748b; text-transform: uppercase; }
+                            .card-value { font-size: 18pt; font-weight: bold; color: #0f172a; }
+                            .risk { color: #ef4444; font-weight: bold; margin-bottom: 5px; border-left: 3px solid #ef4444; padding-left: 10px; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+                            th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; font-size: 10pt; }
+                            th { background-color: #f8fafc; color: #475569; }
                         </style>
                     </head>
                     <body>
-                        <h1>Project Report: ${data.project?.name}</h1>
-                        <p><strong>Generated:</strong> ${new Date(data.project?.generatedAt).toLocaleString()}</p>
-                        <h2>Metrics</h2>
-                        <div class="metric"><strong>Total Tasks:</strong> ${data.metrics?.totalTasks}</div>
-                        <div class="metric"><strong>Completed:</strong> ${data.metrics?.completedTasks}</div>
-                        <div class="metric"><strong>In Progress:</strong> ${data.metrics?.inProgressTasks}</div>
-                        <div class="metric"><strong>Blocked:</strong> ${data.metrics?.blockedTasks}</div>
-                        <div class="metric"><strong>Progress:</strong> ${data.status?.progress}%</div>
-                        <h2>Risks</h2>
-                        ${data.risks?.length > 0 ? data.risks.map((r: any) =>
-                    `<div class="risk">⚠ ${r.type}: ${r.title}</div>`
-                ).join('') : '<p>No risks identified</p>'}
+                        <div class="header">
+                            <h1>Project Report: ${data.project?.name}</h1>
+                            <div class="meta">Generated on ${new Date().toLocaleString()} | ProjectOS Analytics</div>
+                        </div>
+
+                        <h2>Overview</h2>
+                        <div class="grid">
+                            <div class="card">
+                                <div class="card-label">Overall Progress</div>
+                                <div class="card-value">${data.status?.progress}%</div>
+                            </div>
+                            <div class="card">
+                                <div class="card-label">Total Tasks</div>
+                                <div class="card-value">${data.metrics?.totalTasks}</div>
+                            </div>
+                            <div class="card">
+                                <div class="card-label">Completed</div>
+                                <div class="card-value">${data.metrics?.completedTasks}</div>
+                            </div>
+                            <div class="card">
+                                <div class="card-label">Active Risks</div>
+                                <div class="card-value">${data.risks?.length || 0}</div>
+                            </div>
+                        </div>
+
+                        <h2>Identified Risks</h2>
+                        ${data.risks?.length > 0 ?
+                        data.risks.map((r: any) => `<div class="risk">${r.type}: ${r.title}</div>`).join('')
+                        : '<p>No critical risks identified at this time.</p>'}
+
+                        <div style="margin-top: 40px; text-align: center; color: #94a3b8; font-size: 8pt;">
+                            Confidential Project Report - &copy; ${new Date().getFullYear()} ProjectOS
+                        </div>
                     </body>
                     </html>
                 `);
                 printWindow.document.close();
-                setTimeout(() => { printWindow.print(); }, 500);
+                setTimeout(() => {
+                    printWindow.print();
+                    showToast('success', 'Report Exported', 'PDF has been successfully generated.');
+                }, 500);
                 setShowCreateMenu(false);
+                setIsExporting(false);
                 return;
             }
 
+            showToast('info', `Exporting ${format.toUpperCase()}...`, 'Generating your download.');
             const url = `http://localhost:4000/projects/${projectId}/report?format=${format}`;
             const response = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -122,18 +163,30 @@ export default function ProjectHeader({
             if (!response.ok) throw new Error('Export failed');
 
             const blob = await response.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
+            const mimeType = format === 'csv' ? 'text/csv' : (format === 'json' ? 'application/json' : 'application/pdf');
+            const finalBlob = new Blob([blob], { type: mimeType });
+            const downloadUrl = window.URL.createObjectURL(finalBlob);
+
             const a = document.createElement('a');
+            a.style.display = 'none';
             a.href = downloadUrl;
             a.download = `${project.name}_report_${new Date().toISOString().split('T')[0]}.${format}`;
             document.body.appendChild(a);
             a.click();
-            a.remove();
-            window.URL.revokeObjectURL(downloadUrl);
+
+            // Cleanup with small delay
+            setTimeout(() => {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(downloadUrl);
+            }, 100);
+
             setShowCreateMenu(false);
+            showToast('success', 'Export Complete', `${format.toUpperCase()} report downloaded successfully.`);
         } catch (error) {
             console.error('Export failed:', error);
-            alert('Export failed. Please try again.');
+            showToast('error', 'Export Failed', 'An error occurred while generating the report.');
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -169,14 +222,16 @@ export default function ProjectHeader({
                                 return (
                                     <div
                                         key={member.id}
-                                        className={`w-8 h-8 rounded-full border-2 border-background bg-gradient-to-br \${isPM ? 'from-primary to-accent scale-110 z-10' : 'from-slate-200 to-slate-300'} flex items-center justify-center text-[10px] font-bold text-white ring-1 ring-white/5 uppercase overflow-hidden shadow-sm`}
-                                        title={`\${isPM ? '[PM] ' : ''}\${user.firstName} \${user.lastName}`}
+                                        className={`rounded-full border-2 border-background flex items-center justify-center ring-1 ring-white/5 shadow-sm ${isPM ? 'scale-110 z-10' : ''}`}
+                                        title={`${isPM ? '[PM] ' : ''}${user.firstName} ${user.lastName}`}
                                     >
-                                        {user.avatarUrl ? (
-                                            <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <span>{user.firstName[0]}{user.lastName[0]}</span>
-                                        )}
+                                        <UserAvatar
+                                            userId={user.id}
+                                            firstName={user.firstName}
+                                            lastName={user.lastName}
+                                            avatarUrl={user.avatarUrl}
+                                            size="sm"
+                                        />
                                     </div>
                                 );
                             })}
@@ -257,36 +312,54 @@ export default function ProjectHeader({
                             )}
                             {/* Export Format Menu */}
                             {showCreateMenu === 'export' as any && (
-                                <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
-                                    <div className="p-1">
-                                        <div className="px-3 py-2 text-xs font-bold text-slate-500 dark:text-text-secondary uppercase">Export Format</div>
+                                <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#0D0D0D] border border-slate-200 dark:border-white/10 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200 ring-1 ring-black/5">
+                                    <div className="p-1.5">
+                                        <div className="px-3 py-2 text-[10px] font-bold text-slate-400 dark:text-text-secondary uppercase tracking-widest border-b border-slate-100 dark:border-white/5 mb-1.5 flex justify-between items-center">
+                                            <span>Select Export Format</span>
+                                            {isExporting && <Loader2 size={10} className="animate-spin text-primary" />}
+                                        </div>
                                         <button
                                             onClick={() => handleExportReport('json')}
-                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                            className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-primary/10 hover:text-primary text-sm text-slate-600 dark:text-text-secondary transition-all flex items-center gap-3 group"
                                         >
-                                            <FileJson size={16} />
-                                            JSON
+                                            <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                                                <FileJson size={18} />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold">JSON Data</span>
+                                                <span className="text-[10px] opacity-70">Raw machine-readable data</span>
+                                            </div>
                                         </button>
                                         <button
                                             onClick={() => handleExportReport('csv')}
-                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                            className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-primary/10 hover:text-primary text-sm text-slate-600 dark:text-text-secondary transition-all flex items-center gap-3 group"
                                         >
-                                            <FileText size={16} />
-                                            CSV (Excel)
+                                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+                                                <FileText size={18} />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold">CSV Spreadsheet</span>
+                                                <span className="text-[10px] opacity-70">Open in Excel or Sheets</span>
+                                            </div>
                                         </button>
                                         <button
                                             onClick={() => handleExportReport('pdf')}
-                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                            className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-primary/10 hover:text-primary text-sm text-slate-600 dark:text-text-secondary transition-all flex items-center gap-3 group"
                                         >
-                                            <FileCode size={16} />
-                                            PDF (Print)
+                                            <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform">
+                                                <FileCode size={18} />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold">PDF Report</span>
+                                                <span className="text-[10px] opacity-70">Print-ready formatted document</span>
+                                            </div>
                                         </button>
-                                        <div className="h-px bg-slate-200 dark:bg-white/10 my-1" />
+                                        <div className="h-px bg-slate-100 dark:bg-white/5 my-1.5" />
                                         <button
                                             onClick={() => setShowCreateMenu('more' as any)}
-                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                                            className="w-full text-center px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-xs font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
                                         >
-                                            ← Back
+                                            ← Back to Options
                                         </button>
                                     </div>
                                 </div>

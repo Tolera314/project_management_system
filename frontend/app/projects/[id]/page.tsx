@@ -319,7 +319,7 @@ export default function ProjectPage() {
                         onCreateList={() => setIsCreateListModalOpen(true)}
                         onInviteMember={() => setIsInviteModalOpen(true)}
                         onManageMembers={() => setIsMembersModalOpen(true)}
-                        canInvite={hasPermission('manage_members')}
+                        canInvite={hasPermission('manage_project_members')}
                         sortBy={sortBy}
                         onSortChange={setSortBy}
                         filterStatus={filterStatus}
