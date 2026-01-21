@@ -198,7 +198,7 @@ export default function TasksPage() {
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3 min-w-[200px]">
                                                     <div className="shrink-0">{getStatusIcon(task.status)}</div>
-                                                    <span className={`text-sm font-medium \${task.status === 'DONE' ? 'text-text-secondary line-through opacity-50' : 'text-text-primary'}`}>
+                                                    <span className={`text-sm font-medium ${task.status === 'DONE' ? 'text-text-secondary opacity-50' : 'text-text-primary'}`}>
                                                         {task.title}
                                                     </span>
                                                 </div>

@@ -61,7 +61,7 @@ export class AdminService {
         return response.data;
     }
 
-    static async updateUser(id: string, data: { systemRole?: string, status?: string }): Promise<any> {
+    static async updateUser(id: string, data: { systemRole?: string, status?: string, resetMFA?: boolean }): Promise<any> {
         const response = await axios.patch(`${API_URL}/users/${id}`, data, {
             headers: { Authorization: `Bearer ${AuthService.getToken()}` }
         });

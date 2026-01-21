@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Save, AlertTriangle, CheckCircle, Database, Mail, Shield, Settings as SettingsIcon } from 'lucide-react';
 import AdminLayout from '../../components/admin/AdminLayout';
+import ConfirmationModal from '../../components/shared/ConfirmationModal';
 
 type SettingsTab = 'general' | 'security' | 'backups' | 'email';
 
@@ -25,6 +26,9 @@ export default function SettingsPage() {
     const [loading, setLoading] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
     const [testEmailStatus, setTestEmailStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+    const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
+    const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+    const [pendingSave, setPendingSave] = useState<{ group: string, settings: SystemSettings } | null>(null);
 
     useEffect(() => {
         fetchSettings();
@@ -89,6 +93,7 @@ export default function SettingsPage() {
     };
 
     const triggerBackup = async () => {
+        setIsBackupModalOpen(false);
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
@@ -103,6 +108,23 @@ export default function SettingsPage() {
             console.error('Backup failed', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSaveWithConfirm = (group: string, updatedSettings: SystemSettings) => {
+        if (group === 'SECURITY' || group === 'EMAIL') {
+            setPendingSave({ group, settings: updatedSettings });
+            setIsSaveModalOpen(true);
+        } else {
+            saveSettings(group, updatedSettings);
+        }
+    };
+
+    const executePendingSave = () => {
+        if (pendingSave) {
+            saveSettings(pendingSave.group, pendingSave.settings);
+            setPendingSave(null);
+            setIsSaveModalOpen(false);
         }
     };
 
@@ -160,8 +182,8 @@ export default function SettingsPage() {
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
                                     className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === tab.id
-                                            ? 'border-primary text-primary font-semibold'
-                                            : 'border-transparent text-text-secondary hover:text-text-primary'
+                                        ? 'border-primary text-primary font-semibold'
+                                        : 'border-transparent text-text-secondary hover:text-text-primary'
                                         }`}
                                 >
                                     <Icon size={18} />
@@ -175,10 +197,30 @@ export default function SettingsPage() {
                 {/* Content */}
                 <div className="bg-surface border border-border rounded-xl p-6">
                     {activeTab === 'general' && <GeneralTab settings={settings} onSave={saveSettings} saveStatus={saveStatus} />}
-                    {activeTab === 'security' && <SecurityTab settings={settings} onSave={saveSettings} saveStatus={saveStatus} />}
-                    {activeTab === 'backups' && <BackupsTab backups={backups} onTriggerBackup={triggerBackup} loading={loading} />}
-                    {activeTab === 'email' && <EmailTab settings={settings} onSave={saveSettings} sendTest={sendTestEmail} saveStatus={saveStatus} testEmailStatus={testEmailStatus} />}
+                    {activeTab === 'security' && <SecurityTab settings={settings} onSave={handleSaveWithConfirm} saveStatus={saveStatus} />}
+                    {activeTab === 'backups' && <BackupsTab backups={backups} onTriggerBackup={() => setIsBackupModalOpen(true)} loading={loading} />}
+                    {activeTab === 'email' && <EmailTab settings={settings} onSave={handleSaveWithConfirm} sendTest={sendTestEmail} saveStatus={saveStatus} testEmailStatus={testEmailStatus} />}
                 </div>
+
+                <ConfirmationModal
+                    isOpen={isBackupModalOpen}
+                    onClose={() => setIsBackupModalOpen(false)}
+                    onConfirm={triggerBackup}
+                    title="Trigger Database Backup?"
+                    message="This will create a full snapshot of the current database. Large databases may take a few minutes to process."
+                    confirmText="Create Backup"
+                    isLoading={loading}
+                />
+
+                <ConfirmationModal
+                    isOpen={isSaveModalOpen}
+                    onClose={() => setIsSaveModalOpen(false)}
+                    onConfirm={executePendingSave}
+                    title="Save Critical Settings?"
+                    message="You are about to modify sensitive system settings (Security or Email). Incorrect configuration could affect platform access or communications."
+                    confirmText="Save Changes"
+                    variant="warning"
+                />
             </div>
         </AdminLayout>
     );
@@ -434,8 +476,8 @@ function EmailTab({ settings, onSave, sendTest, saveStatus, testEmailStatus }: {
                     onClick={sendTest}
                     disabled={testEmailStatus === 'sending'}
                     className={`flex items-center gap-2 px-4 py-2 border border-border rounded-lg transition-colors ${testEmailStatus === 'success' ? 'bg-green-500/10 text-green-600 border-green-500' :
-                            testEmailStatus === 'error' ? 'bg-red-500/10 text-red-600 border-red-500' :
-                                'hover:bg-surface-secondary'
+                        testEmailStatus === 'error' ? 'bg-red-500/10 text-red-600 border-red-500' :
+                            'hover:bg-surface-secondary'
                         }`}
                 >
                     <Mail size={18} />
@@ -452,10 +494,10 @@ function SaveButton({ onClick, status }: { onClick: () => void; status: string }
             onClick={onClick}
             disabled={status === 'saving'}
             className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-all ${status === 'success'
-                    ? 'bg-green-500 text-white'
-                    : status === 'error'
-                        ? 'bg-red-500 text-white'
-                        : 'bg-primary text-white hover:bg-primary/90'
+                ? 'bg-green-500 text-white'
+                : status === 'error'
+                    ? 'bg-red-500 text-white'
+                    : 'bg-primary text-white hover:bg-primary/90'
                 }`}
         >
             {status === 'success' ? (

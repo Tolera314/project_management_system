@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import {
     BarChart3, PieChart as PieChartIcon, TrendingUp,
     CheckCircle2, Clock, AlertTriangle, Users,
-    Layers, Layout, Activity, Download, FileText, FileJson, FileCode
+    Layers, Layout, Activity, Download, FileText, FileJson, FileCode, Loader2
 } from 'lucide-react';
 import {
     PieChart, Pie, Cell, BarChart, Bar,
@@ -34,6 +34,7 @@ export default function ReportsPage() {
     const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [showExportMenu, setShowExportMenu] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
     const [stats, setStats] = useState<any>({
         statusData: [],
         projectData: [],
@@ -135,42 +136,66 @@ export default function ReportsPage() {
         }
     };
 
-    const handleExportAnalytics = (format: 'json' | 'csv') => {
-        const data = format === 'csv'
-            ? generateCSV()
-            : JSON.stringify(stats, null, 2);
+    const handleExportAnalytics = (format: 'json' | 'csv' | 'pdf') => {
+        setIsExporting(true);
+        if (format === 'pdf') {
+            showToast('info', 'Preparing Analytics...', 'Optimal print view generated.');
+            setTimeout(() => {
+                window.print();
+                setShowExportMenu(false);
+                setIsExporting(false);
+            }, 500);
+            return;
+        }
 
-        const blob = new Blob([data], { type: format === 'csv' ? 'text/csv' : 'application/json' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `workspace_analytics_${new Date().toISOString().split('T')[0]}.${format}`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-        setShowExportMenu(false);
+        try {
+            showToast('info', 'Generating Data...', `Preparing ${format.toUpperCase()} export.`);
+            const data = format === 'csv'
+                ? generateCSV()
+                : JSON.stringify(stats, null, 2);
+
+            const blob = new Blob([data], { type: format === 'csv' ? 'text/csv;charset=utf-8' : 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `workspace_analytics_${new Date().toISOString().split('T')[0]}.${format}`;
+            document.body.appendChild(a);
+            a.click();
+
+            setTimeout(() => {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }, 100);
+
+            setShowExportMenu(false);
+            showToast('success', 'Export Complete', `${format.toUpperCase()} report downloaded successfully.`);
+        } catch (error) {
+            showToast('error', 'Export Failed', 'Could not generate the export file.');
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     const generateCSV = () => {
         const rows = [
-            ['Workspace Analytics Report'],
-            ['Generated', new Date().toISOString()],
+            ['"Workspace Analytics Report"'],
+            ['"Generated"', `"${new Date().toISOString()}"`],
             [],
-            ['Summary'],
-            ['Metric', 'Value'],
-            ['Active Projects', stats.totals.projects],
-            ['Total Tasks', stats.totals.tasks],
-            ['Tasks Completed', stats.totals.completed],
-            ['Tasks In Progress', stats.totals.inProgress],
+            ['"Summary Metrics"'],
+            ['"Metric"', '"Value"'],
+            ['"Active Projects"', `"${stats.totals.projects}"`],
+            ['"Total Tasks"', `"${stats.totals.tasks}"`],
+            ['"Tasks Completed"', `"${stats.totals.completed}"`],
+            ['"Tasks In Progress"', `"${stats.totals.inProgress}"`],
             [],
-            ['Task Status Distribution'],
-            ['Status', 'Count'],
-            ...stats.statusData.map((s: any) => [s.name, s.value]),
+            ['"Task Status Distribution"'],
+            ['"Status"', '"Count"'],
+            ...stats.statusData.map((s: any) => [`"${s.name}"`, `"${s.value}"`]),
             [],
-            ['Project Engagement'],
-            ['Project', 'Total Tasks', 'Completed'],
-            ...stats.projectData.map((p: any) => [p.name, p.tasks, p.completed])
+            ['"Project Engagement"'],
+            ['"Project"', '"Total Tasks"', '"Completed"'],
+            ...stats.projectData.map((p: any) => [`"${p.name}"`, `"${p.tasks}"`, `"${p.completed}"`])
         ];
         return rows.map(row => row.join(',')).join('\n');
     };
@@ -179,6 +204,16 @@ export default function ReportsPage() {
 
     return (
         <DashboardLayout>
+            <style jsx global>{`
+                @media print {
+                    aside, nav, .no-print, button { display: none !important; }
+                    .print-only { display: block !important; }
+                    body { background: white !important; color: black !important; }
+                    .max-w-7xl { max-width: 100% !important; padding: 0 !important; }
+                    .shadow-lg, .shadow-xl { shadow: none !important; border: 1px solid #eee !important; }
+                    .p-6, .p-8 { padding: 0 !important; }
+                }
+            `}</style>
             <div className="p-6 md:p-8 max-w-7xl mx-auto flex flex-col gap-8 h-full">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
@@ -202,23 +237,45 @@ export default function ReportsPage() {
                                 Export
                             </button>
                             {showExportMenu && (
-                                <div className="absolute top-full right-0 mt-2 w-40 bg-[#0A0A0A] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
-                                    <div className="p-1">
-                                        <button
-                                            onClick={() => handleExportAnalytics('json')}
-                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm text-text-secondary hover:text-white transition-colors flex items-center gap-2"
-                                        >
-                                            <FileJson size={16} />
-                                            JSON
-                                        </button>
-                                        <button
-                                            onClick={() => handleExportAnalytics('csv')}
-                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm text-text-secondary hover:text-white transition-colors flex items-center gap-2"
-                                        >
-                                            <FileText size={16} />
-                                            CSV (Excel)
-                                        </button>
+                                <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#0D0D0D] border border-slate-200 dark:border-white/10 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200 ring-1 ring-black/5">
+                                    <div className="px-3 py-2 text-[10px] font-bold text-slate-400 dark:text-text-secondary uppercase tracking-widest border-b border-slate-100 dark:border-white/5 mb-1.5 flex justify-between items-center">
+                                        <span>Select Format</span>
+                                        {isExporting && <Loader2 size={10} className="animate-spin text-primary" />}
                                     </div>
+                                    <button
+                                        onClick={() => handleExportAnalytics('json')}
+                                        disabled={isExporting}
+                                        className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-primary/10 hover:text-primary text-sm text-slate-600 dark:text-text-secondary transition-all flex items-center gap-3 group"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                                            <FileJson size={18} />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-xs">JSON Data</span>
+                                        </div>
+                                    </button>
+                                    <button
+                                        onClick={() => handleExportAnalytics('csv')}
+                                        className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-primary/10 hover:text-primary text-sm text-slate-600 dark:text-text-secondary transition-all flex items-center gap-3 group"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+                                            <FileText size={18} />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-xs">CSV Spreadsheet</span>
+                                        </div>
+                                    </button>
+                                    <button
+                                        onClick={() => handleExportAnalytics('pdf')}
+                                        className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-primary/10 hover:text-primary text-sm text-slate-600 dark:text-text-secondary transition-all flex items-center gap-3 group"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform">
+                                            <FileCode size={18} />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-xs">PDF Print</span>
+                                        </div>
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -248,7 +305,7 @@ export default function ReportsPage() {
                                 >
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">{card.label}</span>
-                                        <card.icon className={`w-4 h-4 \${card.color}`} />
+                                        <card.icon className={`w-4 h-4 ${card.color}`} />
                                     </div>
                                     <div className="text-2xl font-bold text-text-primary">{card.value}</div>
                                 </motion.div>
@@ -336,6 +393,6 @@ export default function ReportsPage() {
                     </>
                 )}
             </div>
-        </DashboardLayout>
+        </DashboardLayout >
     );
 }

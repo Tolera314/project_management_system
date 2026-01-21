@@ -58,6 +58,19 @@ export default function CalendarPage() {
     const [filterStatus, setFilterStatus] = useState<string[]>([]);
     const [showFilters, setShowFilters] = useState(false);
 
+    const safeParseDate = (dateStr: string | undefined | null) => {
+        if (!dateStr) return null;
+        try {
+            // Split YYYY-MM-DD to avoid timezone shifts
+            const datePart = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+            const [y, m, d] = datePart.split('-').map(Number);
+            if (!y || !m || !d) return parseISO(dateStr); // Fallback to parseISO if format is weird
+            return new Date(y, m - 1, d);
+        } catch (e) {
+            return parseISO(dateStr);
+        }
+    };
+
     const fetchCalendarData = useCallback(async () => {
         try {
             setLoading(true);
@@ -155,7 +168,8 @@ export default function CalendarPage() {
 
             let matchesOverdue = true;
             if (overdueOnly && task.dueDate) {
-                matchesOverdue = parseISO(task.dueDate) < today && task.status !== 'DONE';
+                const dueDate = safeParseDate(task.dueDate);
+                matchesOverdue = dueDate ? dueDate < today && task.status !== 'DONE' : false;
             }
 
             return (task.dueDate || task.startDate) && matchesSearch && matchesStatus && matchesProject && matchesOverdue;
@@ -241,15 +255,121 @@ export default function CalendarPage() {
                     </div>
 
                     {/* Quick Filters */}
-                    <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className={`p-2.5 rounded-xl border transition-all ${showFilters
-                            ? 'bg-primary/20 border-primary text-primary'
-                            : 'bg-surface/40 border-border text-text-secondary hover:bg-surface-secondary'
-                            }`}
-                    >
-                        <Filter size={20} />
-                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className={`p-2.5 rounded-xl border transition-all ${showFilters
+                                ? 'bg-primary/20 border-primary text-primary'
+                                : 'bg-surface/40 border-border text-text-secondary hover:bg-surface-secondary'
+                                }`}
+                        >
+                            <Filter size={20} />
+                        </button>
+
+                        <AnimatePresence>
+                            {showFilters && (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                    className="absolute top-full right-0 mt-4 w-[600px] max-w-[calc(100vw-2rem)] bg-surface border border-border p-6 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] backdrop-blur-xl"
+                                >
+                                    <div className="flex flex-col gap-8">
+                                        <div className="flex flex-wrap items-start gap-8">
+                                            {/* Search */}
+                                            <div className="flex-1 min-w-[200px]">
+                                                <span className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] mb-3 block">Search Context</span>
+                                                <div className="relative">
+                                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary w-4 h-4" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Tasks or milestones..."
+                                                        className="w-full bg-background border border-border rounded-2xl py-2.5 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all font-medium"
+                                                        value={searchQuery}
+                                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Status */}
+                                            <div>
+                                                <span className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] mb-3 block">Quick Status</span>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {['TODO', 'IN_PROGRESS', 'DONE'].map(s => (
+                                                        <button
+                                                            key={s}
+                                                            onClick={() => setFilterStatus(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
+                                                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${filterStatus.includes(s)
+                                                                ? 'bg-primary text-white border-primary shadow-md'
+                                                                : 'bg-background hover:bg-surface-secondary text-text-secondary border-border'
+                                                                }`}
+                                                        >
+                                                            {s.replace('_', ' ')}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-start gap-8">
+                                            {/* Projects */}
+                                            <div className="flex-1">
+                                                <span className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] mb-3 block">Projects</span>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {projects.map(p => (
+                                                        <button
+                                                            key={p.id}
+                                                            onClick={() => setSelectedProjectIds(prev => prev.includes(p.id) ? prev.filter(x => x !== p.id) : [...prev, p.id])}
+                                                            className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all flex items-center gap-2 ${selectedProjectIds.includes(p.id)
+                                                                ? 'bg-surface text-text-primary border-primary shadow-md ring-1 ring-primary'
+                                                                : 'bg-background text-text-secondary border-border hover:bg-surface-secondary'
+                                                                }`}
+                                                        >
+                                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color || '#4F46E5' }} />
+                                                            {p.name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Focus Toggles */}
+                                            <div>
+                                                <span className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] mb-3 block">Focus</span>
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        onClick={() => setShowMilestones(!showMilestones)}
+                                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase border transition-all ${showMilestones ? 'bg-amber-500/10 border-amber-500/30 text-amber-600' : 'bg-background border-border text-text-secondary'
+                                                            }`}
+                                                    >
+                                                        <Trophy size={14} /> Milestones
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setOverdueOnly(!overdueOnly)}
+                                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase border transition-all ${overdueOnly ? 'bg-rose-500/10 border-rose-500/30 text-rose-600' : 'bg-background border-border text-text-secondary'
+                                                            }`}
+                                                    >
+                                                        <Clock size={14} /> Overdue
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-6 border-t border-border flex items-center justify-between">
+                                            <div className="flex gap-4">
+                                                <button className="text-[10px] font-black text-text-secondary uppercase tracking-widest hover:text-text-primary transition-colors">Workspace Views</button>
+                                            </div>
+                                            <button
+                                                onClick={() => { setSearchQuery(''); setFilterStatus([]); setSelectedProjectIds([]); setOverdueOnly(false); setShowMilestones(true); }}
+                                                className="px-4 py-2 bg-primary/10 text-primary font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-primary/20 transition-all"
+                                            >
+                                                Reset Filters
+                                            </button>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
                 </div>
             </div>
         );
@@ -308,10 +428,15 @@ export default function CalendarPage() {
                 <div className="grid grid-cols-7 flex-1 border-t border-l border-border rounded-2xl overflow-hidden shadow-2xl bg-surface/5">
                     {calendarDays.map((day, i) => {
                         const dayTasks = filteredTasks.filter(task => {
-                            if (!task.dueDate) return false;
-                            return isSameDay(parseISO(task.dueDate), day);
+                            const start = task.startDate ? safeParseDate(task.startDate) : (task.dueDate ? safeParseDate(task.dueDate) : null);
+                            const end = task.dueDate ? safeParseDate(task.dueDate) : (task.startDate ? safeParseDate(task.startDate) : null);
+                            if (!start || !end) return false;
+                            return isWithinInterval(day, { start: startOfDay(start), end: endOfDay(end) });
                         });
-                        const dayMilestones = filteredMilestones.filter(m => isSameDay(parseISO(m.dueDate), day));
+                        const dayMilestones = filteredMilestones.filter(m => {
+                            const mDate = safeParseDate(m.dueDate);
+                            return mDate ? isSameDay(mDate, day) : false;
+                        });
 
                         return (
                             <div
@@ -365,110 +490,6 @@ export default function CalendarPage() {
         );
     };
 
-    const renderFilters = () => (
-        <AnimatePresence>
-            {showFilters && (
-                <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden"
-                >
-                    <div className="bg-surface/40 border border-border p-6 rounded-3xl mb-6 shadow-sm">
-                        <div className="flex flex-wrap items-start gap-10">
-                            {/* Search */}
-                            <div className="flex-1 min-w-[300px]">
-                                <span className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] mb-3 block">Search Context</span>
-                                <div className="relative">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary w-4 h-4" />
-                                    <input
-                                        type="text"
-                                        placeholder="Specific tasks or milestones..."
-                                        className="w-full bg-background/50 border border-border rounded-2xl py-3 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all font-medium"
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Status */}
-                            <div>
-                                <span className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] mb-3 block">Quick Status</span>
-                                <div className="flex flex-wrap gap-2">
-                                    {['TODO', 'IN_PROGRESS', 'DONE'].map(s => (
-                                        <button
-                                            key={s}
-                                            onClick={() => setFilterStatus(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
-                                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${filterStatus.includes(s)
-                                                ? 'bg-primary text-white border-primary shadow-md'
-                                                : 'bg-background hover:bg-surface-secondary text-text-secondary border-border'
-                                                }`}
-                                        >
-                                            {s.replace('_', ' ')}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Projects */}
-                            <div>
-                                <span className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] mb-3 block">Projects</span>
-                                <div className="flex flex-wrap gap-2">
-                                    {projects.map(p => (
-                                        <button
-                                            key={p.id}
-                                            onClick={() => setSelectedProjectIds(prev => prev.includes(p.id) ? prev.filter(x => x !== p.id) : [...prev, p.id])}
-                                            className={`px-3 py-2 rounded-xl text-[10px] font-bold border transition-all flex items-center gap-2 ${selectedProjectIds.includes(p.id)
-                                                ? 'bg-surface text-text-primary border-primary shadow-md ring-1 ring-primary'
-                                                : 'bg-background text-text-secondary border-border hover:bg-surface-secondary'
-                                                }`}
-                                        >
-                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color || '#4F46E5' }} />
-                                            {p.name}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Toggles */}
-                            <div>
-                                <span className="text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] mb-3 block">Focus</span>
-                                <div className="flex items-center gap-4">
-                                    <button
-                                        onClick={() => setShowMilestones(!showMilestones)}
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase border transition-all ${showMilestones ? 'bg-amber-500/10 border-amber-500/30 text-amber-600' : 'bg-background border-border text-text-secondary'
-                                            }`}
-                                    >
-                                        <Trophy size={14} /> Milestones
-                                    </button>
-                                    <button
-                                        onClick={() => setOverdueOnly(!overdueOnly)}
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase border transition-all ${overdueOnly ? 'bg-rose-500/10 border-rose-500/30 text-rose-600' : 'bg-background border-border text-text-secondary'
-                                            }`}
-                                    >
-                                        <Clock size={14} /> Overdue Only
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-6 pt-6 border-t border-border/50 flex items-center justify-between">
-                            <div className="flex gap-4">
-                                <button className="text-[10px] font-black text-text-secondary uppercase tracking-widest hover:text-text-primary transition-colors">Workspace Views</button>
-                                <button className="text-[10px] font-black text-text-secondary uppercase tracking-widest hover:text-text-primary transition-colors">Saved Filters</button>
-                            </div>
-                            <button
-                                onClick={() => { setSearchQuery(''); setFilterStatus([]); setSelectedProjectIds([]); setOverdueOnly(false); setShowMilestones(true); }}
-                                className="px-6 py-2 bg-primary/10 text-primary font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-primary/20 transition-all border border-primary/20"
-                            >
-                                Clear All Parameters
-                            </button>
-                        </div>
-                    </div>
-                </motion.div>
-            )}
-        </AnimatePresence>
-    );
 
     const renderWeekView = () => {
         const start = startOfWeek(currentDate);
@@ -498,9 +519,17 @@ export default function CalendarPage() {
                             <div className="grid grid-cols-7 border-b border-border">
                                 {weekDays.map((day, i) => {
                                     const projectsInHour = filteredTasks.filter(task => {
-                                        if (!task.dueDate) return false;
-                                        const d = parseISO(task.dueDate);
-                                        return isSameDay(d, day) && d.getHours() === hour;
+                                        const start = task.startDate ? safeParseDate(task.startDate) : (task.dueDate ? safeParseDate(task.dueDate) : null);
+                                        const end = task.dueDate ? safeParseDate(task.dueDate) : (task.startDate ? safeParseDate(task.startDate) : null);
+                                        if (!start || !end) return false;
+
+                                        // If it spans multiple days, show only on end date for week view time slot or start date? 
+                                        // Usually tasks with range are "all day". For simplicity, show if it starts or ends or is within.
+                                        // For time-specific, we check hours only if it's the same day.
+                                        if (isSameDay(end, day)) {
+                                            return end.getHours() === hour;
+                                        }
+                                        return false;
                                     });
 
                                     return (
@@ -545,7 +574,8 @@ export default function CalendarPage() {
         const hours = Array.from({ length: 24 }, (_, i) => i);
         const dayTasks = filteredTasks.filter(task => {
             if (!task.dueDate) return false;
-            return isSameDay(parseISO(task.dueDate), currentDate);
+            const dDate = safeParseDate(task.dueDate);
+            return dDate ? isSameDay(dDate, currentDate) : false;
         });
 
         return (
@@ -565,9 +595,8 @@ export default function CalendarPage() {
 
                     {hours.map(hour => {
                         const projectsInHour = dayTasks.filter(task => {
-                            if (!task.dueDate) return false;
-                            const d = parseISO(task.dueDate);
-                            return d.getHours() === hour;
+                            const date = task.dueDate ? safeParseDate(task.dueDate) : (task.startDate ? safeParseDate(task.startDate) : null);
+                            return date && date.getHours() === hour;
                         });
 
                         return (
@@ -627,7 +656,6 @@ export default function CalendarPage() {
             <div className="p-4 md:p-8 max-w-[1600px] mx-auto flex flex-col h-screen overflow-hidden">
                 {renderHeader()}
 
-                {renderFilters()}
 
                 <div className="flex-1 min-h-0 relative">
                     {loading && (

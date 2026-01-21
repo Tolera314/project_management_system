@@ -2,44 +2,49 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Lock, Users, Info } from 'lucide-react';
+import { Shield, Lock, Users, Info, Settings, ShieldCheck } from 'lucide-react';
+import WorkspacePermissionsEditor from './WorkspacePermissionsEditor';
+import { useToast } from '../ui/Toast';
 
 export default function WorkspaceRolesList() {
     const [roles, setRoles] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [workspace, setWorkspace] = useState<any>(null);
+    const [selectedRole, setSelectedRole] = useState<any>(null);
+    const [isEditorOpen, setIsEditorOpen] = useState(false);
+    const { showToast } = useToast();
 
-    useEffect(() => {
-        const fetchRoles = async () => {
-            const token = localStorage.getItem('token');
-            const selectedId = localStorage.getItem('selectedWorkspaceId');
-            if (!token) return;
+    const fetchRoles = async () => {
+        const token = localStorage.getItem('token');
+        const selectedId = localStorage.getItem('selectedWorkspaceId');
+        if (!token) return;
 
-            try {
-                // First get workspace info
-                const wsRes = await fetch(selectedId
-                    ? `http://localhost:4000/workspaces/me?workspaceId=${selectedId}`
-                    : 'http://localhost:4000/workspaces/me', {
+        try {
+            // First get workspace info
+            const wsRes = await fetch(selectedId
+                ? `http://localhost:4000/workspaces/me?workspaceId=${selectedId}`
+                : 'http://localhost:4000/workspaces/me', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const wsData = await wsRes.json();
+            if (wsData.workspace) setWorkspace(wsData.workspace);
+
+            // Then get roles
+            if (wsData.workspace?.id) {
+                const res = await fetch(`http://localhost:4000/workspaces/${wsData.workspace.id}/roles`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                const wsData = await wsRes.json();
-                if (wsData.workspace) setWorkspace(wsData.workspace);
-
-                // Then get roles
-                if (wsData.workspace?.id) {
-                    const res = await fetch(`http://localhost:4000/workspaces/${wsData.workspace.id}/roles`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    const data = await res.json();
-                    if (data.roles) setRoles(data.roles);
-                }
-            } catch (error) {
-                console.error('Failed to fetch roles:', error);
-            } finally {
-                setLoading(false);
+                const data = await res.json();
+                if (data.roles) setRoles(data.roles);
             }
-        };
+        } catch (error) {
+            console.error('Failed to fetch roles:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    useEffect(() => {
         fetchRoles();
     }, []);
 
@@ -82,25 +87,37 @@ export default function WorkspaceRolesList() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="flex flex-wrap gap-1">
-                                            {role.permissions?.length > 0 ? (
-                                                role.permissions.slice(0, 3).map((rp: any) => (
-                                                    <span key={rp.permission.id} className="px-2 py-0.5 rounded text-[10px] bg-white/5 text-slate-400 border border-white/5">
-                                                        {rp.permission.name.replace(/_/g, ' ')}
+                                        <div className="flex items-center justify-between group/cell">
+                                            <div className="flex flex-wrap gap-1">
+                                                {role.permissions?.length > 0 ? (
+                                                    role.permissions.slice(0, 3).map((rp: any) => (
+                                                        <span key={rp.permission.id} className="px-2 py-0.5 rounded text-[10px] bg-white/5 text-slate-400 border border-white/5">
+                                                            {rp.permission.name.replace(/_/g, ' ')}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-xs text-slate-500 italic">No explicit permissions</span>
+                                                )}
+                                                {role.permissions?.length > 3 && (
+                                                    <span className="px-2 py-0.5 rounded text-[10px] bg-white/5 text-slate-500 border border-white/5">
+                                                        +{role.permissions.length - 3} more
                                                     </span>
-                                                ))
-                                            ) : (
-                                                <span className="text-xs text-slate-500 italic">No explicit permissions</span>
-                                            )}
-                                            {role.permissions?.length > 3 && (
-                                                <span className="px-2 py-0.5 rounded text-[10px] bg-white/5 text-slate-500 border border-white/5">
-                                                    +{role.permissions.length - 3} more
-                                                </span>
-                                            )}
-                                            {role.name === 'Admin' && (
-                                                <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                                                    Full Access
-                                                </span>
+                                                )}
+                                                {role.name === 'Admin' && (
+                                                    <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                                        Full Access
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {(!role.isSystem || (role.name !== 'Owner' && role.name !== 'Admin')) && (
+                                                <button
+                                                    onClick={() => { setSelectedRole(role); setIsEditorOpen(true); }}
+                                                    className="opacity-0 group-hover:opacity-100 p-2 hover:bg-primary/20 rounded-xl text-primary transition-all ml-4"
+                                                    title="Configure Permissions"
+                                                >
+                                                    <Settings size={16} />
+                                                </button>
                                             )}
                                         </div>
                                     </td>
@@ -121,6 +138,14 @@ export default function WorkspaceRolesList() {
                     </p>
                 </div>
             </div>
+
+            <WorkspacePermissionsEditor
+                isOpen={isEditorOpen}
+                onClose={() => setIsEditorOpen(false)}
+                role={selectedRole}
+                workspaceId={workspace?.id}
+                onUpdate={fetchRoles}
+            />
         </div>
     );
 }

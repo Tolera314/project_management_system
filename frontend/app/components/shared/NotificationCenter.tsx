@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Bell, Check, Clock, User as UserIcon, X, CheckCheck } from 'lucide-react';
+import { Bell, Check, Clock, X, CheckCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import UserAvatar from './UserAvatar';
 
 interface Notification {
     id: string;
@@ -16,6 +18,7 @@ interface Notification {
     actor?: {
         firstName: string;
         lastName: string;
+        avatarUrl?: string;
     };
     project?: {
         id: string;
@@ -25,6 +28,7 @@ interface Notification {
         id: string;
         title: string;
     };
+    link?: string;
 }
 
 import { socketService } from '../../services/socket.service';
@@ -32,6 +36,7 @@ import { socketService } from '../../services/socket.service';
 const API_URL = 'http://localhost:4000';
 
 const NotificationCenter = () => {
+    const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -99,6 +104,38 @@ const NotificationCenter = () => {
             setUnreadCount(0);
         } catch (error) {
             console.error('Failed to mark all as read:', error);
+        }
+    };
+
+    const handleNotificationClick = async (notif: Notification) => {
+        if (!notif.isRead) {
+            await markAsRead(notif.id);
+        }
+
+        setIsOpen(false);
+
+        // Logic for redirection
+        if (notif.link) {
+            // Priority 1: Direct link if provided by backend (already standardized)
+            try {
+                const url = new URL(notif.link, window.location.origin);
+                if (url.origin === window.location.origin) {
+                    router.push(url.pathname + url.search);
+                } else {
+                    window.location.href = notif.link;
+                }
+            } catch (e) {
+                // If not a valid URL, it's a relative path
+                router.push(notif.link);
+            }
+        } else if (notif.task && notif.project) {
+            // Priority 2: Standard task navigation
+            router.push(`/projects/${notif.project.id}?taskId=${notif.task.id}`);
+        } else if (notif.project) {
+            // Priority 3: Standard project navigation
+            router.push(`/projects/${notif.project.id}`);
+        } else if (notif.type === 'INVITATION_ACCEPTED') {
+            router.push('/dashboard/projects');
         }
     };
 
@@ -186,12 +223,18 @@ const NotificationCenter = () => {
                                                     {groupNotifications.map((notif) => (
                                                         <div
                                                             key={notif.id}
-                                                            className={`p-4 hover:bg-white/5 transition-colors relative group ${!notif.isRead ? 'bg-primary/5' : ''}`}
+                                                            onClick={() => handleNotificationClick(notif)}
+                                                            className={`p-4 hover:bg-white/5 transition-colors relative group cursor-pointer ${!notif.isRead ? 'bg-primary/5' : ''}`}
                                                         >
                                                             <div className="flex gap-3">
-                                                                <div className={`mt-1 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${!notif.isRead ? 'bg-primary/20 text-primary' : 'bg-white/5 text-slate-500'
-                                                                    }`}>
-                                                                    <UserIcon className="w-4 h-4" />
+                                                                <div className="shrink-0 mt-0.5">
+                                                                    <UserAvatar
+                                                                        firstName={notif.actor?.firstName}
+                                                                        lastName={notif.actor?.lastName}
+                                                                        avatarUrl={notif.actor?.avatarUrl}
+                                                                        size="sm"
+                                                                        className={!notif.isRead ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface' : ''}
+                                                                    />
                                                                 </div>
                                                                 <div className="flex-1 min-w-0">
                                                                     <div className="flex items-start justify-between gap-2">
