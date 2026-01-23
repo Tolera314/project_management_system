@@ -954,3 +954,62 @@ export const updateMemberRole = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+export const updateProject = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id } = req.params;
+        const validation = createProjectSchema.partial().safeParse(req.body);
+
+        if (!validation.success) {
+            res.status(400).json({ error: validation.error.issues[0].message });
+            return;
+        }
+
+        // Verify user is PM
+        const member = await prisma.projectMember.findFirst({
+            where: { projectId: id, organizationMember: { userId }, role: { name: 'Project Manager' } }
+        });
+
+        if (!member) {
+            res.status(403).json({ error: 'Only project managers can update project settings' });
+            return;
+        }
+
+        const updated = await prisma.project.update({
+            where: { id },
+            data: {
+                ...validation.data,
+                updatedById: userId
+            }
+        });
+
+        res.json(updated);
+    } catch (error) {
+        console.error('Update project error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const deleteProject = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id } = req.params;
+
+        // Verify user is PM
+        const member = await prisma.projectMember.findFirst({
+            where: { projectId: id, organizationMember: { userId }, role: { name: 'Project Manager' } }
+        });
+
+        if (!member) {
+            res.status(403).json({ error: 'Only project managers can delete projects' });
+            return;
+        }
+
+        await prisma.project.delete({ where: { id } });
+        res.json({ message: 'Project deleted successfully' });
+    } catch (error) {
+        console.error('Delete project error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};

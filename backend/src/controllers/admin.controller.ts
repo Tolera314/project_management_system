@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { SystemRole } from '@prisma/client';
+import bcrypt from 'bcrypt';
 
 export const getOverviewStats = async (req: Request, res: Response) => {
     try {
@@ -207,6 +208,167 @@ export const getUsers = async (req: Request, res: Response) => {
     }
 };
 
+export const createUser = async (req: Request, res: Response) => {
+    try {
+        const adminId = (req as any).userId;
+        const { email, firstName, lastName, password, systemRole } = req.body;
+
+        const hashedPassword = await bcrypt.hash(password || 'Temporary123!', 10);
+
+        const newUser = await prisma.user.create({
+            data: {
+                email,
+                firstName,
+                lastName,
+                password: hashedPassword,
+                systemRole: systemRole || SystemRole.USER,
+                status: 'ACTIVE'
+            }
+        });
+
+        await prisma.adminAuditLog.create({
+            data: {
+                action: 'USER_CREATED',
+                performedById: adminId,
+                entityType: 'USER',
+                entityId: newUser.id,
+                metadata: { email, systemRole }
+            } as any
+        });
+
+        res.status(201).json(newUser);
+    } catch (error) {
+        console.error('Create user error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const getUserDetail = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const user = await prisma.user.findUnique({
+            where: { id },
+            include: {
+                organizationMembers: {
+                    include: {
+                        organization: true,
+                        role: true
+                    }
+                },
+                _count: {
+                    select: {
+                        createdTasks: true,
+                        assignedTasks: true,
+                        comments: true
+                    }
+                }
+            }
+        });
+
+        if (!user) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const deactivateUser = async (req: Request, res: Response) => {
+    try {
+        const adminId = (req as any).userId;
+        const { id } = req.params;
+
+        await prisma.user.update({
+            where: { id },
+            data: { status: 'DEACTIVATED' }
+        });
+
+        await prisma.adminAuditLog.create({
+            data: {
+                action: 'USER_DEACTIVATED',
+                performedById: adminId,
+                entityType: 'USER',
+                entityId: id
+            } as any
+        });
+
+        res.json({ message: 'User deactivated' });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const updateUserRole = async (req: Request, res: Response) => {
+    try {
+        const adminId = (req as any).userId;
+        const { id } = req.params;
+        const { systemRole } = req.body;
+
+        await prisma.user.update({
+            where: { id },
+            data: { systemRole }
+        });
+
+        await prisma.adminAuditLog.create({
+            data: {
+                action: 'USER_ROLE_UPDATED',
+                performedById: adminId,
+                entityType: 'USER',
+                entityId: id,
+                metadata: { systemRole }
+            } as any
+        });
+
+        res.json({ message: 'User role updated' });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const updateUserStatus = async (req: Request, res: Response) => {
+    try {
+        const adminId = (req as any).userId;
+        const { id } = req.params;
+        const { status } = req.body;
+
+        await prisma.user.update({
+            where: { id },
+            data: { status }
+        });
+
+        await prisma.adminAuditLog.create({
+            data: {
+                action: 'USER_STATUS_UPDATED',
+                performedById: adminId,
+                entityType: 'USER',
+                entityId: id,
+                metadata: { status }
+            } as any
+        });
+
+        res.json({ message: 'User status updated' });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const getUserActivity = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const activity = await prisma.activityLog.findMany({
+            where: { userId: id },
+            orderBy: { createdAt: 'desc' },
+            take: 50
+        });
+        res.json(activity);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 export const updateUser = async (req: Request, res: Response) => {
     try {
         const adminId = (req as any).userId;
@@ -396,6 +558,77 @@ export const getGlobalAuditLogs = async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error('Get global audit logs error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const getServerStatus = async (req: Request, res: Response) => {
+    try {
+        const stats = {
+            uptime: process.uptime(),
+            memory: process.memoryUsage(),
+            nodeVersion: process.version,
+            platform: process.platform,
+            timestamp: new Date()
+        };
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const getServerLogs = async (req: Request, res: Response) => {
+    try {
+        // In a real app, read from log files. For now, mock.
+        res.json([
+            { timestamp: new Date(), level: 'INFO', message: 'Server started' },
+            { timestamp: new Date(), level: 'INFO', message: 'Database connected' }
+        ]);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const clearCache = async (req: Request, res: Response) => {
+    try {
+        // Mock cache clear
+        res.json({ message: 'Cache cleared successfully' });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const getLicenseInfo = async (req: Request, res: Response) => {
+    try {
+        res.json({
+            status: 'ACTIVE',
+            type: 'ENTERPRISE',
+            expiresAt: '2026-12-31',
+            maxUsers: 'UNLIMITED'
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const updateLicense = async (req: Request, res: Response) => {
+    try {
+        res.json({ message: 'License updated successfully' });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const getStorageStats = async (req: Request, res: Response) => {
+    try {
+        const totalSize = await prisma.file.aggregate({
+            _sum: { size: true }
+        });
+        res.json({
+            totalSizeBytes: totalSize._sum.size || 0,
+            fileCount: await prisma.file.count()
+        });
+    } catch (error) {
         res.status(500).json({ error: 'Internal server error' });
     }
 };

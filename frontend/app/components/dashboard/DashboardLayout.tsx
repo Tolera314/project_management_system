@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -79,15 +79,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ];
 
     // Check if user can manage templates (Admin or has manage_templates permission)
-    const currentOrgRole = user?.organizations?.find(
-        org => org.id === (workspace?.id || (typeof window !== 'undefined' ? localStorage.getItem('selectedWorkspaceId') : null))
-    )?.role;
+    const canManageTemplates = useMemo(() => {
+        if (user?.systemRole === 'SYSTEM_ADMIN') return true;
 
-    const canManageTemplates = user?.systemRole === 'SYSTEM_ADMIN' ||
-        ['Admin', 'Project Manager', 'OWNER'].includes(currentOrgRole || '') ||
-        workspace?.members?.some((m: any) =>
-            m.userId === user?.id && ['Admin', 'Project Manager', 'OWNER'].includes(m.role?.name)
-        );
+        const selectedId = workspace?.id || (typeof window !== 'undefined' ? localStorage.getItem('selectedWorkspaceId') : null);
+        const currentOrgRole = user?.organizations?.find(org => org.id === selectedId)?.role;
+
+        const isManager = ['Admin', 'Project Manager', 'OWNER', 'Workspace Manager'].includes(currentOrgRole || '');
+        if (isManager) return true;
+
+        // Fallback check against workspace members list if available
+        return workspace?.members?.some((m: any) =>
+            m.userId === user?.id && ['Admin', 'Project Manager', 'OWNER', 'Workspace Manager'].includes(m.role?.name)
+        ) || false;
+    }, [user, workspace]);
 
     const handleInviteToWorkspace = async (email: string, roleId: string) => {
         if (!workspace) return;

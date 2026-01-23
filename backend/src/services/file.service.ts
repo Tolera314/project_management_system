@@ -174,32 +174,53 @@ export class FileService {
         });
     }
 
-    async deleteFile(fileId: string) {
-        // Physical delete? Or soft delete? 
-        // User says "Deletions are safe and intentional... Deleting File Cascades to versions"
-        // We will do DB delete (Cascade handles relations).
-        // File cleanup from disk is needed.
-
-        const file = await prisma.file.findUnique({
+    async getFileDetails(fileId: string) {
+        return prisma.file.findUnique({
             where: { id: fileId },
-            include: { versions: true }
+            include: {
+                createdBy: { select: { id: true, firstName: true, lastName: true } },
+                _count: { select: { versions: true, links: true } }
+            }
+        });
+    }
+
+    async getFileVersions(fileId: string) {
+        return prisma.fileVersion.findMany({
+            where: { fileId },
+            include: {
+                createdBy: { select: { id: true, firstName: true, lastName: true } }
+            },
+            orderBy: { version: 'desc' }
+        });
+    }
+
+    async getFileLinks(fileId: string) {
+        return prisma.fileLink.findMany({
+            where: { fileId },
+            include: {
+                task: { select: { id: true, title: true } },
+                project: { select: { id: true, name: true } },
+                comment: { select: { id: true, content: true } }
+            }
+        });
+    }
+
+    async linkFile(fileId: string, entityId: string, type: 'PROJECT' | 'TASK' | 'COMMENT', userId: string) {
+        const data: any = { fileId };
+        if (type === 'PROJECT') data.projectId = entityId;
+        if (type === 'TASK') data.taskId = entityId;
+        if (type === 'COMMENT') data.commentId = entityId;
+
+        // Check if link exists
+        const exists = await prisma.fileLink.findFirst({
+            where: { fileId, ...data }
         });
 
-        if (!file) return;
+        if (exists) return exists;
 
-        // Delete from DB
-        await prisma.file.delete({ where: { id: fileId } });
-
-        // Cleanup Disk
-        // Safe wrap
-        try {
-            if (file.url && fs.existsSync(file.url)) fs.unlinkSync(file.url);
-            for (const v of file.versions) {
-                if (v.url && fs.existsSync(v.url)) fs.unlinkSync(v.url);
-            }
-        } catch (e) {
-            console.error("Failed to cleanup files from disk", e);
-        }
+        return prisma.fileLink.create({
+            data
+        });
     }
 }
 

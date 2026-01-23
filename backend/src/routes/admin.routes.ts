@@ -8,13 +8,19 @@ import { authMiddleware } from '../middleware/auth.middleware';
 const router = Router();
 
 // Base route: /admin
-router.get('/stats', authMiddleware, adminController.getOverviewStats);
-router.get('/workspaces', authMiddleware, adminController.getWorkspaces);
-router.get('/workspaces/:id', authMiddleware, adminController.getWorkspaceDetail);
-router.patch('/workspaces/:id/status', authMiddleware, adminController.updateWorkspaceStatus);
+router.get('/stats', authMiddleware, getOverviewStats);
+router.get('/workspaces', authMiddleware, getWorkspaces);
+router.get('/workspaces/:id', authMiddleware, getWorkspaceDetail);
+router.patch('/workspaces/:id/status', authMiddleware, updateWorkspaceStatus);
 
-router.get('/users', authMiddleware, adminController.getUsers);
-router.patch('/users/:id', authMiddleware, adminController.updateUser);
+router.get('/users', authMiddleware, getUsers);
+router.post('/users', authMiddleware, createUser);
+router.get('/users/:id', authMiddleware, getUserDetail);
+router.patch('/users/:id', authMiddleware, updateUser);
+router.delete('/users/:id', authMiddleware, deactivateUser);
+router.put('/users/:id/role', authMiddleware, updateUserRole);
+router.put('/users/:id/status', authMiddleware, updateUserStatus);
+router.get('/users/:id/activity', authMiddleware, getUserActivity);
 
 // Roles & Permissions
 router.get('/roles', authMiddleware, adminRolesController.getRoles);
@@ -23,7 +29,13 @@ router.patch('/roles/:id/permissions', authMiddleware, adminRolesController.upda
 router.get('/permissions', authMiddleware, adminRolesController.getAllPermissions);
 
 // Audit Logs
-router.get('/audit-logs', authMiddleware, adminController.getGlobalAuditLogs);
+router.get('/audit-logs', authMiddleware, getGlobalAuditLogs);
+router.get('/server/status', authMiddleware, getServerStatus);
+router.get('/server/logs', authMiddleware, getServerLogs);
+router.post('/cache/clear', authMiddleware, clearCache);
+router.get('/license', authMiddleware, getLicenseInfo);
+router.put('/license', authMiddleware, updateLicense);
+router.get('/storage/stats', authMiddleware, getStorageStats);
 
 // Analytics
 router.get('/stats/platform', authMiddleware, adminAnalyticsController.getPlatformStats);

@@ -156,3 +156,40 @@ export const getProjectReport = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+export const getUserAnalytics = async (req: Request, res: Response) => {
+    try {
+        const { id: targetUserId } = req.params;
+        const userId = (req as any).userId;
+
+        // Ensure user is checking their own or is an admin (optional security check)
+        // For now, allow viewing if they share an organization
+        const sharedOrg = await prisma.organization.findFirst({
+            where: {
+                members: { some: { userId } },
+                AND: { members: { some: { userId: targetUserId } } }
+            }
+        });
+
+        if (!sharedOrg) {
+            res.status(403).json({ error: 'Access denied' });
+            return;
+        }
+
+        const stats = await prisma.$transaction([
+            prisma.task.count({ where: { assignees: { some: { projectMember: { organizationMember: { userId: targetUserId } } } }, status: 'DONE' } }),
+            prisma.task.count({ where: { assignees: { some: { projectMember: { organizationMember: { userId: targetUserId } } } }, status: { not: 'DONE' } } }),
+            prisma.task.count({ where: { assignees: { some: { projectMember: { organizationMember: { userId: targetUserId } } } }, status: { not: 'DONE' }, dueDate: { lt: new Date() } } }),
+            prisma.activityLog.count({ where: { userId: targetUserId } })
+        ]);
+
+        res.json({
+            completedTasks: stats[0],
+            pendingTasks: stats[1],
+            overdueTasks: stats[2],
+            activityCount: stats[3]
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
