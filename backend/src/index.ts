@@ -20,6 +20,8 @@ import fileRoutes from './routes/file.routes';
 import templateRoutes from './routes/template.routes';
 import adminRoutes from './routes/admin.routes';
 import settingsRoutes from './routes/settings.routes';
+import calendarRoutes from './routes/calendar.routes';
+import analyticsRoutes from './routes/analytics.routes';
 
 import { createServer } from 'http';
 import { SocketService } from './services/socket.service';
@@ -50,7 +52,9 @@ app.use('/users', userRoutes);
 app.use('/tags', tagRoutes);
 app.use('/files', fileRoutes);
 app.use('/admin', adminRoutes);
-app.use('/settings', settingsRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/calendar', calendarRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.get('/', (req, res) => {
     res.send('ProjectOS Backend Running');

@@ -928,6 +928,190 @@ export const restoreTask = async (req: Request, res: Response) => {
     }
 };
 
+export const getTasks = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { organizationId, projectId, status, priority, assigneeId } = req.query;
+
+        const where: any = {
+            project: {
+                organizationId: organizationId as string,
+                organization: {
+                    members: { some: { userId } }
+                }
+            }
+        };
+
+        if (projectId) where.projectId = projectId as string;
+        if (status) where.status = status as any; // Assuming TaskStatusEnum is imported or defined
+        if (priority) where.priority = priority as any;
+        if (assigneeId) {
+            where.assignees = {
+                some: {
+                    projectMember: {
+                        organizationMember: { userId: assigneeId as string }
+                    }
+                }
+            };
+        }
+
+        const tasks = await prisma.task.findMany({
+            where,
+            include: {
+                project: { select: { name: true } },
+                assignees: {
+                    include: {
+                        projectMember: {
+                            include: {
+                                organizationMember: {
+                                    include: { user: { select: { firstName: true, lastName: true, avatarUrl: true } } }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: { updatedAt: 'desc' }
+        });
+
+        res.json(tasks);
+    } catch (error) {
+        console.error('Get tasks error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const addTaskDependency = async (req: Request, res: Response) => {
+    try {
+        const { id: targetId } = req.params;
+        const { sourceId, type } = req.body;
+        const userId = (req as any).userId;
+
+        // Verify access to both tasks
+        const tasks = await prisma.task.findMany({
+            where: {
+                id: { in: [targetId, sourceId] },
+                project: { organization: { members: { some: { userId } } } }
+            }
+        });
+
+        if (tasks.length < 2) {
+            res.status(403).json({ error: 'Access denied or tasks not found' });
+            return;
+        }
+
+        const dependency = await prisma.taskDependency.create({
+            data: {
+                sourceId,
+                targetId,
+                type: type || 'FINISH_TO_START'
+            }
+        });
+
+        res.status(201).json(dependency);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const getTaskActivity = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).userId;
+
+        const activity = await prisma.activityLog.findMany({
+            where: {
+                taskId: id,
+                task: {
+                    project: { organization: { members: { some: { userId } } } }
+                }
+            },
+            include: {
+                user: { select: { firstName: true, lastName: true, avatarUrl: true } }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 50
+        });
+
+        res.json({ activity });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const updateComment = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id } = req.params;
+        const { content } = req.body;
+
+        const comment = await prisma.comment.findUnique({ where: { id } });
+        if (!comment || comment.createdById !== userId) {
+            res.status(403).json({ error: 'Comment not found or access denied' });
+            return;
+        }
+
+        const updated = await prisma.comment.update({
+            where: { id },
+            data: { content }
+        });
+
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const deleteComment = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id } = req.params;
+
+        const comment = await prisma.comment.findUnique({ where: { id } });
+        if (!comment || comment.createdById !== userId) {
+            res.status(403).json({ error: 'Comment not found or access denied' });
+            return;
+        }
+
+        await prisma.comment.delete({ where: { id } });
+        res.json({ message: 'Comment deleted' });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const addTagToTask = async (req: Request, res: Response) => {
+    try {
+        const { id: taskId } = req.params;
+        const { tagId } = req.body;
+        const userId = (req as any).userId;
+
+        const task = await prisma.task.findUnique({ where: { id: taskId } });
+        if (!task) return res.status(404).json({ error: 'Task not found' });
+
+        const taskTag = await prisma.taskTag.create({
+            data: { taskId, tagId },
+            include: { tag: true }
+        });
+
+        res.status(201).json(taskTag);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const removeTagFromTask = async (req: Request, res: Response) => {
+    try {
+        const { id: taskId, tagId } = req.params;
+        await prisma.taskTag.delete({
+            where: { taskId_tagId: { taskId, tagId } }
+        });
+        res.status(204).send();
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 export const searchTasks = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).userId;
