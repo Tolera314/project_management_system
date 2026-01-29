@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  /* Light Theme Defaults - PER USER MOCKUP */
-  --background: #F8FAFC;       /* Soft off-white */
-  --foreground: #0F172A;       /* Text primary */
+  /* Light Theme Defaults - REFINED FOR CONTRAST */
+  --background: #F1F5F9;       /* Slate 100 - slightly darker than pure white */
+  --foreground: #020617;       /* Slate 950 - very dark */
 
   --color-primary: #4F46E5;    /* Indigo 600 */
   --color-surface: #FFFFFF;    /* Pure white for cards */
-  --color-surface-secondary: #F1F5F9; /* Sidebar/Secondary */
+  --color-surface-secondary: #E2E8F0; /* Slate 200 - more distinct */
   
   --color-text-primary: #0F172A;
   --color-text-secondary: #475569;
   
-  --color-border: #E2E8F0;
+  --color-border: #CBD5E1;     /* Slate 300 - clearly visible */
   
   --color-success: #16A34A;
   --color-warning: #D97706;
   --color-danger: #DC2626;
-  --color-accent: #A78BFA;
+  --color-accent: #7C3AED;
 
   --font-sans: var(--font-geist-sans, sans-serif);
   --font-mono: var(--font-geist-mono, monospace);

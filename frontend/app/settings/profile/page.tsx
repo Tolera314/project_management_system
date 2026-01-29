@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { Camera, Mail, User, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '../../context/UserContext';
+import { FileService } from '../../services/file.service';
+import UserAvatar from '../../components/shared/UserAvatar';
 
 export default function ProfileSettingsPage() {
     const { updateUser } = useUser();
@@ -44,7 +46,7 @@ export default function ProfileSettingsPage() {
         }
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -53,13 +55,23 @@ export default function ProfileSettingsPage() {
             return;
         }
 
+        // Show preview immediately
         const reader = new FileReader();
         reader.onloadend = () => {
-            const base64String = reader.result as string;
-            setPreviewUrl(base64String);
-            setProfile(prev => ({ ...prev, avatarUrl: base64String }));
+            setPreviewUrl(reader.result as string);
         };
         reader.readAsDataURL(file);
+
+        // Upload to server
+        try {
+            const data = await FileService.uploadFile(file, 'profile-avatars');
+            // Store the full URL returned by server (Cloudinary)
+            const newUrl = data.file?.url || data.url;
+            setProfile(prev => ({ ...prev, avatarUrl: newUrl }));
+        } catch (error) {
+            console.error('Upload error:', error);
+            setMessage({ type: 'error', text: 'Failed to upload image' });
+        }
     };
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -123,13 +135,12 @@ export default function ProfileSettingsPage() {
                 {/* Avatar Section */}
                 <div className="flex flex-col md:flex-row items-center gap-6 p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
                     <div className="relative group">
-                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-3xl font-bold border-4 border-slate-900 overflow-hidden shadow-2xl">
-                            {previewUrl || profile.avatarUrl ? (
-                                <img src={previewUrl || profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                            ) : (
-                                profile.firstName?.[0] || 'U'
-                            )}
-                        </div>
+                        <UserAvatar
+                            firstName={profile.firstName}
+                            avatarUrl={previewUrl || profile.avatarUrl}
+                            size="xl"
+                            className="border-4 border-slate-900 shadow-2xl"
+                        />
                         <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-full text-white cursor-pointer">
                             <Camera size={20} />
                             <input

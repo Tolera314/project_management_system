@@ -8,7 +8,7 @@ export const getRoles = async (req: Request, res: Response) => {
         const adminId = (req as any).userId;
         const adminUser = await prisma.user.findUnique({ where: { id: adminId } });
 
-        if (!adminUser || adminUser.systemRole !== SystemRole.SYSTEM_ADMIN) {
+        if (!adminUser || adminUser.systemRole !== SystemRole.ADMIN) {
             res.status(403).json({ error: 'Access denied' });
             return;
         }
@@ -37,7 +37,7 @@ export const getAllPermissions = async (req: Request, res: Response) => {
         const adminId = (req as any).userId;
         const adminUser = await prisma.user.findUnique({ where: { id: adminId } });
 
-        if (!adminUser || adminUser.systemRole !== SystemRole.SYSTEM_ADMIN) {
+        if (!adminUser || adminUser.systemRole !== SystemRole.ADMIN) {
             res.status(403).json({ error: 'Access denied' });
             return;
         }
@@ -67,7 +67,7 @@ export const updateRolePermissions = async (req: Request, res: Response) => {
         const { permissionIds } = req.body; // Array of permission strings
 
         const adminUser = await prisma.user.findUnique({ where: { id: adminId } });
-        if (!adminUser || adminUser.systemRole !== SystemRole.SYSTEM_ADMIN) {
+        if (!adminUser || adminUser.systemRole !== SystemRole.ADMIN) {
             res.status(403).json({ error: 'Access denied' });
             return;
         }
@@ -78,7 +78,7 @@ export const updateRolePermissions = async (req: Request, res: Response) => {
             return;
         }
 
-        if (role.isSystem && role.name === 'SYSTEM_ADMIN') {
+        if (role.isSystem && role.name === 'ADMIN') {
             res.status(400).json({ error: 'Cannot modify System Admin permissions' });
             return;
         }
@@ -125,7 +125,7 @@ export const createRole = async (req: Request, res: Response) => {
         const { name, description, organizationId } = req.body;
 
         const adminUser = await prisma.user.findUnique({ where: { id: adminId } });
-        if (!adminUser || adminUser.systemRole !== SystemRole.SYSTEM_ADMIN) {
+        if (!adminUser || adminUser.systemRole !== SystemRole.ADMIN) {
             res.status(403).json({ error: 'Access denied' });
             return;
         }

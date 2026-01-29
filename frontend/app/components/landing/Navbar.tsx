@@ -30,8 +30,9 @@ export default function Navbar() {
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center space-x-8">
           <Link href="#features" className="text-text-secondary hover:text-text-primary transition-colors">Features</Link>
+          <Link href="#demo" className="text-text-secondary hover:text-text-primary transition-colors">Demo</Link>
           <Link href="#workflow" className="text-text-secondary hover:text-text-primary transition-colors">Workflow</Link>
-          <Link href="#pricing" className="text-text-secondary hover:text-text-primary transition-colors">Pricing</Link>
+          <Link href="#templates" className="text-text-secondary hover:text-text-primary transition-colors">Templates</Link>
           <Link href="/login" className="text-text-primary hover:text-primary transition-colors">Log In</Link>
           <Link
             href="/signup"
@@ -58,8 +59,9 @@ export default function Navbar() {
           >
             <div className="flex flex-col p-6 space-y-4">
               <Link href="#features" className="text-text-secondary hover:text-text-primary" onClick={() => setIsOpen(false)}>Features</Link>
+              <Link href="#demo" className="text-text-secondary hover:text-text-primary" onClick={() => setIsOpen(false)}>Demo</Link>
               <Link href="#workflow" className="text-text-secondary hover:text-text-primary" onClick={() => setIsOpen(false)}>Workflow</Link>
-              <Link href="#pricing" className="text-text-secondary hover:text-text-primary" onClick={() => setIsOpen(false)}>Pricing</Link>
+              <Link href="#templates" className="text-text-secondary hover:text-text-primary" onClick={() => setIsOpen(false)}>Templates</Link>
               <hr className="border-border" />
               <Link href="/login" className="text-text-primary font-medium" onClick={() => setIsOpen(false)}>Log In</Link>
               <Link

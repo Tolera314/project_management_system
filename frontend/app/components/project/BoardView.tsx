@@ -218,7 +218,9 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
                                                             style={{
                                                                 ...provided.draggableProps.style,
                                                             }}
-                                                            className={`bg-surface p-3 rounded-lg border border-foreground/5 hover:border-primary/50 group cursor-pointer shadow-sm transition-all ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/50 rotate-2' : 'hover:-translate-y-1'
+                                                            className={`bg-surface p-4 rounded-xl border border-border/50 hover:border-primary/50 group cursor-pointer shadow-sm transition-all ${snapshot.isDragging
+                                                                ? 'shadow-2xl ring-2 ring-primary/50 rotate-3 scale-105 z-50 bg-surface-lighter'
+                                                                : 'hover:-translate-y-1 hover:shadow-md'
                                                                 }`}
                                                         >
                                                             {/* Card Content */}

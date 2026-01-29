@@ -12,6 +12,7 @@ export default function WorkspaceRolesList() {
     const [workspace, setWorkspace] = useState<any>(null);
     const [selectedRole, setSelectedRole] = useState<any>(null);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
     const { showToast } = useToast();
 
     const fetchRoles = async () => {
@@ -44,6 +45,29 @@ export default function WorkspaceRolesList() {
         }
     };
 
+    const handleDeleteRole = async (roleId: string) => {
+        if (!window.confirm('Are you sure you want to delete this role? This cannot be undone.')) return;
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:4000/workspaces/${workspace.id}/roles/${roleId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                showToast('success', 'Role Deleted', 'Role removed successfully');
+                fetchRoles();
+            } else {
+                const data = await res.json();
+                showToast('error', 'Delete Failed', data.error || 'Failed to delete role');
+            }
+        } catch (error) {
+            console.error('Delete role error:', error);
+            showToast('error', 'Error', 'An unexpected error occurred');
+        }
+    };
+
     useEffect(() => {
         fetchRoles();
     }, []);
@@ -55,6 +79,19 @@ export default function WorkspaceRolesList() {
 
     return (
         <div className="space-y-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h3 className="text-lg font-bold text-white">Workspace Roles</h3>
+                    <p className="text-sm text-slate-400">Manage permissions and access levels</p>
+                </div>
+                <button
+                    onClick={() => { setSelectedRole(null); setIsCreating(true); setIsEditorOpen(true); }}
+                    className="px-4 py-2 bg-primary hover:bg-primary/90 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all flex items-center gap-2"
+                >
+                    <ShieldCheck size={16} /> Create Role
+                </button>
+            </div>
+
             <div className="bg-slate-900/50 border border-white/5 rounded-2xl overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
@@ -119,6 +156,17 @@ export default function WorkspaceRolesList() {
                                                     <Settings size={16} />
                                                 </button>
                                             )}
+
+                                            {!role.isSystem && (
+                                                <button
+                                                    onClick={() => handleDeleteRole(role.id)}
+                                                    className="opacity-0 group-hover:opacity-100 p-2 hover:bg-rose-500/10 rounded-xl text-rose-500 transition-all ml-2"
+                                                    title="Delete Role"
+                                                >
+                                                    <Lock size={16} className="rotate-45" />
+                                                    {/* Using Lock as placeholder for Trash if Trash2 not imported, but let's assume Trash2 or just X */}
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -141,8 +189,9 @@ export default function WorkspaceRolesList() {
 
             <WorkspacePermissionsEditor
                 isOpen={isEditorOpen}
-                onClose={() => setIsEditorOpen(false)}
+                onClose={() => { setIsEditorOpen(false); setIsCreating(false); }}
                 role={selectedRole}
+                isCreating={isCreating}
                 workspaceId={workspace?.id}
                 onUpdate={fetchRoles}
             />

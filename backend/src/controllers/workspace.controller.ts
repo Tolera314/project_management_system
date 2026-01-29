@@ -140,6 +140,23 @@ export const createWorkspace = async (req: Request, res: Response) => {
                 }
             });
 
+            // 4. Seed Default Tags
+            const defaultTags = [
+                { name: 'Bug', color: '#EF4444' },         // Red
+                { name: 'Feature', color: '#3B82F6' },     // Blue
+                { name: 'Urgent', color: '#DC2626' },      // Dark Red
+                { name: 'Blocked', color: '#F59E0B' },     // Amber
+                { name: 'Improvement', color: '#10B981' }  // Emerald
+            ];
+
+            await tx.tag.createMany({
+                data: defaultTags.map(tag => ({
+                    name: tag.name,
+                    color: tag.color,
+                    organizationId: organization.id
+                }))
+            });
+
             return { organization, adminRole };
         }, { timeout: 15000 });
 
@@ -701,7 +718,7 @@ export const migrateRoles = async (req: Request, res: Response) => {
         const user = await prisma.user.findUnique({ where: { id: userId } });
 
         // Only System Admin can trigger this global migration
-        if (!user || user.systemRole !== 'SYSTEM_ADMIN') {
+        if (!user || user.systemRole !== 'ADMIN') {
             res.status(403).json({ error: 'Access denied' });
             return;
         }
@@ -802,6 +819,109 @@ export const updateWorkspaceRolePermissions = async (req: Request, res: Response
         res.json({ message: 'Permissions updated successfully' });
     } catch (error) {
         console.error('Update workspace role permissions error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const createWorkspaceRole = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id } = req.params;
+        const { name, description, permissions } = req.body;
+
+        // Verify Manager
+        const member = await prisma.organizationMember.findFirst({
+            where: { organizationId: id, userId, role: { name: 'Workspace Manager' } }
+        });
+
+        if (!member) {
+            res.status(403).json({ error: 'Access denied' });
+            return;
+        }
+
+        const role = await prisma.role.create({
+            data: {
+                name,
+                description,
+                organizationId: id,
+                createdById: userId,
+                permissions: {
+                    create: permissions?.map((pId: string) => ({ permissionId: pId })) || []
+                }
+            }
+        });
+
+        res.json(role);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const updateWorkspaceRole = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id, roleId } = req.params;
+        const { name, description } = req.body;
+
+        const member = await prisma.organizationMember.findFirst({
+            where: { organizationId: id, userId, role: { name: 'Workspace Manager' } }
+        });
+
+        if (!member) {
+            res.status(403).json({ error: 'Access denied' });
+            return;
+        }
+
+        const role = await prisma.role.findUnique({ where: { id: roleId } });
+        if (!role || role.organizationId !== id) {
+            res.status(404).json({ error: 'Role not found' });
+            return;
+        }
+
+        if (role.isSystem) {
+            res.status(400).json({ error: 'Cannot edit system roles' });
+            return;
+        }
+
+        const updated = await prisma.role.update({
+            where: { id: roleId },
+            data: { name, description }
+        });
+
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const deleteWorkspaceRole = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id, roleId } = req.params;
+
+        const member = await prisma.organizationMember.findFirst({
+            where: { organizationId: id, userId, role: { name: 'Workspace Manager' } }
+        });
+
+        if (!member) {
+            res.status(403).json({ error: 'Access denied' });
+            return;
+        }
+
+        const role = await prisma.role.findUnique({ where: { id: roleId } });
+        if (!role || role.organizationId !== id) {
+            res.status(404).json({ error: 'Role not found' });
+            return;
+        }
+
+        if (role.isSystem) {
+            res.status(400).json({ error: 'Cannot delete system roles' });
+            return;
+        }
+
+        await prisma.role.delete({ where: { id: roleId } });
+        res.json({ message: 'Role deleted successfully' });
+    } catch (error) {
         res.status(500).json({ error: 'Internal server error' });
     }
 };

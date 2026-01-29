@@ -73,6 +73,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const navItems = [
         { icon: Home, label: 'Dashboard', href: '/dashboard' },
         { icon: FolderKanban, label: 'Projects', href: '/dashboard/projects' },
+        { icon: Layout, label: 'Templates', href: '/dashboard/templates' },
         { icon: CheckSquare, label: 'Tasks', href: '/dashboard/tasks' },
         { icon: Calendar, label: 'Calendar', href: '/dashboard/calendar' },
         { icon: BarChart3, label: 'Reports', href: '/dashboard/reports' },
@@ -80,7 +81,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     // Check if user can manage templates (Admin or has manage_templates permission)
     const canManageTemplates = useMemo(() => {
-        if (user?.systemRole === 'SYSTEM_ADMIN') return true;
+        if (user?.systemRole === 'ADMIN') return true;
 
         const selectedId = workspace?.id || (typeof window !== 'undefined' ? localStorage.getItem('selectedWorkspaceId') : null);
         const currentOrgRole = user?.organizations?.find(org => org.id === selectedId)?.role;
@@ -145,7 +146,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                        className="md:hidden p-2 text-slate-400 hover:text-white"
+                        className="md:hidden p-2 text-text-secondary hover:text-text-primary"
                     >
                         <Menu className="w-6 h-6" />
                     </button>
@@ -157,14 +158,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
 
                 <div className="flex items-center gap-2 md:gap-4">
-                    <div className="flex-1 md:flex-none flex items-center justify-end md:justify-start gap-1 bg-transparent md:bg-foreground/5 md:border md:border-foreground/10 rounded-full px-0 md:px-3 py-1.5 md:mr-4 focus-within:border-primary/50 transition-colors relative group">
+                    <div className="flex-1 md:flex-none flex items-center justify-end md:justify-start gap-1 bg-transparent md:bg-surface-secondary/50 md:border md:border-border rounded-full px-0 md:px-3 py-1.5 md:mr-4 focus-within:border-primary/50 transition-colors relative group">
                         <button
-                            className="md:hidden p-2 text-slate-400 hover:text-white"
+                            className="md:hidden p-2 text-text-secondary hover:text-text-primary"
                             onClick={() => setShowSearchResults(!showSearchResults)}
                         >
                             <Search className="w-5 h-5" />
                         </button>
-                        <Search className="hidden md:block w-4 h-4 text-slate-500" />
+                        <Search className="hidden md:block w-4 h-4 text-text-secondary" />
                         <input
                             type="text"
                             placeholder="Search..."
@@ -186,9 +187,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: 10 }}
-                                        className="absolute top-full right-0 md:left-0 mt-2 w-[calc(100vw-32px)] md:w-80 bg-surface border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[60]"
+                                        className="absolute top-full right-0 md:left-0 mt-2 w-[calc(100vw-32px)] md:w-80 bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden z-[60]"
                                     >
-                                        <div className="md:hidden p-3 border-b border-white/10 bg-white/5">
+                                        <div className="md:hidden p-3 border-b border-border bg-surface-secondary">
                                             <input
                                                 autoFocus
                                                 type="text"
@@ -198,7 +199,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                                 onChange={(e) => handleSearch(e.target.value)}
                                             />
                                         </div>
-                                        <div className="p-3 border-b border-white/10 flex items-center justify-between">
+                                        <div className="p-3 border-b border-border flex items-center justify-between">
                                             <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Tasks & Results</span>
                                             {isSearching && <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />}
                                         </div>
@@ -208,22 +209,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                                     <button
                                                         key={task.id}
                                                         onClick={() => {
-                                                            router.push(`/projects/\${task.projectId}?taskId=\${task.id}`);
+                                                            router.push(`/projects/\${task.id}`);
                                                             setShowSearchResults(false);
                                                             setSearchQuery('');
                                                         }}
-                                                        className="w-full p-3 flex items-start gap-3 hover:bg-white/5 transition-colors text-left group"
+                                                        className="w-full p-3 flex items-start gap-3 hover:bg-surface-secondary transition-colors text-left group"
                                                     >
                                                         <div className={`mt-1 w-2 h-2 rounded-full shrink-0 \${
-                                                            task.priority === 'URGENT' ? 'bg-red-500' :
-                                                            task.priority === 'HIGH' ? 'bg-amber-500' :
-                                                            task.priority === 'MEDIUM' ? 'bg-blue-500' : 'bg-slate-500'
+                                                            task.priority === 'URGENT' ? 'bg-danger' :
+                                                            task.priority === 'HIGH' ? 'bg-warning' :
+                                                            task.priority === 'MEDIUM' ? 'bg-primary' : 'bg-text-secondary'
                                                         }`} />
                                                         <div className="min-w-0">
-                                                            <p className="text-xs font-medium text-foreground group-hover:text-primary transition-colors truncate">
+                                                            <p className="text-xs font-medium text-text-primary group-hover:text-primary transition-colors truncate">
                                                                 {task.title}
                                                             </p>
-                                                            <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                                                            <p className="text-[10px] text-text-secondary truncate mt-0.5">
                                                                 {task.project.name} • {task.status.replace('_', ' ')}
                                                             </p>
                                                         </div>
@@ -249,7 +250,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div className="relative">
                         <button
                             onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                            className="flex items-center gap-2 p-1 rounded-full border border-white/10 bg-surface/30 hover:bg-surface/50 transition-all pl-1 pr-3"
+                            className="flex items-center gap-2 p-1 rounded-full border border-border bg-surface-secondary/50 hover:bg-surface-secondary transition-all pl-1 pr-3"
                         >
                             <UserAvatar
                                 userId={user?.id}
@@ -259,7 +260,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 size="md"
                                 className="border-2 border-background"
                             />
-                            <ChevronDown size={12} className={`text-slate-500 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
+                            <ChevronDown size={12} className={`text-text-secondary transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
 
                         <AnimatePresence>
@@ -345,19 +346,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             );
                         })}
 
-                        {/* Templates Link (Admin/PM only) */}
-                        {canManageTemplates && (
-                            <Link
-                                href="/templates"
-                                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${pathname === '/templates'
-                                    ? 'bg-primary/10 text-primary border border-primary/20'
-                                    : 'text-text-secondary hover:text-primary hover:bg-foreground/5'
-                                    }`}
-                            >
-                                <Layout size={18} />
-                                <span className="text-sm font-medium">Templates</span>
-                            </Link>
-                        )}
+
                     </nav>
 
                     {/* Sidebar Footer */}
@@ -375,8 +364,87 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                 </aside>
 
-                {/* Mobile Sidebar */}
-                {/* ... */}
+                {/* Mobile Sidebar Overlay & Menu */}
+                <AnimatePresence>
+                    {mobileMenuOpen && (
+                        <>
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+                            />
+                            <motion.aside
+                                initial={{ x: '-100%' }}
+                                animate={{ x: 0 }}
+                                exit={{ x: '-100%' }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                                className="fixed inset-y-0 left-0 w-72 bg-surface border-r border-border z-50 md:hidden flex flex-col shadow-2xl"
+                            >
+                                <div className="h-16 flex items-center justify-between px-4 border-b border-border">
+                                    <span className="text-lg font-bold text-foreground">Menu</span>
+                                    <button
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className="p-2 text-text-secondary hover:text-foreground rounded-lg hover:bg-white/5"
+                                    >
+                                        <X size={20} />
+                                    </button>
+                                </div>
+
+                                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                                    {navItems.map((item) => {
+                                        const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                                        return (
+                                            <Link
+                                                key={item.label}
+                                                href={item.href}
+                                                onClick={() => setMobileMenuOpen(false)}
+                                                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
+                                                    ? 'bg-primary/10 text-primary border border-primary/20'
+                                                    : 'text-text-secondary hover:text-primary hover:bg-foreground/5'
+                                                    }`}
+                                            >
+                                                <item.icon size={18} />
+                                                <span className="text-sm font-medium">{item.label}</span>
+                                            </Link>
+                                        );
+                                    })}
+
+
+                                </nav>
+
+                                <div className="p-4 border-t border-border bg-surface-secondary/50">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <UserAvatar
+                                            userId={user?.id}
+                                            firstName={user?.firstName}
+                                            lastName={user?.lastName}
+                                            avatarUrl={user?.avatarUrl}
+                                            size="sm"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-foreground truncate">
+                                                {user?.firstName} {user?.lastName}
+                                            </p>
+                                            <p className="text-xs text-text-secondary truncate">{user?.email}</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            localStorage.removeItem('token');
+                                            localStorage.removeItem('user');
+                                            router.push('/login');
+                                        }}
+                                        className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors border border-rose-500/10"
+                                    >
+                                        <LogOut size={16} /> Sign out
+                                    </button>
+                                </div>
+                            </motion.aside>
+                        </>
+                    )}
+                </AnimatePresence>
 
                 {/* Main Content */}
                 <main className="flex-1 overflow-auto bg-background relative">

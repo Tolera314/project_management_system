@@ -41,6 +41,10 @@ interface ProjectHeaderProps {
     onFilterChange?: (type: 'status' | 'assignee', value: string | null) => void;
     onManageMembers?: () => void;
     projectId?: string;
+    showArchived?: boolean;
+    onShowArchivedChange?: (show: boolean) => void;
+    isPreview?: boolean;
+    onUseTemplate?: () => void;
 }
 
 export default function ProjectHeader({
@@ -56,7 +60,11 @@ export default function ProjectHeader({
     filterAssignee,
     onFilterChange,
     onManageMembers,
-    projectId
+    projectId,
+    showArchived = false,
+    onShowArchivedChange,
+    isPreview = false,
+    onUseTemplate
 }: ProjectHeaderProps) {
     const [showCreateMenu, setShowCreateMenu] = useState<boolean | 'more' | 'export'>(false);
     const [showSortMenu, setShowSortMenu] = useState(false);
@@ -205,7 +213,7 @@ export default function ProjectHeader({
         <div className="sticky top-0 z-20 bg-background/80 border-b border-white/5 px-6 py-4">
             {/* ... Top Row ... */}
             <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2 text-xs font-medium text-text-secondary">
                             <Link href="/dashboard" className="hover:text-white transition-colors">Workspace</Link>
@@ -370,7 +378,7 @@ export default function ProjectHeader({
             </div>
 
             {/* Bottom Row: Project Title and Toolbar */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-2">
                 <div className="flex items-center gap-4">
                     <div
                         className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
@@ -387,185 +395,215 @@ export default function ProjectHeader({
                     <div>
                         <div className="flex items-center gap-3">
                             <h1 className="text-xl font-bold text-text-primary tracking-tight">{project.name}</h1>
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-500 uppercase tracking-wider">
-                                <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                                On Track
-                            </div>
+                            {isPreview ? (
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/20 border border-primary/30 text-[10px] font-black text-primary uppercase tracking-widest shadow-[0_0_15px_-3px] shadow-primary/20">
+                                    <Layout size={10} />
+                                    Template Preview
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-500 uppercase tracking-wider">
+                                    <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                                    On Track
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    {/* View Switcher */}
-                    <div className="flex items-center p-1 bg-surface-lighter/50 rounded-lg border border-white/5">
-                        {views.map((view) => (
-                            <button
-                                key={view.id}
-                                onClick={() => onViewChange(view.id)}
-                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${activeView === view.id
-                                    ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                                    : 'text-text-secondary hover:text-white'
-                                    }`}
-                            >
-                                <view.icon size={14} />
-                                {view.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="h-6 w-[1px] bg-white/10 mx-1" />
-
-                    <div className="flex items-center gap-1">
-                        {/* Filter Menu */}
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowFilterMenu(!showFilterMenu)}
-                                className={`p-2 hover:bg-white/5 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${activeFilterCount > 0 ? 'text-primary' : 'text-text-secondary hover:text-white'}`}
-                            >
-                                <Filter size={16} />
-                                Filter {activeFilterCount > 0 && <span className="bg-primary/20 text-primary px-1.5 rounded-full text-[10px]">{activeFilterCount}</span>}
-                            </button>
-                            {showFilterMenu && (
-                                <div className="absolute top-full right-0 mt-2 w-56 bg-[#0A0A0A] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 p-2 space-y-2">
-                                    {/* Assignee Filter */}
-                                    <div>
-                                        <div className="text-[10px] font-bold text-slate-500 uppercase px-2 mb-1">Assignee</div>
-                                        <div className="space-y-0.5">
-                                            <button onClick={() => { onFilterChange?.('assignee', null); setShowFilterMenu(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex justify-between ${!filterAssignee ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                                                All Members {!filterAssignee && <CheckCircle2 size={12} />}
-                                            </button>
-                                            <button onClick={() => { onFilterChange?.('assignee', 'me'); setShowFilterMenu(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex justify-between ${filterAssignee === 'me' ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                                                Assigned to Me {filterAssignee === 'me' && <CheckCircle2 size={12} />}
-                                            </button>
-                                            <button onClick={() => { onFilterChange?.('assignee', 'unassigned'); setShowFilterMenu(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex justify-between ${filterAssignee === 'unassigned' ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                                                Unassigned {filterAssignee === 'unassigned' && <CheckCircle2 size={12} />}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="h-[1px] bg-white/5" />
-
-                                    {/* Status Filter */}
-                                    <div>
-                                        <div className="text-[10px] font-bold text-slate-500 uppercase px-2 mb-1">Status</div>
-                                        <div className="space-y-0.5">
-                                            <button onClick={() => { onFilterChange?.('status', null); setShowFilterMenu(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex justify-between ${!filterStatus ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                                                All Statuses {!filterStatus && <CheckCircle2 size={12} />}
-                                            </button>
-                                            {['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'].map(status => (
-                                                <button
-                                                    key={status}
-                                                    onClick={() => { onFilterChange?.('status', status); setShowFilterMenu(false); }}
-                                                    className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex justify-between items-center ${filterStatus === status ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                                >
-                                                    <span className="capitalize">{status.replace('_', ' ').toLowerCase()}</span>
-                                                    {filterStatus === status && <CheckCircle2 size={12} />}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {(filterStatus || filterAssignee) && (
-                                        <>
-                                            <div className="h-[1px] bg-white/5" />
-                                            <button
-                                                onClick={() => { onFilterChange?.('status', null); onFilterChange?.('assignee', null); setShowFilterMenu(false); }}
-                                                className="w-full text-center px-2 py-1.5 text-xs text-slate-500 hover:text-white transition-colors"
-                                            >
-                                                Clear Filters
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowSortMenu(!showSortMenu)}
-                                className={`p-2 hover:bg-white/5 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${sortBy !== 'default' ? 'text-primary' : 'text-text-secondary hover:text-white'}`}
-                            >
-                                <ArrowUpDown size={16} />
-                                Sort {sortBy !== 'default' && <span className="capitalize">({sortBy})</span>}
-                            </button>
-                            {showSortMenu && (
-                                <div className="absolute top-full right-0 mt-2 w-40 bg-[#0A0A0A] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
-                                    <div className="p-1">
-                                        {[
-                                            { id: 'default', label: 'Default' },
-                                            { id: 'priority', label: 'Priority' },
-                                            { id: 'dueDate', label: 'Due Date' }
-                                        ].map((opt) => (
-                                            <button
-                                                key={opt.id}
-                                                onClick={() => {
-                                                    onSortChange?.(opt.id as any);
-                                                    setShowSortMenu(false);
-                                                }}
-                                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${sortBy === opt.id ? 'bg-primary/10 text-primary' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}
-                                            >
-                                                {opt.label}
-                                                {sortBy === opt.id && <CheckCircle2 size={12} />}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="relative">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
+                    {isPreview ? (
                         <button
-                            onClick={() => setShowCreateMenu(!showCreateMenu)}
-                            className="flex items-center gap-2 pl-4 pr-5 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-bold transition-all shadow-lg shadow-primary/25 active:scale-95 ml-2"
+                            onClick={onUseTemplate}
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-sm font-bold transition-all shadow-xl shadow-primary/30 active:scale-95 border border-white/10"
                         >
                             <Plus size={18} />
-                            Create
+                            Use This Template
                         </button>
-
-                        {/* Create Menu Dropdown */}
-                        {showCreateMenu && (
-                            <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
-                                <div className="p-1">
+                    ) : (
+                        <>
+                            {/* View Switcher */}
+                            <div className="flex items-center p-1 bg-surface-lighter/50 rounded-lg border border-white/5 overflow-x-auto no-scrollbar max-w-full">
+                                {views.map((view) => (
                                     <button
-                                        onClick={() => {
-                                            setShowCreateMenu(false);
-                                            onCreateList?.();
-                                        }}
-                                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                        key={view.id}
+                                        onClick={() => onViewChange(view.id)}
+                                        className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${activeView === view.id
+                                            ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                                            : 'text-text-secondary hover:text-white'
+                                            }`}
                                     >
-                                        <LayoutGrid size={16} />
-                                        Create List
+                                        <view.icon size={14} />
+                                        {view.label}
                                     </button>
-                                    {canInvite && (
-                                        <button
-                                            onClick={() => {
-                                                setShowCreateMenu(false);
-                                                onInviteMember?.();
-                                            }}
-                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
-                                        >
-                                            <Share2 size={16} />
-                                            Invite Member
-                                        </button>
-                                    )}
-                                    <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
-                                    >
-                                        <CheckCircle2 size={16} />
-                                        Create Task
-                                    </button>
-                                    <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
-                                    >
-                                        <Diamond size={16} />
-                                        Create Milestone
-                                    </button>
-                                </div>
+                                ))}
                             </div>
-                        )}
-                    </div>
+
+                            <div className="hidden sm:block h-6 w-[1px] bg-white/10 mx-1" />
+
+                            <div className="flex items-center gap-1 w-full sm:w-auto justify-between sm:justify-start">
+                                {/* Filter Menu */}
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setShowFilterMenu(!showFilterMenu)}
+                                        className={`p-2 hover:bg-white/5 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${activeFilterCount > 0 ? 'text-primary' : 'text-text-secondary hover:text-white'}`}
+                                    >
+                                        <Filter size={16} />
+                                        Filter {activeFilterCount > 0 && <span className="bg-primary/20 text-primary px-1.5 rounded-full text-[10px]">{activeFilterCount}</span>}
+                                    </button>
+                                    {showFilterMenu && (
+                                        <div className="absolute top-full right-0 mt-2 w-56 bg-[#0A0A0A] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 p-2 space-y-2">
+                                            {/* Assignee Filter */}
+                                            <div>
+                                                <div className="text-[10px] font-bold text-slate-500 uppercase px-2 mb-1">Assignee</div>
+                                                <div className="space-y-0.5">
+                                                    <button onClick={() => { onFilterChange?.('assignee', null); setShowFilterMenu(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex justify-between ${!filterAssignee ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                                        All Members {!filterAssignee && <CheckCircle2 size={12} />}
+                                                    </button>
+                                                    <button onClick={() => { onFilterChange?.('assignee', 'me'); setShowFilterMenu(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex justify-between ${filterAssignee === 'me' ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                                        Assigned to Me {filterAssignee === 'me' && <CheckCircle2 size={12} />}
+                                                    </button>
+                                                    <button onClick={() => { onFilterChange?.('assignee', 'unassigned'); setShowFilterMenu(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex justify-between ${filterAssignee === 'unassigned' ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                                        Unassigned {filterAssignee === 'unassigned' && <CheckCircle2 size={12} />}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="h-[1px] bg-white/5" />
+
+                                            {/* Status Filter */}
+                                            <div>
+                                                <div className="text-[10px] font-bold text-slate-500 uppercase px-2 mb-1">Status</div>
+                                                <div className="space-y-0.5">
+                                                    <button onClick={() => { onFilterChange?.('status', null); setShowFilterMenu(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex justify-between ${!filterStatus ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                                        All Statuses {!filterStatus && <CheckCircle2 size={12} />}
+                                                    </button>
+                                                    {['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'].map(status => (
+                                                        <button
+                                                            key={status}
+                                                            onClick={() => { onFilterChange?.('status', status); setShowFilterMenu(false); }}
+                                                            className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex justify-between items-center ${filterStatus === status ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                                        >
+                                                            <span className="capitalize">{status.replace('_', ' ').toLowerCase()}</span>
+                                                            {filterStatus === status && <CheckCircle2 size={12} />}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {(filterStatus || filterAssignee) && (
+                                                <>
+                                                    <div className="h-[1px] bg-white/5" />
+                                                    <button
+                                                        onClick={() => { onFilterChange?.('status', null); onFilterChange?.('assignee', null); setShowFilterMenu(false); }}
+                                                        className="w-full text-center px-2 py-1.5 text-xs text-slate-500 hover:text-white transition-colors"
+                                                    >
+                                                        Clear Filters
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setShowSortMenu(!showSortMenu)}
+                                        className={`p-2 hover:bg-white/5 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${sortBy !== 'default' ? 'text-primary' : 'text-text-secondary hover:text-white'}`}
+                                    >
+                                        <ArrowUpDown size={16} />
+                                        Sort {sortBy !== 'default' && <span className="capitalize">({sortBy})</span>}
+                                    </button>
+                                    {showSortMenu && (
+                                        <div className="absolute top-full right-0 mt-2 w-40 bg-[#0A0A0A] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                                            <div className="p-1">
+                                                {[
+                                                    { id: 'default', label: 'Default' },
+                                                    { id: 'priority', label: 'Priority' },
+                                                    { id: 'dueDate', label: 'Due Date' }
+                                                ].map((opt) => (
+                                                    <button
+                                                        key={opt.id}
+                                                        onClick={() => {
+                                                            onSortChange?.(opt.id as any);
+                                                            setShowSortMenu(false);
+                                                        }}
+                                                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${sortBy === opt.id ? 'bg-primary/10 text-primary' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}
+                                                    >
+                                                        {opt.label}
+                                                        {sortBy === opt.id && <CheckCircle2 size={12} />}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Archive Toggle */}
+                                {onShowArchivedChange && (
+                                    <button
+                                        onClick={() => onShowArchivedChange(!showArchived)}
+                                        className={`p-2 hover:bg-white/5 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${showArchived ? 'text-amber-500 bg-amber-500/10' : 'text-text-secondary hover:text-white'}`}
+                                        title={showArchived ? "Hide Archived Tasks" : "Show Archived Tasks"}
+                                    >
+                                        <input type="checkbox" checked={showArchived} readOnly className="pointer-events-none accent-amber-500 w-3 h-3" />
+                                        Archived
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowCreateMenu(!showCreateMenu)}
+                                    className="flex items-center gap-2 pl-4 pr-5 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-bold transition-all shadow-lg shadow-primary/25 active:scale-95 ml-2"
+                                >
+                                    <Plus size={18} />
+                                    Create
+                                </button>
+
+                                {/* Create Menu Dropdown */}
+                                {showCreateMenu && (
+                                    <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                                        <div className="p-1">
+                                            <button
+                                                onClick={() => {
+                                                    setShowCreateMenu(false);
+                                                    onCreateList?.();
+                                                }}
+                                                className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                            >
+                                                <LayoutGrid size={16} />
+                                                Create List
+                                            </button>
+                                            {canInvite && (
+                                                <button
+                                                    onClick={() => {
+                                                        setShowCreateMenu(false);
+                                                        onInviteMember?.();
+                                                    }}
+                                                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                                >
+                                                    <Share2 size={16} />
+                                                    Invite Member
+                                                </button>
+                                            )}
+                                            <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                            >
+                                                <CheckCircle2 size={16} />
+                                                Create Task
+                                            </button>
+                                            <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
+                                            >
+                                                <Diamond size={16} />
+                                                Create Milestone
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
-        </div >
+        </div>
     );
 }
-

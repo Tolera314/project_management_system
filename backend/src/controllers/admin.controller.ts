@@ -9,7 +9,7 @@ export const getOverviewStats = async (req: Request, res: Response) => {
         const userId = (req as any).userId;
         const user = await prisma.user.findUnique({ where: { id: userId } });
 
-        if (!user || user.systemRole !== SystemRole.SYSTEM_ADMIN) {
+        if (!user || user.systemRole !== SystemRole.ADMIN) {
             res.status(403).json({ error: 'Access denied' });
             return;
         }
@@ -66,7 +66,7 @@ export const getWorkspaces = async (req: Request, res: Response) => {
         const userId = (req as any).userId;
         const user = await prisma.user.findUnique({ where: { id: userId } });
 
-        if (!user || user.systemRole !== SystemRole.SYSTEM_ADMIN) {
+        if (!user || user.systemRole !== SystemRole.ADMIN) {
             res.status(403).json({ error: 'Access denied' });
             return;
         }
@@ -140,7 +140,7 @@ export const getUsers = async (req: Request, res: Response) => {
         const userId = (req as any).userId;
         const user = await prisma.user.findUnique({ where: { id: userId } });
 
-        if (!user || user.systemRole !== SystemRole.SYSTEM_ADMIN) {
+        if (!user || user.systemRole !== SystemRole.ADMIN) {
             res.status(403).json({ error: 'Access denied' });
             return;
         }
@@ -157,8 +157,15 @@ export const getUsers = async (req: Request, res: Response) => {
                 { id: { contains: String(q), mode: 'insensitive' } }
             ];
         }
-        if (role) where.systemRole = role;
-        if (status) where.status = status;
+        if (role && role !== 'ALL') {
+            // Validate role is a valid SystemRole
+            if (role === 'ADMIN' || role === 'USER') {
+                where.systemRole = role;
+            }
+        }
+        if (status && status !== 'ALL' && status !== '') {
+            where.status = status;
+        }
 
         const users = await prisma.user.findMany({
             where,
@@ -239,6 +246,76 @@ export const createUser = async (req: Request, res: Response) => {
         res.status(201).json(newUser);
     } catch (error) {
         console.error('Create user error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const getAllUsers = async (req: Request, res: Response) => {
+    try {
+        // Pagination parameters
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const skip = (page - 1) * limit;
+
+        // Search/filter parameters
+        const search = req.query.search as string;
+        const role = req.query.role as string;
+
+        // Build where clause
+        const where: any = {};
+        if (search) {
+            where.OR = [
+                { email: { contains: search, mode: 'insensitive' } },
+                { firstName: { contains: search, mode: 'insensitive' } },
+                { lastName: { contains: search, mode: 'insensitive' } }
+            ];
+        }
+        if (role && role !== 'ALL') {
+            // Validate role is a valid SystemRole
+            if (role === 'ADMIN' || role === 'USER') {
+                where.systemRole = role;
+            }
+        }
+
+        // Get total count
+        const total = await prisma.user.count({ where });
+
+        // Get paginated users
+        const users = await prisma.user.findMany({
+            where,
+            select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+                systemRole: true,
+                createdAt: true,
+                _count: {
+                    select: {
+                        organizationMembers: true,
+                        createdProjects: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit
+        });
+
+        res.json({
+            users,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+                hasNext: page * limit < total,
+                hasPrev: page > 1
+            }
+        });
+    } catch (error) {
+        console.error('Get all users error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
@@ -376,13 +453,13 @@ export const updateUser = async (req: Request, res: Response) => {
         const { systemRole, status, resetMFA } = req.body;
 
         const adminUser = await prisma.user.findUnique({ where: { id: adminId } });
-        if (!adminUser || adminUser.systemRole !== SystemRole.SYSTEM_ADMIN) {
+        if (!adminUser || adminUser.systemRole !== SystemRole.ADMIN) {
             res.status(403).json({ error: 'Access denied' });
             return;
         }
 
         // Prevent deleting self or removing last admin (simplified for now)
-        if (targetUserId === adminId && systemRole && systemRole !== SystemRole.SYSTEM_ADMIN) {
+        if (targetUserId === adminId && systemRole && systemRole !== SystemRole.ADMIN) {
             res.status(400).json({ error: 'Cannot downgrade your own system role' });
             return;
         }
@@ -430,7 +507,7 @@ export const getWorkspaceDetail = async (req: Request, res: Response) => {
         const { id: workspaceId } = req.params;
 
         const adminUser = await prisma.user.findUnique({ where: { id: adminId } });
-        if (!adminUser || adminUser.systemRole !== SystemRole.SYSTEM_ADMIN) {
+        if (!adminUser || adminUser.systemRole !== SystemRole.ADMIN) {
             res.status(403).json({ error: 'Access denied' });
             return;
         }
@@ -477,7 +554,7 @@ export const updateWorkspaceStatus = async (req: Request, res: Response) => {
         const { status } = req.body; // status: ACTIVE, SUSPENDED, READ_ONLY
 
         const adminUser = await prisma.user.findUnique({ where: { id: adminId } });
-        if (!adminUser || adminUser.systemRole !== SystemRole.SYSTEM_ADMIN) {
+        if (!adminUser || adminUser.systemRole !== SystemRole.ADMIN) {
             res.status(403).json({ error: 'Access denied' });
             return;
         }
@@ -509,7 +586,7 @@ export const getGlobalAuditLogs = async (req: Request, res: Response) => {
         const adminId = (req as any).userId;
         const adminUser = await prisma.user.findUnique({ where: { id: adminId } });
 
-        if (!adminUser || adminUser.systemRole !== SystemRole.SYSTEM_ADMIN) {
+        if (!adminUser || adminUser.systemRole !== SystemRole.ADMIN) {
             res.status(403).json({ error: 'Access denied' });
             return;
         }
@@ -629,6 +706,152 @@ export const getStorageStats = async (req: Request, res: Response) => {
             fileCount: await prisma.file.count()
         });
     } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const getActiveAlerts = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const alerts = await prisma.systemAlert.findMany({
+            where: {
+                isActive: true,
+                OR: [
+                    { expiresAt: null },
+                    { expiresAt: { gte: new Date() } }
+                ],
+                acknowledgements: {
+                    none: { adminId: userId }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(alerts);
+    } catch (error) {
+        console.error('Get active alerts error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const acknowledgeAlert = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id: alertId } = req.params;
+
+        await prisma.adminAlertAcknowledgement.upsert({
+            where: {
+                alertId_adminId: { alertId, adminId: userId }
+            },
+            create: { alertId, adminId: userId },
+            update: {}
+        });
+
+        res.json({ message: 'Alert acknowledged' });
+    } catch (error) {
+        console.error('Acknowledge alert error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const provisionWorkspace = async (req: Request, res: Response) => {
+    try {
+        const adminId = (req as any).userId;
+        const { name, ownerEmail, plan, color } = req.body;
+
+        // 1. Find or create owner user
+        let owner = await prisma.user.findUnique({ where: { email: ownerEmail } });
+        if (!owner) {
+            // Create a placeholder user or error? Let's error if user doesn't exist for now 
+            // OR create new user if name provided
+            res.status(404).json({ error: 'Owner user not found. Please create the user first.' });
+            return;
+        }
+
+        // 2. Create Organization
+        const organization = await prisma.organization.create({
+            data: {
+                name,
+                color: color || '#4F46E5',
+            }
+        });
+
+        // 3. Add owner to organization
+        // We'll need a default 'OWNER' role
+        let ownerRole = await prisma.role.findFirst({
+            where: { organizationId: organization.id, name: 'OWNER' }
+        });
+
+        if (!ownerRole) {
+            ownerRole = await prisma.role.create({
+                data: {
+                    name: 'OWNER',
+                    organizationId: organization.id,
+                    createdById: adminId,
+                    isSystem: true
+                }
+            });
+        }
+
+        await prisma.organizationMember.create({
+            data: {
+                organizationId: organization.id,
+                userId: owner.id,
+                roleId: ownerRole.id
+            }
+        });
+
+        // 4. Audit Log
+        await prisma.adminAuditLog.create({
+            data: {
+                action: 'WORKSPACE_PROVISIONED',
+                performedById: adminId,
+                entityType: 'WORKSPACE',
+                entityId: organization.id,
+                metadata: { plan, ownerEmail }
+            } as any
+        });
+
+        res.status(201).json(organization);
+    } catch (error) {
+        console.error('Provision workspace error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+
+export const getNotifications = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const notifications = await prisma.notification.findMany({
+            where: {
+                userId,
+                type: {
+                    in: ['SYSTEM_ANNOUNCEMENT', 'SECURITY_ALERT', 'BILLING_NOTICE'] as any
+                }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 20
+        });
+        res.json(notifications);
+    } catch (error) {
+        console.error('Get admin notifications error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const markNotificationAsRead = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id } = req.params;
+
+        await prisma.notification.updateMany({
+            where: { id, userId },
+            data: { isRead: true }
+        });
+
+        res.json({ message: 'Notification marked as read' });
+    } catch (error) {
+        console.error('Mark notification as read error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };

@@ -1,22 +1,11 @@
 
-import fs from 'fs';
-import path from 'path';
 import prisma from '../lib/prisma';
+import { uploadToCloudinary, deleteFromCloudinary } from '../lib/cloudinary';
 import { File, FileVersion } from '@prisma/client';
 
 export class FileService {
-    private uploadDir: string;
-
-    constructor() {
-        // Ensure uploads directory exists
-        this.uploadDir = path.join(process.cwd(), 'uploads');
-        if (!fs.existsSync(this.uploadDir)) {
-            fs.mkdirSync(this.uploadDir, { recursive: true });
-        }
-    }
-
     /**
-     * Upload a new file
+     * Upload a new file to Cloudinary
      */
     async uploadFile(
         file: Express.Multer.File,
@@ -25,24 +14,23 @@ export class FileService {
         taskId?: string,
         commentId?: string
     ) {
-        // 1. Move file to permanent location if needed (Multer handles temp)
-        // For now, we assume Multer saves to 'uploads/' and we just track the path
-        // In production, upload to S3 here.
+        const isRealProject = projectId && projectId !== 'profile-avatars';
+        const dbProjectId = isRealProject ? projectId : null;
 
-        const relativePath = `uploads/${file.filename}`;
+        // Upload to Cloudinary
+        const cloudinaryResult = await uploadToCloudinary(file.buffer, {
+            folder: isRealProject ? `projects/${projectId}` : 'general',
+            resourceType: 'auto'
+        });
 
-        // 2. Create File Record
+        // Create File Record
         const newFile = await prisma.file.create({
             data: {
                 name: file.originalname,
                 mimeType: file.mimetype,
-                size: file.size,
-                url: relativePath, // Or S3 URL
-                projectId,
-                // taskId: taskId ? taskId : undefined, // Keep generic, use links for specific context
-                // If we want to support the "File created in Task" context, we can set it.
-                // But for pure linking, we might just set projectId.
-                // However, schema has taskId. Let's set it if provided to maintain context.
+                size: cloudinaryResult.bytes,
+                url: cloudinaryResult.secure_url, // Cloudinary URL
+                projectId: dbProjectId,
                 taskId: taskId || null,
                 createdById: userId,
                 versions: {
@@ -50,8 +38,8 @@ export class FileService {
                         version: 1,
                         name: file.originalname,
                         mimeType: file.mimetype,
-                        size: file.size,
-                        url: relativePath,
+                        size: cloudinaryResult.bytes,
+                        url: cloudinaryResult.secure_url,
                         createdById: userId
                     }
                 }
@@ -61,8 +49,10 @@ export class FileService {
             }
         });
 
-        // 3. Create initial link
-        await this.createFileLink(newFile.id, { taskId, commentId, projectId });
+        // Create initial link
+        if (isRealProject || taskId || commentId) {
+            await this.createFileLink(newFile.id, { taskId, commentId, projectId: dbProjectId || undefined });
+        }
 
         return newFile;
     }
@@ -75,7 +65,11 @@ export class FileService {
         file: Express.Multer.File,
         userId: string
     ) {
-        const relativePath = `uploads/${file.filename}`;
+        // Upload to Cloudinary
+        const cloudinaryResult = await uploadToCloudinary(file.buffer, {
+            folder: 'file-versions',
+            resourceType: 'auto'
+        });
 
         const existingFile = await prisma.file.findUnique({
             where: { id: fileId },
@@ -94,32 +88,30 @@ export class FileService {
                     version: nextVersion,
                     name: file.originalname,
                     mimeType: file.mimetype,
-                    size: file.size,
-                    url: relativePath,
+                    size: cloudinaryResult.bytes,
+                    url: cloudinaryResult.secure_url,
                     createdById: userId
                 }
             }),
             prisma.file.update({
                 where: { id: fileId },
                 data: {
-                    name: file.originalname, // Update current name
+                    name: file.originalname,
                     mimeType: file.mimetype,
-                    size: file.size,
-                    url: relativePath, // Point to latest
+                    size: cloudinaryResult.bytes,
+                    url: cloudinaryResult.secure_url,
                     updatedAt: new Date()
                 }
             })
         ]);
 
-        return updatedFile[1]; // Return File
+        return updatedFile[1];
     }
 
     /**
      * Link an existing file to a new entity (Task, Comment, etc.)
      */
     async createFileLink(fileId: string, context: { taskId?: string, commentId?: string, projectId?: string }) {
-        // Prevent duplicate links
-        // If linking to Task
         if (context.taskId) {
             const exists = await prisma.fileLink.findFirst({
                 where: { fileId, taskId: context.taskId }
@@ -130,7 +122,6 @@ export class FileService {
             });
         }
 
-        // If linking to Comment
         if (context.commentId) {
             const exists = await prisma.fileLink.findFirst({
                 where: { fileId, commentId: context.commentId }
@@ -141,15 +132,10 @@ export class FileService {
             });
         }
 
-        // If linking to Project (explicitly showing in Dashboard if not already)
-        // Usually File.projectId handles ownership, but Link handles explicit "attachment" logic?
-        // Actually, Project Files Tab usually shows ALL files with File.projectId OR FileLink.projectId
         if (context.projectId) {
-            // Check ownership
             const file = await prisma.file.findUnique({ where: { id: fileId } });
-            if (file?.projectId === context.projectId) return; // Already belongs to project
+            if (file?.projectId === context.projectId) return;
 
-            // Otherwise create link
             return prisma.fileLink.create({
                 data: { fileId, projectId: context.projectId }
             });
@@ -157,11 +143,6 @@ export class FileService {
     }
 
     async getProjectFiles(projectId: string) {
-        // Get files owned by project OR linked to project/tasks/comments within project
-        // This can be complex. For now, strictly files OWNED by project + Files linked to task of project?
-        // Simplest: Files where projectId = id.
-        // User requirement: "Files Tab Shows all File records linked to project"
-
         return prisma.file.findMany({
             where: { projectId },
             include: {
@@ -211,7 +192,6 @@ export class FileService {
         if (type === 'TASK') data.taskId = entityId;
         if (type === 'COMMENT') data.commentId = entityId;
 
-        // Check if link exists
         const exists = await prisma.fileLink.findFirst({
             where: { fileId, ...data }
         });
@@ -221,6 +201,41 @@ export class FileService {
         return prisma.fileLink.create({
             data
         });
+    }
+
+    async deleteFile(fileId: string) {
+        const file = await prisma.file.findUnique({
+            where: { id: fileId },
+            include: { versions: true }
+        });
+
+        if (!file) return;
+
+        // Delete from Cloudinary
+        // Extract public_id from URL if needed
+        // Format: https://res.cloudinary.com/cloud_name/resource_type/upload/v123456/public_id.ext
+        try {
+            // Simple URL parsing - adjust based on your URLs
+            const urlParts = file.url.split('/');
+            const fileWithExt = urlParts[urlParts.length - 1];
+            const publicId = fileWithExt.split('.')[0]; // Remove extension
+
+            // Delete main file
+            await deleteFromCloudinary(publicId);
+
+            // Delete versions
+            for (const version of file.versions) {
+                const versionParts = version.url.split('/');
+                const versionFile = versionParts[versionParts.length - 1];
+                const versionPublicId = versionFile.split('.')[0];
+                await deleteFromCloudinary(versionPublicId);
+            }
+        } catch (e) {
+            console.error("Failed to cleanup files from Cloudinary", e);
+        }
+
+        // Delete from DB
+        await prisma.file.delete({ where: { id: fileId } });
     }
 }
 
