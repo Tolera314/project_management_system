@@ -164,28 +164,36 @@ export const convertProjectToTemplate = async (req: Request, res: Response) => {
 export const getTemplates = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).userId;
-        const { category, search, visibility } = req.query;
+        const { category, search, visibility, organizationId } = req.query;
 
         if (!userId) {
             res.status(401).json({ error: 'Unauthorized' });
             return;
         }
 
-        // Find organization user belongs to
-        const userOrg = await prisma.organizationMember.findFirst({
-            where: { userId }
-        });
+        let targetOrganizationId = organizationId as string;
 
-        if (!userOrg) {
-            res.status(404).json({ error: 'User not found in any organization' });
-            return;
+        if (!targetOrganizationId) {
+            // Find organization user belongs to as fallback
+            const userOrg = await prisma.organizationMember.findFirst({
+                where: { userId }
+            });
+
+            if (!userOrg) {
+                res.status(404).json({ error: 'User not found in any organization' });
+                return;
+            }
+            targetOrganizationId = userOrg.organizationId;
         }
 
         // Query templates
         const templates = await prisma.project.findMany({
             where: {
                 isTemplate: true,
-                organizationId: userOrg.organizationId,
+                OR: [
+                    { organizationId: targetOrganizationId },
+                    { templateVisibility: 'SYSTEM' }
+                ],
                 AND: [
                     category ? { category: category as string } : {},
                     search ? {
@@ -299,6 +307,167 @@ export const deleteTemplate = async (req: Request, res: Response) => {
         res.status(200).json({ message: 'Template deleted successfully' });
     } catch (error) {
         console.error('Delete template error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// POST /templates/use/:id
+export const useTemplate = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id } = req.params;
+        const { name, organizationId, ownerId } = req.body;
+
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' });
+            return;
+        }
+
+        // Fetch the template
+        const template = await prisma.project.findUnique({
+            where: { id, isTemplate: true },
+            include: {
+                lists: {
+                    include: {
+                        tasks: {
+                            include: {
+                                children: true
+                            }
+                        }
+                    }
+                },
+                milestones: true
+            }
+        });
+
+        if (!template) {
+            res.status(404).json({ error: 'Template not found' });
+            return;
+        }
+
+        // Create new project in a transaction
+        const newProject = await prisma.$transaction(async (tx) => {
+            // 1. Create Project
+            const project = await tx.project.create({
+                data: {
+                    name: name || `New ${template.name}`,
+                    description: template.description,
+                    organizationId: organizationId || template.organizationId,
+                    createdById: userId,
+                    updatedById: userId,
+                    status: 'NOT_STARTED',
+                    priority: 'MEDIUM',
+                    isTemplate: false,
+                    color: template.color,
+                    sourceTemplateId: template.id
+                }
+            });
+
+            // 2. Add creator as Project Manager
+            // We need to find the organization member ID
+            const orgMember = await tx.organizationMember.findUnique({
+                where: {
+                    organizationId_userId: {
+                        organizationId: project.organizationId,
+                        userId: ownerId || userId
+                    }
+                }
+            });
+
+            if (orgMember) {
+                // Find PM role
+                const pmRole = await tx.role.findFirst({
+                    where: {
+                        organizationId: project.organizationId,
+                        name: 'Project Manager'
+                    }
+                });
+
+                if (pmRole) {
+                    await tx.projectMember.create({
+                        data: {
+                            projectId: project.id,
+                            organizationMemberId: orgMember.id,
+                            roleId: pmRole.id
+                        }
+                    });
+                }
+            }
+
+            // 3. Clone Lists & Tasks
+            for (const list of template.lists) {
+                const newList = await tx.list.create({
+                    data: {
+                        name: list.name,
+                        projectId: project.id,
+                        position: list.position
+                    }
+                });
+
+                // Clone top-level tasks
+                const topLevelTasks = list.tasks.filter(t => !t.parentId);
+                for (const task of topLevelTasks) {
+                    const newTask = await tx.task.create({
+                        data: {
+                            title: task.title,
+                            description: task.description,
+                            priority: task.priority,
+                            status: 'TODO',
+                            position: task.position,
+                            listId: newList.id,
+                            projectId: project.id,
+                            createdById: userId,
+                            updatedById: userId
+                        }
+                    });
+
+                    // Clone subtasks
+                    const subtasks = list.tasks.filter(t => t.parentId === task.id);
+                    if (subtasks.length > 0) {
+                        for (const st of subtasks) {
+                            await tx.task.create({
+                                data: {
+                                    title: st.title,
+                                    description: st.description,
+                                    priority: st.priority,
+                                    status: 'TODO',
+                                    position: st.position,
+                                    parentId: newTask.id,
+                                    listId: newList.id,
+                                    projectId: project.id,
+                                    createdById: userId,
+                                    updatedById: userId
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
+            // 4. Clone Milestones
+            if (template.milestones.length > 0) {
+                await tx.milestone.createMany({
+                    data: template.milestones.map(m => ({
+                        name: m.name,
+                        description: m.description,
+                        status: 'PENDING',
+                        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default 30 days out
+                        projectId: project.id,
+                        createdById: userId
+                    }))
+                });
+            }
+
+            return project;
+        });
+
+        res.status(201).json({
+            message: 'Project created from template successfully',
+            project: newProject
+        });
+
+    } catch (error) {
+        console.error('Use template error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };

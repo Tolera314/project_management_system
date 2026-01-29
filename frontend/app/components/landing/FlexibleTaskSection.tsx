@@ -32,7 +32,7 @@ const cards = [
 
 export default function FlexibleTaskSection() {
     return (
-        <section className="py-24 px-6 bg-surface-secondary/30">
+        <section id="workflow" className="py-24 px-6 bg-surface-secondary/30">
             <div className="max-w-7xl mx-auto">
                 <div className="text-center mb-16">
                     <h2 className="text-3xl md:text-5xl font-bold mb-4">Work the Way Your Team Works</h2>

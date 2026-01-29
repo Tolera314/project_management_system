@@ -10,7 +10,7 @@ export const getSettings = async (req: Request, res: Response) => {
 
         // Ensure System Admin
         const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user || user.systemRole !== 'SYSTEM_ADMIN') {
+        if (!user || user.systemRole !== 'ADMIN') {
             res.status(403).json({ error: 'Access denied' });
             return;
         }
@@ -41,7 +41,7 @@ export const updateSettings = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).userId;
         const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user || user.systemRole !== 'SYSTEM_ADMIN') {
+        if (!user || user.systemRole !== 'ADMIN') {
             res.status(403).json({ error: 'Access denied' });
             return;
         }
@@ -86,7 +86,7 @@ export const triggerBackup = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).userId;
         const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user || user.systemRole !== 'SYSTEM_ADMIN') {
+        if (!user || user.systemRole !== 'ADMIN') {
             res.status(403).json({ error: 'Access denied' });
             return;
         }
@@ -98,8 +98,9 @@ export const triggerBackup = async (req: Request, res: Response) => {
         const backup = await prisma.systemBackup.create({
             data: {
                 filename,
+                path: '/backups/' + filename,
                 sizeBytes: size,
-                status: 'COMPLETED' // Simulated instant success
+                createdBy: { connect: { id: userId } }
             }
         });
 
@@ -126,7 +127,7 @@ export const getBackups = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).userId;
         const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user || user.systemRole !== 'SYSTEM_ADMIN') {
+        if (!user || user.systemRole !== 'ADMIN') {
             res.status(403).json({ error: 'Access denied' });
             return;
         }
@@ -153,7 +154,7 @@ export const testEmail = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).userId;
         const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user || user.systemRole !== 'SYSTEM_ADMIN') {
+        if (!user || user.systemRole !== 'ADMIN') {
             res.status(403).json({ error: 'Access denied' });
             return;
         }

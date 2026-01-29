@@ -12,7 +12,7 @@ export const ROLES = {
 export type RoleType = typeof ROLES[keyof typeof ROLES];
 
 export const SYSTEM_ROLES = {
-    SYSTEM_ADMIN: 'SYSTEM_ADMIN',
+    ADMIN: 'ADMIN',
     USER: 'USER',
 } as const;
 

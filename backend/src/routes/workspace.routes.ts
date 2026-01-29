@@ -1,6 +1,6 @@
 
 import { Router } from 'express';
-import { createWorkspace, getUserWorkspaces, getWorkspaceMembers, updateWorkspaceMemberRole, migrateRoles, getWorkspacePermissions, updateWorkspaceRolePermissions, getWorkspaceById, updateWorkspace, deleteWorkspace, joinWorkspace, getWorkspaceRoles, createWorkspaceRole, updateWorkspaceRole, deleteWorkspaceRole, inviteToWorkspace, removeWorkspaceMember } from '../controllers/workspace.controller';
+import { createWorkspace, getUserWorkspace, getUserWorkspaces, getWorkspaceMembers, updateWorkspaceMemberRole, migrateRoles, getWorkspacePermissions, updateWorkspaceRolePermissions, getWorkspaceById, updateWorkspace, deleteWorkspace, joinWorkspace, getWorkspaceRoles, createWorkspaceRole, updateWorkspaceRole, deleteWorkspaceRole, inviteToWorkspace, removeWorkspaceMember } from '../controllers/workspace.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();

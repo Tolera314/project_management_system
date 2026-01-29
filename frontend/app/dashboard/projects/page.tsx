@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Plus, Search, Filter, LayoutGrid, List as ListIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import DashboardLayout from '../../components/dashboard/DashboardLayout';
 import ProjectCard from '../../components/dashboard/ProjectCard';
 import CreateProjectModal from '../../components/dashboard/CreateProjectModal';
@@ -22,6 +23,7 @@ interface Project {
 
 export default function ProjectsPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [loading, setLoading] = useState(true);
     const [projects, setProjects] = useState<Project[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -30,7 +32,10 @@ export default function ProjectsPage() {
 
     useEffect(() => {
         fetchProjects();
-    }, []);
+        if (searchParams.get('create') === 'true') {
+            setIsCreateModalOpen(true);
+        }
+    }, [searchParams]);
 
     const fetchProjects = async () => {
         try {
@@ -71,7 +76,8 @@ export default function ProjectsPage() {
 
     const handleProjectCreated = (project: any) => {
         showToast('success', 'Project created', `${project.name} is ready to use`);
-        fetchProjects();
+        // Redirect to the new project
+        router.push(`/projects/${project.id}`);
     };
 
     const filteredProjects = projects.filter(project =>
@@ -83,8 +89,13 @@ export default function ProjectsPage() {
         <DashboardLayout>
             <CreateProjectModal
                 isOpen={isCreateModalOpen}
-                onClose={() => setIsCreateModalOpen(false)}
+                onClose={() => {
+                    setIsCreateModalOpen(false);
+                    // Clear the query params without refreshing
+                    router.push('/dashboard/projects');
+                }}
                 onSuccess={handleProjectCreated}
+                initialTemplateId={searchParams.get('templateId') || undefined}
             />
 
             <div className="p-6 md:p-8 max-w-7xl mx-auto">
@@ -96,13 +107,22 @@ export default function ProjectsPage() {
                         </p>
                     </div>
 
-                    <button
-                        onClick={() => setIsCreateModalOpen(true)}
-                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg transition-all shadow-lg shadow-primary/20"
-                    >
-                        <Plus size={18} />
-                        Create Project
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => router.push('/dashboard/templates')}
+                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-surface-secondary hover:bg-border border border-border text-text-primary text-sm font-medium rounded-lg transition-all"
+                        >
+                            <LayoutGrid size={18} className="text-primary" />
+                            Browse Templates
+                        </button>
+                        <button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg transition-all shadow-lg shadow-primary/20"
+                        >
+                            <Plus size={18} />
+                            Create Project
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters and Search */}

@@ -4,11 +4,13 @@ import { useState, useEffect, Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion } from 'framer-motion';
-import { Shield, Lock, FolderLock, Loader2, ArrowRight, Check, X } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Globe, Check } from 'lucide-react';
 import Link from 'next/link';
 import { signUpSchema, SignUpFormData } from '@/lib/schema';
 import axios from 'axios';
 import { useRouter, useSearchParams } from 'next/navigation';
+import UserAvatar from '../components/shared/UserAvatar';
+import { FcGoogle } from "react-icons/fc";
 
 // Password strength calculator
 const calculatePasswordStrength = (password: string) => {
@@ -28,7 +30,7 @@ function SignUpContent() {
     const searchParams = useSearchParams();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [passwordStrength, setPasswordStrength] = useState({ hasLowercase: false, hasUppercase: false, hasNumber: false, hasMinLength: false, strength: 0 });
+    const [showPassword, setShowPassword] = useState(false);
 
     const invitationToken = searchParams.get('invitation');
     const invitedEmail = searchParams.get('email');
@@ -50,14 +52,6 @@ function SignUpContent() {
             setValue('email', invitedEmail);
         }
     }, [invitedEmail, setValue]);
-
-    useEffect(() => {
-        if (password) {
-            setPasswordStrength(calculatePasswordStrength(password));
-        } else {
-            setPasswordStrength({ hasLowercase: false, hasUppercase: false, hasNumber: false, hasMinLength: false, strength: 0 });
-        }
-    }, [password]);
 
     const onSubmit = async (data: SignUpFormData) => {
         setIsLoading(true);
@@ -98,241 +92,228 @@ function SignUpContent() {
         }
     };
 
-    const getStrengthColor = () => {
-        if (passwordStrength.strength === 0) return 'bg-white/5';
-        if (passwordStrength.strength <= 2) return 'bg-danger';
-        if (passwordStrength.strength === 3) return 'bg-warning';
-        return 'bg-success';
-    };
-
-    const getStrengthLabel = () => {
-        if (passwordStrength.strength === 0) return '';
-        if (passwordStrength.strength <= 2) return 'Weak';
-        if (passwordStrength.strength === 3) return 'Good';
-        return 'Strong';
+    const handleGoogleLogin = () => {
+        // Redirect to Backend Google Auth Endpoint
+        window.location.href = 'http://localhost:4000/auth/google';
     };
 
     return (
-        <div className="min-h-screen bg-background flex flex-col justify-between relative overflow-hidden font-sans">
-            {/* Enhanced Background */}
-            <div className="absolute inset-0 bg-[#020617]">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,_#4F46E520,_transparent_60%)]" />
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,_#A78BFA15,_transparent_50%)]" />
-            </div>
-
-            {/* Header */}
-            <header className="relative z-10 w-full p-6 text-center">
-                <Link href="/" className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-text-secondary inline-block">
-                    ProjectOS
-                </Link>
-            </header>
-
-            {/* Main Content */}
-            <main className="relative z-10 w-full max-w-md mx-auto px-6 flex-1 flex flex-col justify-center py-16 lg:py-20">
-
-                <div className="text-center mb-12">
-                    <motion.h1
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6 }}
-                        className="text-3xl md:text-4xl font-bold text-white mb-4 tracking-tight"
-                    >
-                        Create Your Workspace
-                    </motion.h1>
-                    <motion.p
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.1 }}
-                        className="text-text-secondary text-base leading-relaxed"
-                    >
-                        Plan projects, organize tasks, and collaborate with your team — all in one place.
-                    </motion.p>
+        <div className="min-h-screen flex bg-[#0A061D] font-sans selection:bg-purple-500/30">
+            {/* Left Side - Marketing (Lumina Style) */}
+            <div className="hidden lg:flex lg:w-1/2 relative bg-[#0F0A29] overflow-hidden flex-col justify-between p-16">
+                {/* Background Image & Overlay */}
+                <div className="absolute inset-0 z-0">
+                    <img src="/singnup.png" alt="Background" className="w-full h-full object-cover opacity-60 mix-blend-overlay" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-[#0F0A29]/80 via-transparent to-[#0F0A29]/90" />
                 </div>
 
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
-                    className="relative bg-gradient-to-b from-surface/60 to-surface/40 border border-white/[0.08] rounded-3xl p-8 shadow-2xl shadow-black/40"
-                >
-                    {/* Subtle inner glow */}
-                    <div className="absolute inset-0 rounded-3xl bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
+                {/* Background Blobs (Kept for extra depth) */}
+                <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-indigo-600/20 rounded-full blur-[100px]" />
 
-                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 relative z-10">
+                {/* Brand */}
+                <div className="relative z-10 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/10 backdrop-blur-sm">
+                        <div className="grid grid-cols-3 gap-0.5">
+                            {[...Array(9)].map((_, i) => (
+                                <div key={i} className="w-1 h-1 bg-white rounded-full" />
+                            ))}
+                        </div>
+                    </div>
+                    <span className="text-xl font-bold text-white tracking-widest">LUMINA</span>
+                </div>
 
+                {/* Hero Content */}
+                <div className="relative z-10 max-w-lg mt-20">
+                    <div className="inline-block px-4 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-xs font-bold tracking-wider mb-8 uppercase">
+                        Future of Workflow
+                    </div>
+
+                    <h1 className="text-6xl font-bold text-white mb-6 leading-tight">
+                        Redefining <br />
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">Collaborative</span> <br />
+                        Creativity.
+                    </h1>
+
+                    <p className="text-lg text-slate-400 leading-relaxed mb-10 max-w-md border-l-2 border-indigo-500/50 pl-6">
+                        Elevate your project management with an interface designed for modern minds. Simple, powerful, and beautiful.
+                    </p>
+
+                    {/* Social Proof */}
+                    <div className="flex items-center gap-4">
+                        <div className="flex -space-x-3">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} className="w-10 h-10 rounded-full border-2 border-[#0F0A29] bg-slate-700 overflow-hidden">
+                                    <img src={`https://i.pravatar.cc/100?img=${i + 10}`} alt="User" />
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-white font-bold">Join 24,000+ teams</span>
+                            <span className="text-slate-500 text-xs">Managing peak performance daily.</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="relative z-10 text-xs text-slate-600 mt-20">
+                    © {new Date().getFullYear()} Lumina Creative Lab. Crafted for visionaries.
+                </div>
+            </div>
+
+            {/* Right Side - Sign Up Form */}
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-6 bg-[#0E0C25]">
+                <div className="w-full max-w-[450px] bg-[#151232] rounded-[32px] p-10 border border-white/5 shadow-2xl relative">
+                    {/* Glow effect under card */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent rounded-[32px] pointer-events-none" />
+
+                    <div className="text-center mb-8">
+                        <h2 className="text-3xl font-bold text-white mb-2">Create Account</h2>
+                        <p className="text-slate-400">Enter your details to start the journey.</p>
+                    </div>
+
+                    {/* Social Login */}
+                    <button
+                        onClick={handleGoogleLogin}
+                        className="w-full h-12 rounded-xl bg-[#1E1B4B]/50 hover:bg-[#1E1B4B] border border-white/10 hover:border-indigo-500/50 transition-all flex items-center justify-center gap-3 text-white font-medium mb-8 group"
+                    >
+                        <FcGoogle size={20} />
+                        Google
+                    </button>
+
+                    <div className="relative mb-8">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-white/5"></div>
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-[#151232] px-4 text-slate-500 font-medium tracking-wider">Or continue with</span>
+                        </div>
+                    </div>
+
+                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
                         {/* Full Name */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-text-primary">Full Name</label>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Full Name</label>
                             <input
                                 {...register('fullName')}
-                                placeholder="John Doe"
-                                className={`w-full bg-background/60 border ${errors.fullName ? 'border-danger focus:ring-danger/50' : 'border-white/[0.08] focus:border-primary/50'} rounded-xl px-4 py-3.5 text-white placeholder:text-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm`}
+                                placeholder="Johnathon Doe"
+                                className="w-full h-12 bg-[#0A061D]/50 border border-white/10 rounded-xl px-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 focus:bg-[#0A061D] transition-all"
                             />
-                            {errors.fullName && (
-                                <p className="text-xs text-danger flex items-center gap-1.5">
-                                    <X className="w-3 h-3" />
-                                    {errors.fullName.message}
-                                </p>
-                            )}
+                            {errors.fullName && <span className="text-xs text-rose-500 ml-1">{errors.fullName.message}</span>}
                         </div>
 
-                        {/* Email */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-text-primary">Email Address</label>
+                        {/* Work Email */}
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Work Email</label>
                             <input
                                 {...register('email')}
-                                type="email"
-                                placeholder="you@company.com"
-                                className={`w-full bg-background/60 border ${errors.email ? 'border-danger focus:ring-danger/50' : 'border-white/[0.08] focus:border-primary/50'} rounded-xl px-4 py-3.5 text-white placeholder:text-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm`}
+                                placeholder="john@agency.com"
+                                className="w-full h-12 bg-[#0A061D]/50 border border-white/10 rounded-xl px-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 focus:bg-[#0A061D] transition-all"
                             />
-                            {errors.email && (
-                                <p className="text-xs text-danger flex items-center gap-1.5">
-                                    <X className="w-3 h-3" />
-                                    {errors.email.message}
-                                </p>
-                            )}
+                            {errors.email && <span className="text-xs text-rose-500 ml-1">{errors.email.message}</span>}
                         </div>
 
-                        {/* Password with Strength Indicator */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-text-primary">Password</label>
-                            <input
-                                {...register('password')}
-                                type="password"
-                                placeholder="Create a secure password"
-                                className={`w-full bg-background/60 border ${errors.password ? 'border-danger focus:ring-danger/50' : 'border-white/[0.08] focus:border-primary/50'} rounded-xl px-4 py-3.5 text-white placeholder:text-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm`}
-                            />
+                        {/* Password */}
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Password</label>
+                            <div className="relative">
+                                <input
+                                    {...register('password')}
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="••••••••"
+                                    className="w-full h-12 bg-[#0A061D]/50 border border-white/10 rounded-xl px-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 focus:bg-[#0A061D] transition-all pr-10"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                            {errors.password && <span className="text-xs text-rose-500 ml-1">{errors.password.message}</span>}
 
-                            {/* Password Strength Bar */}
+                            {/* Password Strength Indicator */}
                             {password && password.length > 0 && (
-                                <div className="space-y-2.5 pt-1">
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                            <motion.div
-                                                initial={{ width: 0 }}
-                                                animate={{ width: `${(passwordStrength.strength / 4) * 100}%` }}
-                                                className={`h-full ${getStrengthColor()} transition-all duration-300`}
-                                            />
-                                        </div>
-                                        {passwordStrength.strength > 0 && (
-                                            <span className={`text-xs font-medium ${passwordStrength.strength <= 2 ? 'text-danger' :
-                                                passwordStrength.strength === 3 ? 'text-warning' :
-                                                    'text-success'
-                                                }`}>
-                                                {getStrengthLabel()}
-                                            </span>
-                                        )}
+                                <div className="mt-3 space-y-2">
+                                    <div className="flex gap-1.5">
+                                        {[1, 2, 3, 4].map((level) => {
+                                            const { strength } = calculatePasswordStrength(password);
+                                            const isActive = level <= strength;
+                                            const colors = {
+                                                1: 'bg-rose-500',
+                                                2: 'bg-amber-500',
+                                                3: 'bg-blue-500',
+                                                4: 'bg-emerald-500'
+                                            };
+                                            return (
+                                                <div
+                                                    key={level}
+                                                    className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${isActive ? colors[level as keyof typeof colors] : 'bg-white/10'
+                                                        }`}
+                                                />
+                                            );
+                                        })}
                                     </div>
-
-                                    {/* Requirements Grid */}
-                                    <div className="grid grid-cols-2 gap-2 text-xs">
-                                        <div className={`flex items-center gap-1.5 ${passwordStrength.hasLowercase ? 'text-success' : 'text-text-secondary/50'}`}>
-                                            {passwordStrength.hasLowercase ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                                            <span>Lowercase</span>
-                                        </div>
-                                        <div className={`flex items-center gap-1.5 ${passwordStrength.hasUppercase ? 'text-success' : 'text-text-secondary/50'}`}>
-                                            {passwordStrength.hasUppercase ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                                            <span>Uppercase</span>
-                                        </div>
-                                        <div className={`flex items-center gap-1.5 ${passwordStrength.hasNumber ? 'text-success' : 'text-text-secondary/50'}`}>
-                                            {passwordStrength.hasNumber ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                                            <span>Number</span>
-                                        </div>
-                                        <div className={`flex items-center gap-1.5 ${passwordStrength.hasMinLength ? 'text-success' : 'text-text-secondary/50'}`}>
-                                            {passwordStrength.hasMinLength ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                                            <span>8+ chars</span>
+                                    <div className="flex items-start gap-2 text-[10px]">
+                                        <div className="flex-1 space-y-1">
+                                            {Object.entries(calculatePasswordStrength(password)).map(([key, value]) => {
+                                                if (key === 'strength') return null;
+                                                const labels: Record<string, string> = {
+                                                    hasLowercase: 'Lowercase',
+                                                    hasUppercase: 'Uppercase',
+                                                    hasNumber: 'Number',
+                                                    hasMinLength: '8+ chars'
+                                                };
+                                                return (
+                                                    <div key={key} className={`flex items-center gap-1.5 transition-colors ${value ? 'text-emerald-400' : 'text-slate-500'
+                                                        }`}>
+                                                        <div className={`w-1 h-1 rounded-full ${value ? 'bg-emerald-400' : 'bg-slate-500'
+                                                            }`} />
+                                                        {labels[key]}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 </div>
                             )}
+                        </div>
 
-                            {errors.password && (
-                                <p className="text-xs text-danger flex items-center gap-1.5 mt-2">
-                                    <X className="w-3 h-3" />
-                                    {errors.password.message}
-                                </p>
-                            )}
+                        {/* Terms Checkbox */}
+                        <div className="flex items-center gap-3 pt-2">
+                            <div className="relative flex items-center">
+                                <input type="checkbox" id="terms" className="peer w-5 h-5 appearance-none border border-white/20 rounded-md bg-[#0A061D]/50 checked:bg-indigo-600 checked:border-indigo-600 transition-all cursor-pointer" />
+                                <Check className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none" />
+                            </div>
+                            <label htmlFor="terms" className="text-sm text-slate-400 cursor-pointer select-none">
+                                I accept the <Link href="#" className="text-indigo-400 hover:text-indigo-300">Terms</Link>
+                            </label>
                         </div>
 
                         {error && (
-                            <motion.div
-                                initial={{ opacity: 0, y: -10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="p-3.5 bg-danger/10 border border-danger/20 rounded-xl text-danger text-sm text-center"
-                            >
+                            <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500 text-sm text-center">
                                 {error}
-                            </motion.div>
+                            </div>
                         )}
 
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="relative w-full bg-primary hover:bg-primary/90 text-white font-semibold py-4 rounded-xl transition-all shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group mt-6 hover:-translate-y-0.5 active:translate-y-0"
+                            className="w-full h-12 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-[0_0_20px_-5px_rgba(79,70,229,0.5)] hover:shadow-[0_0_30px_-5px_rgba(79,70,229,0.6)] transition-all transform active:scale-[0.98] mt-4"
                         >
-                            {isLoading ? (
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                            ) : (
-                                <>
-                                    Create Account
-                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                </>
-                            )}
+                            {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'SIGN UP'}
                         </button>
 
-                        <p className="text-center text-xs text-text-secondary/70 mt-3">
-                            No credit card required · Free forever
-                        </p>
+                        <div className="text-center mt-6">
+                            <span className="text-slate-500 text-sm">Already have an account? </span>
+                            <Link href="/login" className="text-white font-bold hover:text-indigo-400 transition-colors">
+                                Log In
+                            </Link>
+                        </div>
 
                     </form>
-                </motion.div>
-
-                {/* Trust Signals - Reduced Emphasis */}
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.8, delay: 0.7 }}
-                    className="mt-10 flex justify-center gap-8 text-text-secondary/40"
-                >
-                    <div className="flex items-center gap-2">
-                        <Shield size={14} className="opacity-70" />
-                        <span className="text-[11px] font-medium">Secure</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <FolderLock size={14} className="opacity-70" />
-                        <span className="text-[11px] font-medium">Encrypted</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Lock size={14} className="opacity-70" />
-                        <span className="text-[11px] font-medium">Private</span>
-                    </div>
-                </motion.div>
-
-                {/* Login Redirect */}
-                <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.8, delay: 0.9 }}
-                    className="text-center mt-8 text-text-secondary/80 text-sm"
-                >
-                    Already have an account?{' '}
-                    <Link href="/login" className="text-white font-medium hover:text-primary transition-colors">
-                        Sign in
-                    </Link>
-                </motion.p>
-
-            </main>
-
-            {/* Footer */}
-            <footer className="relative z-10 w-full p-6 text-center">
-                <div className="flex justify-center gap-6 text-[11px] text-text-secondary/50 mb-2">
-                    <Link href="#" className="hover:text-white/70 transition-colors">Privacy Policy</Link>
-                    <Link href="#" className="hover:text-white/70 transition-colors">Terms of Service</Link>
-                    <Link href="#" className="hover:text-white/70 transition-colors">Security</Link>
                 </div>
-                <p className="text-[10px] text-text-secondary/40">
-                    © 2025 Project Management System
-                </p>
-            </footer>
+            </div>
         </div>
     );
 }
@@ -340,8 +321,8 @@ function SignUpContent() {
 export default function SignUpPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-[#0A0B10] flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="min-h-screen bg-[#0A061D] flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
             </div>
         }>
             <SignUpContent />

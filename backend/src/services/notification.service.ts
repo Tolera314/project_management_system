@@ -18,15 +18,18 @@ export interface NotificationPayload {
 
 export class NotificationService {
     static async sendWelcomeEmail(user: { email: string, firstName: string }) {
-        try {
-            await sendEmail({
-                to: user.email,
-                subject: 'Welcome to ProjectOS!',
-                html: getPlatformWelcomeTemplate(user.firstName)
-            });
-        } catch (error) {
-            console.error('[NotificationService] Failed to send welcome email:', error);
-        }
+        // Fire-and-forget: Don't await, don't block caller
+        setImmediate(async () => {
+            try {
+                await sendEmail({
+                    to: user.email,
+                    subject: 'Welcome to ProjectOS!',
+                    html: getPlatformWelcomeTemplate(user.firstName)
+                });
+            } catch (error) {
+                console.error('[NotificationService] Failed to send welcome email:', error);
+            }
+        });
     }
 
     /**

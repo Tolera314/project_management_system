@@ -148,7 +148,14 @@ export default function FileList({ projectId }: FileListProps) {
                                         {format(new Date(file.updatedAt), 'MMM d, yyyy')}
                                     </td>
                                     <td className="px-6 py-3 text-right">
-                                        <button className="p-2 hover:bg-surface-secondary rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const token = localStorage.getItem('token');
+                                                window.open(`http://localhost:4000/files/${file.id}/download?token=${token}`, '_blank');
+                                            }}
+                                            className="p-2 hover:bg-surface-secondary rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
                                             <Download size={16} className="text-text-secondary" />
                                         </button>
                                     </td>

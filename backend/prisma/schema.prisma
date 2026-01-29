@@ -56,6 +56,8 @@ enum NotificationType {
   INVITATION_ACCEPTED
   PERMISSION_CHANGED
   SECURITY_ALERT
+  SYSTEM_ANNOUNCEMENT
+  BILLING_NOTICE
 }
 
 enum InvitationType {
@@ -113,6 +115,10 @@ model User {
   auditLogs              AdminAuditLog[]         @relation("UserAuditLogs")
   performedAudits        AdminAuditLog[]         @relation("AdminPerformedAudits")
   systemBackups          SystemBackup[]
+  alertAcknowledgements AdminAlertAcknowledgement[]
+
+  @@index([email])
+  @@index([systemRole])
 }
 
 model Organization {
@@ -241,6 +247,11 @@ model Project {
 
   dependencies ProjectDependency[] @relation("SourceProject")
   dependents   ProjectDependency[] @relation("TargetProject")
+
+  @@index([organizationId])
+  @@index([createdById])
+  @@index([status])
+  @@index([isTemplate, templateVisibility])
 }
 
 model ProjectDependency {
@@ -746,4 +757,27 @@ model ResetToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+model SystemAlert {
+  id        String   @id @default(cuid())
+  title     String
+  message   String
+  severity  String   @default("INFO") // INFO, WARNING, CRITICAL
+  isActive  Boolean  @default(true)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+
+  acknowledgements AdminAlertAcknowledgement[]
+}
+
+model AdminAlertAcknowledgement {
+  id        String   @id @default(cuid())
+  alertId   String
+  adminId   String
+  createdAt DateTime @default(now())
+
+  alert SystemAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  admin User        @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([alertId, adminId])
 }

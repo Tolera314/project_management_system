@@ -8,9 +8,10 @@ import { useToast } from '../ui/Toast';
 interface WorkspacePermissionsEditorProps {
     isOpen: boolean;
     onClose: () => void;
-    role: any;
+    role?: any;
     workspaceId: string;
     onUpdate: () => void;
+    isCreating?: boolean;
 }
 
 export default function WorkspacePermissionsEditor({
@@ -18,17 +19,20 @@ export default function WorkspacePermissionsEditor({
     onClose,
     role,
     workspaceId,
-    onUpdate
+    onUpdate,
+    isCreating = false
 }: WorkspacePermissionsEditorProps) {
     const [permissionsByGroup, setPermissionsByGroup] = useState<Record<string, any[]>>({});
     const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+    const [roleName, setRoleName] = useState('');
+    const [roleDescription, setRoleDescription] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const { showToast } = useToast();
 
     useEffect(() => {
-        if (!isOpen || !role) return;
+        if (!isOpen) return;
 
         const fetchData = async () => {
             setLoading(true);
@@ -42,9 +46,17 @@ export default function WorkspacePermissionsEditor({
                 const permData = await permRes.json();
                 setPermissionsByGroup(permData);
 
-                // Set initial selected permissions from role
-                const initialSelected = role.permissions?.map((rp: any) => rp.permission.id) || [];
-                setSelectedPermissions(initialSelected);
+                if (isCreating) {
+                    setRoleName('');
+                    setRoleDescription('');
+                    setSelectedPermissions([]);
+                } else if (role) {
+                    setRoleName(role.name);
+                    setRoleDescription(role.description || '');
+                    // Set initial selected permissions from role
+                    const initialSelected = role.permissions?.map((rp: any) => rp.permission.id) || [];
+                    setSelectedPermissions(initialSelected);
+                }
             } catch (error) {
                 console.error('Failed to fetch permissions:', error);
                 showToast('error', 'Error', 'Failed to load permissions');
@@ -54,7 +66,7 @@ export default function WorkspacePermissionsEditor({
         };
 
         fetchData();
-    }, [isOpen, role, showToast]);
+    }, [isOpen, role, isCreating, showToast]);
 
     const handleToggle = (permissionId: string) => {
         setSelectedPermissions(prev =>
@@ -65,29 +77,84 @@ export default function WorkspacePermissionsEditor({
     };
 
     const handleSave = async () => {
+        if (!roleName.trim()) {
+            showToast('error', 'Validation', 'Role name is required');
+            return;
+        }
+
         setSaving(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/workspaces/${workspaceId}/roles/${role.id}/permissions`, {
-                method: 'PATCH',
+            let url = `http://localhost:4000/workspaces/${workspaceId}/roles`;
+            let method = 'POST';
+
+            // 1. Create or Update Role Basic Info
+            if (!isCreating && role) {
+                url += `/${role.id}`;
+                method = 'PUT';
+            } else {
+                // For creation, we can pass permissions directly if backend supports it, 
+                // or we do it in two steps. My backend createWorkspaceRole supports 'permissions' array in body!
+                // Let's check backend... Yes: permissions: { create: ... } mapping.
+                // Actually backend implementation used: permissions: permissions?.map... 
+                // So we can send 'permissions' as array of IDs.
+                url += `/${workspaceId}/roles`; // Wait, backend route is POST /:id/roles
+                // Just check URL construction: 
+                // Create: POST /workspaces/:id/roles
+                // Update: PUT /workspaces/:id/roles/:roleId
+                url = `http://localhost:4000/workspaces/${workspaceId}/roles`;
+                if (!isCreating && role) url += `/${role.id}`;
+            }
+
+            const body: any = {
+                name: roleName,
+                description: roleDescription
+            };
+
+            // For creation, include permissions
+            if (isCreating) {
+                body.permissions = selectedPermissions;
+            }
+
+            const res = await fetch(url, {
+                method,
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ permissionIds: selectedPermissions })
+                body: JSON.stringify(body)
             });
 
-            if (res.ok) {
-                showToast('success', 'Permissions Updated', `Successfully updated permissions for ${role.name}`);
-                onUpdate();
-                onClose();
-            } else {
+            if (!res.ok) {
                 const data = await res.json();
-                showToast('error', 'Update Failed', data.error || 'Failed to update permissions');
+                throw new Error(data.error || 'Failed to save role');
             }
-        } catch (error) {
-            console.error('Save permissions error:', error);
-            showToast('error', 'Error', 'An unexpected error occurred');
+
+            const savedRole = await res.json();
+
+            // 2. If Updating (PUT), we might need to update permissions separately 
+            // because `updateWorkspaceRole` (PUT) only updates name/desc in my backend implementation?
+            // Let's check backend... Yes, updateWorkspaceRole only updates name/desc.
+            // So we need a separate call for permissions if NOT creating.
+            if (!isCreating) {
+                const permRes = await fetch(`http://localhost:4000/workspaces/${workspaceId}/roles/${role.id}/permissions`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ permissionIds: selectedPermissions })
+                });
+                if (!permRes.ok) throw new Error('Failed to update permissions');
+            }
+
+            showToast('success', 'Success', `Role ${isCreating ? 'created' : 'updated'} successfully`);
+            onUpdate();
+            onClose();
+
+        } catch (error: any) {
+            console.error('Save role error:', error);
+            showToast('error', 'Error', error.message || 'An unexpected error occurred');
         } finally {
             setSaving(false);
         }
@@ -119,8 +186,12 @@ export default function WorkspacePermissionsEditor({
                                 <ShieldCheck size={24} />
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-white uppercase tracking-tight">Edit Permissions</h2>
-                                <p className="text-sm text-slate-400">Managing role: <span className="text-primary font-bold">{role?.name}</span></p>
+                                <h2 className="text-xl font-bold text-white uppercase tracking-tight">
+                                    {isCreating ? 'Create New Role' : 'Edit Role & Permissions'}
+                                </h2>
+                                <p className="text-sm text-slate-400">
+                                    {isCreating ? 'Define a new custom role' : <span>Managing role: <span className="text-primary font-bold">{role?.name}</span></span>}
+                                </p>
                             </div>
                         </div>
                         <button
@@ -130,6 +201,34 @@ export default function WorkspacePermissionsEditor({
                             <X size={24} />
                         </button>
                     </div>
+
+                    {/* Role Details Form (Only for Custom Roles or Creation) */}
+                    {(isCreating || (role && !role.isSystem)) && (
+                        <div className="px-8 py-6 border-b border-white/5 bg-slate-900/50 space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Role Name</label>
+                                    <input
+                                        type="text"
+                                        value={roleName}
+                                        onChange={(e) => setRoleName(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                        placeholder="e.g. Senior Reviewer"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Description</label>
+                                    <input
+                                        type="text"
+                                        value={roleDescription}
+                                        onChange={(e) => setRoleDescription(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                        placeholder="Brief description of responsibilities"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Search bar */}
                     <div className="px-8 py-4 border-b border-white/5 bg-slate-900/50">
@@ -170,8 +269,8 @@ export default function WorkspacePermissionsEditor({
                                                     <label
                                                         key={p.id}
                                                         className={`flex items-start gap-3 p-3 rounded-2xl border transition-all cursor-pointer ${selectedPermissions.includes(p.id)
-                                                                ? 'bg-primary/10 border-primary/30 ring-1 ring-primary/20'
-                                                                : 'bg-white/5 border-white/5 hover:border-white/10'
+                                                            ? 'bg-primary/10 border-primary/30 ring-1 ring-primary/20'
+                                                            : 'bg-white/5 border-white/5 hover:border-white/10'
                                                             }`}
                                                     >
                                                         <div className="mt-1">

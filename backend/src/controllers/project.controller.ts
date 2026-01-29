@@ -154,6 +154,15 @@ export const createProject = async (req: Request, res: Response) => {
                 });
 
                 if (template) {
+                    // Security Check: Ensure user has access to this template
+                    const isSystem = template.templateVisibility === 'SYSTEM';
+                    const isOwner = template.createdById === userId;
+
+                    if (!isSystem && !isOwner) {
+                        throw new Error('Access denied: You do not have permission to use this template.');
+                    }
+
+                    // Clone Milestones
                     // Clone Milestones
                     // Calculate date shift
                     const dateShift = startDate && template.startDate
@@ -335,8 +344,14 @@ export const getTemplates = async (req: Request, res: Response) => {
 
         const templates = await prisma.project.findMany({
             where: {
-                organizationId,
-                isTemplate: true
+                isTemplate: true,
+                OR: [
+                    { templateVisibility: 'SYSTEM' },
+                    {
+                        templateVisibility: 'PRIVATE',
+                        createdById: userId
+                    }
+                ]
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -352,14 +367,18 @@ export const getProjectDetails = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const userId = (req as any).userId;
+        const { includeArchived } = req.query;
+        const showArchived = includeArchived === 'true';
 
-        // Check Permissions: Actor must be PM or have 'manage_project_members'
+        // Check Permissions: Actor must be member of organization UNLESS it is a template preview
         const project = await prisma.project.findFirst({
             where: {
                 id,
-                organization: {
-                    members: { some: { userId } }
-                }
+                OR: [
+                    { organization: { members: { some: { userId } } } },
+                    { isTemplate: true, templateVisibility: 'SYSTEM' },
+                    { isTemplate: true, createdById: userId }
+                ]
             },
             include: {
                 lists: {
@@ -369,7 +388,10 @@ export const getProjectDetails = async (req: Request, res: Response) => {
                             include: { source: true }
                         },
                         tasks: {
-                            where: { parentId: null }, // Only top-level tasks
+                            where: {
+                                parentId: null,
+                                ...(showArchived ? {} : { isArchived: false })
+                            },
                             orderBy: { position: 'asc' },
                             include: {
                                 assignees: {
@@ -379,18 +401,18 @@ export const getProjectDetails = async (req: Request, res: Response) => {
                                                 organizationMember: {
                                                     include: {
                                                         user: {
-                                                            select: { id: true, firstName: true, lastName: true, email: true } // Added email
+                                                            select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true }
                                                         }
                                                     }
                                                 },
-                                                role: true // Include Role
+                                                role: true
                                             }
                                         }
                                     }
                                 },
                                 children: {
                                     orderBy: { position: 'asc' },
-                                    include: { // Include assignees for subtasks too
+                                    include: {
                                         assignees: {
                                             include: {
                                                 projectMember: {
@@ -398,7 +420,7 @@ export const getProjectDetails = async (req: Request, res: Response) => {
                                                         organizationMember: {
                                                             include: {
                                                                 user: {
-                                                                    select: { id: true, firstName: true, lastName: true, email: true }
+                                                                    select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true }
                                                                 }
                                                             }
                                                         },
@@ -421,7 +443,7 @@ export const getProjectDetails = async (req: Request, res: Response) => {
                         organizationMember: {
                             include: {
                                 user: {
-                                    select: { id: true, firstName: true, lastName: true, email: true }
+                                    select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true }
                                 }
                             }
                         },
@@ -442,7 +464,7 @@ export const getProjectDetails = async (req: Request, res: Response) => {
                         members: {
                             include: {
                                 user: {
-                                    select: { id: true, firstName: true, lastName: true, email: true }
+                                    select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true }
                                 },
                                 role: true
                             }

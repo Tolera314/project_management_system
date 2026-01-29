@@ -78,7 +78,7 @@ export default function ProjectCard({ project, index }: ProjectCardProps) {
                     </div>
                 </div>
 
-                <h3 className="text-lg font-bold text-foreground mb-1.5 group-hover:text-primary transition-colors truncate">
+                <h3 className="text-lg font-bold text-text-primary mb-1.5 group-hover:text-primary transition-colors truncate">
                     {project.name}
                 </h3>
 

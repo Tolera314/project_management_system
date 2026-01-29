@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import DashboardLayout from '../../components/dashboard/DashboardLayout';
 import ProjectHeader from '../../components/project/ProjectHeader';
 import ProjectOverviewStrip from '../../components/project/ProjectOverviewStrip';
@@ -16,9 +16,11 @@ import InviteMemberModal from '../../components/project/InviteMemberModal';
 import BoardView from '../../components/project/BoardView';
 import TimelineView from '../../components/project/TimelineView';
 import ProjectMembersModal from '../../components/project/ProjectMembersModal';
+import CreateProjectModal from '../../components/dashboard/CreateProjectModal';
 import { AnimatePresence, motion } from 'framer-motion';
 import FileList from '../../components/files/FileList';
 import { socketService } from '../../services/socket.service';
+import { TemplateService } from '../../services/template.service';
 
 interface User {
     id: string;
@@ -82,7 +84,11 @@ interface Project {
 
 export default function ProjectPage() {
     const params = useParams();
+    const searchParams = useSearchParams();
+    const router = useRouter();
     const projectId = params.id as string;
+    const isPreview = searchParams.get('preview') === 'true';
+
     const [project, setProject] = useState<Project | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -91,10 +97,12 @@ export default function ProjectPage() {
     const [isCreateListModalOpen, setIsCreateListModalOpen] = useState(false);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
     const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
+    const [isUseTemplateModalOpen, setIsUseTemplateModalOpen] = useState(false);
     const [activeView, setActiveView] = useState('list');
     const [sortBy, setSortBy] = useState<'default' | 'priority' | 'dueDate'>('default');
     const [filterStatus, setFilterStatus] = useState<string | null>(null);
     const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
+    const [showArchived, setShowArchived] = useState(false);
     const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false);
     const [createTaskInitialStatus, setCreateTaskInitialStatus] = useState<string | undefined>(undefined);
 
@@ -104,7 +112,7 @@ export default function ProjectPage() {
         try {
             if (!silent) setLoading(true);
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/projects/${projectId}`, {
+            const res = await fetch(`http://localhost:4000/projects/${projectId}?includeArchived=${showArchived}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -121,7 +129,7 @@ export default function ProjectPage() {
         } finally {
             setLoading(false);
         }
-    }, [projectId]);
+    }, [projectId, showArchived]);
 
     useEffect(() => {
         fetchProjectData();
@@ -281,6 +289,10 @@ export default function ProjectPage() {
         await fetchProjectData(true);
     };
 
+    const handleUseTemplateSubmission = (project: any) => {
+        router.push(`/projects/${project.id}`);
+    };
+
     if (loading) {
         return (
             <DashboardLayout>
@@ -324,10 +336,14 @@ export default function ProjectPage() {
                         onSortChange={setSortBy}
                         filterStatus={filterStatus}
                         filterAssignee={filterAssignee}
+                        showArchived={showArchived}
+                        onShowArchivedChange={setShowArchived}
                         onFilterChange={(type, value) => {
                             if (type === 'status') setFilterStatus(value);
                             if (type === 'assignee') setFilterAssignee(value);
                         }}
+                        isPreview={isPreview}
+                        onUseTemplate={() => setIsUseTemplateModalOpen(true)}
                     />
 
                     <div className="flex-1 overflow-auto custom-scrollbar">
@@ -492,6 +508,12 @@ export default function ProjectPage() {
                         roles={(project?.organization?.roles || []).filter((r: MemberRole) =>
                             ['Project Manager', 'Project Member', 'Project Viewer'].includes(r.name)
                         )}
+                    />
+                    <CreateProjectModal
+                        isOpen={isUseTemplateModalOpen}
+                        onClose={() => setIsUseTemplateModalOpen(false)}
+                        onSuccess={handleUseTemplateSubmission}
+                        initialTemplateId={projectId}
                     />
                 </AnimatePresence>
             </div>

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Navbar from './components/landing/Navbar';
 import HeroSection from './components/landing/HeroSection';
 import FeaturesSection from './components/landing/FeaturesSection';
+import DemoSection from './components/landing/DemoSection';
+import TemplatesSection from './components/landing/TemplatesSection';
 import FlexibleTaskSection from './components/landing/FlexibleTaskSection';
 import CollaborationSection from './components/landing/CollaborationSection';
 import ProgressSection from './components/landing/ProgressSection';
@@ -29,7 +31,9 @@ export default function Home() {
       <Navbar />
       <HeroSection />
       <FeaturesSection />
+      <DemoSection />
       <FlexibleTaskSection />
+      <TemplatesSection />
       <CollaborationSection />
       <ProgressSection />
       <InsightsSection />

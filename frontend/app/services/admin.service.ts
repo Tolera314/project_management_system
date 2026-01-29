@@ -111,4 +111,39 @@ export class AdminService {
         });
         return response.data;
     }
+
+    static async getAlerts(): Promise<any[]> {
+        const response = await axios.get(`${API_URL}/alerts`, {
+            headers: { Authorization: `Bearer ${AuthService.getToken()}` }
+        });
+        return response.data;
+    }
+
+    static async acknowledgeAlert(id: string): Promise<any> {
+        const response = await axios.post(`${API_URL}/alerts/${id}/acknowledge`, {}, {
+            headers: { Authorization: `Bearer ${AuthService.getToken()}` }
+        });
+        return response.data;
+    }
+
+    static async provisionWorkspace(data: { name: string; ownerEmail: string; plan: string; color?: string }): Promise<any> {
+        const response = await axios.post(`${API_URL}/workspaces/provision`, data, {
+            headers: { Authorization: `Bearer ${AuthService.getToken()}` }
+        });
+        return response.data;
+    }
+
+    static async getNotifications(): Promise<any[]> {
+        const response = await axios.get(`${API_URL}/notifications`, {
+            headers: { Authorization: `Bearer ${AuthService.getToken()}` }
+        });
+        return response.data;
+    }
+
+    static async markNotificationRead(id: string): Promise<any> {
+        const response = await axios.post(`${API_URL}/notifications/${id}/read`, {}, {
+            headers: { Authorization: `Bearer ${AuthService.getToken()}` }
+        });
+        return response.data;
+    }
 }

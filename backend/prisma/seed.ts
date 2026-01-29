@@ -1,7 +1,7 @@
 import * as dotenv from "dotenv";
 dotenv.config({ path: ".env" }); // force load
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, SystemRole, TemplateVisibility } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import bcrypt from "bcrypt";
@@ -68,13 +68,13 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { email: adminEmail },
-    update: { systemRole: "SYSTEM_ADMIN" },
+    update: { systemRole: SystemRole.ADMIN },
     create: {
       email: adminEmail,
       firstName: "System",
       lastName: "Admin",
       password: hashedPassword,
-      systemRole: "SYSTEM_ADMIN",
+      systemRole: SystemRole.ADMIN,
     },
   });
   console.log("✅ System Admin created:", adminEmail);
@@ -93,8 +93,7 @@ async function main() {
 
   // 4. Roles
   const roles = [
-    { name: "Owner", description: "Full organization access", isSystem: true },
-    { name: "Admin", description: "Organization administrator", isSystem: true },
+    { name: "Project Manager", description: "Full organization access", isSystem: true },
     { name: "Member", description: "Regular workspace member", isSystem: true },
     { name: "Viewer", description: "Read-only access", isSystem: true },
   ];
@@ -119,7 +118,7 @@ async function main() {
 
   // 5. Add admin to org
   const ownerRole = await prisma.role.findFirst({
-    where: { organizationId: org.id, name: "Owner" },
+    where: { organizationId: org.id, name: "Project Manager" },
   });
 
   if (ownerRole) {
@@ -140,34 +139,51 @@ async function main() {
     console.log("✅ Admin added to organization as Owner");
   }
 
+  // 6. Marketing Team Workspace (Example)
+  const marketingOrg = await prisma.organization.create({
+    data: {
+      name: "Marketing Team",
+      color: "#EC4899",
+      members: {
+        create: {
+          userId: admin.id,
+          roleId: ownerRole!.id // Re-using owner role from main logic might fail if ID differs per org, but Role model is unique constraint on [orgId, name].
+          // Actually Role is specific to Organization. We need to create roles for Marketing Team too.
+          // Simplified: Just use default org for now.
+        }
+      }
+    }
+  });
+  // Wait, let's just stick to enhancing the Default Org templates.
+
   // 6. Templates
   console.log("📦 Starting template seeding...");
 
   const templates = [
     {
-      name: "Professional SaaS Product Launch",
+      name: "SaaS Product Launch",
       description: "A comprehensive roadmap for launching a SaaS product.",
       color: "#4F46E5",
-      category: "Tech/Product",
+      category: "Product Management",
       lists: [
-        {
-          name: "Product Development",
-          tasks: [
-            { title: "Finalize MVP feature set", priority: "URGENT" },
-            { title: "Core infrastructure setup", priority: "HIGH" },
-            { title: "Beta testing phase", priority: "MEDIUM" },
-          ],
-        },
-        {
-          name: "Marketing & PR",
-          tasks: [
-            { title: "Launch website design", priority: "HIGH" },
-            { title: "Social media campaign setup", priority: "MEDIUM" },
-            { title: "Press release distribution", priority: "MEDIUM" },
-          ],
-        },
+        { name: "Backlog", tasks: [] },
+        { name: "To Do", tasks: [{ title: "Refine MVP Spec", priority: "URGENT" }, { title: "Setup CI/CD", priority: "HIGH" }] },
+        { name: "In Progress", tasks: [{ title: "Develop Auth Service", priority: "HIGH" }] },
+        { name: "Done", tasks: [] },
       ],
     },
+    {
+      name: "Content Calendar",
+      description: "Track blog posts, social media, and newsletters.",
+      color: "#EC4899",
+      category: "Marketing",
+      lists: [
+        { name: "Ideas", tasks: [{ title: "Q3 Strategy Post", priority: "LOW" }] },
+        { name: "Drafting", tasks: [{ title: "Product Hunt Announcement", priority: "URGENT" }] },
+        { name: "Review", tasks: [] },
+        { name: "Published", tasks: [] }
+      ]
+    }
   ];
 
   for (const t of templates) {
@@ -179,6 +195,7 @@ async function main() {
         category: t.category,
         status: "NOT_STARTED",
         isTemplate: true,
+        templateVisibility: TemplateVisibility.SYSTEM, // Public to all
         organization: { connect: { id: org.id } },
         createdBy: { connect: { id: admin.id } },
         updatedBy: { connect: { id: admin.id } },

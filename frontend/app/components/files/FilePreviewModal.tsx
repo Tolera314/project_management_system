@@ -31,9 +31,13 @@ export default function FilePreviewModal({
                 file.mimeType === 'application/json' ||
                 file.mimeType === 'application/javascript' ||
                 file.mimeType === 'application/x-typescript' ||
+                file.mimeType === 'application/xml' ||
                 file.name.endsWith('.ts') ||
                 file.name.endsWith('.tsx') ||
-                file.name.endsWith('.md');
+                file.name.endsWith('.md') ||
+                file.name.endsWith('.json') ||
+                file.name.endsWith('.css') ||
+                file.name.endsWith('.html');
 
             if (isText) {
                 setLoadingContent(true);
@@ -88,8 +92,9 @@ export default function FilePreviewModal({
         'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
         'application/vnd.ms-powerpoint', // .ppt
         'application/vnd.ms-excel', // .xls
+        'application/vnd.ms-powerpoint.presentation.macroEnabled.12',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' // .xlsx
-    ].includes(file.mimeType) || /\.(docx|doc|pptx|ppt|xlsx|xls)$/i.test(file.name);
+    ].includes(file.mimeType) || /\.(docx|doc|pptx|ppt|xlsx|xls|docm|xlsm|pptm)$/i.test(file.name);
 
     const downloadUrl = FileService.getFileUrl(file.url);
     const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(downloadUrl)}`;

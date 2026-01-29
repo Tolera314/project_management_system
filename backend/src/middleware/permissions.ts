@@ -5,7 +5,7 @@ export const checkProjectPermission = (permissionName: string) => {
     return async (req: Request, res: Response, next: NextFunction) => {
         try {
             const userId = (req as any).userId;
-            let projectId = req.params.projectId || req.body.projectId;
+            let projectId = req.params?.projectId || req.body?.projectId;
 
             // If not found, check if req.params.id is project ID or task ID
             if (!projectId && req.params.id) {
