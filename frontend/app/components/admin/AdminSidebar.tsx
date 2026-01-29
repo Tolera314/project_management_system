@@ -8,12 +8,8 @@ import {
     History,
     BarChart3,
     Settings,
-    Lock,
-    Database,
-    Mail,
     ChevronLeft,
     ChevronRight,
-    Search
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -39,10 +35,10 @@ export default function AdminSidebar({ isCollapsed, setIsCollapsed }: AdminSideb
 
     return (
         <aside
-            className={`fixed left-0 top-0 bottom-0 bg-[#020617] border-r border-white/5 transition-all duration-300 z-50 flex flex-col ${isCollapsed ? 'w-20' : 'w-64'}`}
+            className={`fixed left-0 top-0 bottom-0 bg-surface-secondary border-r border-border transition-all duration-300 z-50 flex flex-col ${isCollapsed ? 'w-20' : 'w-64'}`}
         >
             {/* Logo Area */}
-            <div className="h-16 flex items-center px-6 border-b border-white/5 bg-[#020617]">
+            <div className="h-16 flex items-center px-6 border-b border-border bg-surface-secondary">
                 <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
                     <span className="text-white font-bold text-xl">S</span>
                 </div>
@@ -50,7 +46,7 @@ export default function AdminSidebar({ isCollapsed, setIsCollapsed }: AdminSideb
                     <motion.div
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="ml-3 font-bold text-white tracking-tight"
+                        className="ml-3 font-bold text-text-primary tracking-tight"
                     >
                         SYSTEM<span className="text-primary">ADMIN</span>
                     </motion.div>
@@ -66,7 +62,7 @@ export default function AdminSidebar({ isCollapsed, setIsCollapsed }: AdminSideb
                             href={item.href}
                             className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative ${isActive
                                 ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                                : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                : 'text-text-secondary hover:text-text-primary hover:bg-foreground/[0.05]'
                                 }`}
                         >
                             <item.icon size={20} className={isActive ? 'text-white' : 'group-hover:text-primary transition-colors'} />
@@ -80,7 +76,7 @@ export default function AdminSidebar({ isCollapsed, setIsCollapsed }: AdminSideb
                                 />
                             )}
                             {isCollapsed && (
-                                <div className="absolute left-full ml-4 px-2 py-1 bg-surface border border-white/10 rounded text-xs text-white opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60]">
+                                <div className="absolute left-full ml-4 px-2 py-1 bg-surface border border-border rounded text-xs text-text-primary opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60]">
                                     {item.label}
                                 </div>
                             )}
@@ -92,7 +88,7 @@ export default function AdminSidebar({ isCollapsed, setIsCollapsed }: AdminSideb
             {/* Collapse Toggle */}
             <button
                 onClick={() => setIsCollapsed(!isCollapsed)}
-                className="h-12 border-t border-white/5 flex items-center justify-center text-slate-500 hover:text-white transition-colors"
+                className="h-12 border-t border-border flex items-center justify-center text-text-secondary hover:text-text-primary transition-colors"
             >
                 {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
             </button>

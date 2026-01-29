@@ -107,31 +107,30 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
             .filter(t => mapStatus(t.status) === newStatus)
             .sort((a, b) => (a.position || 0) - (b.position || 0));
 
+        // Find current task in updated list (after movement)
+        const currentTask = targetTasks.find(t => t.id === draggableId);
+        const otherTasks = targetTasks.filter(t => t.id !== draggableId);
+
         let newPosition = 0;
-        if (targetTasks.length <= 1) { // 1 because the task is already in updatedTasks
+        if (otherTasks.length === 0) {
             newPosition = 1000;
         } else if (destination.index === 0) {
             // Drop at top
-            const firstInSource = targetTasks.find(t => t.id !== draggableId);
-            newPosition = Math.round((firstInSource?.position || 1000) / 2);
+            newPosition = Math.round((otherTasks[0].position || 1000) / 2);
+        } else if (destination.index >= otherTasks.length) {
+            // Drop at bottom
+            newPosition = (otherTasks[otherTasks.length - 1].position || 0) + 1000;
         } else {
-            // Find neighbors in targetTasks correctly
-            const filteredTarget = targetTasks.filter(t => t.id !== draggableId);
-            if (destination.index >= filteredTarget.length) {
-                // Drop at bottom
-                newPosition = (filteredTarget[filteredTarget.length - 1].position || 0) + 1000;
-            } else {
-                // Drop in between
-                const before = filteredTarget[destination.index - 1].position || 0;
-                const after = filteredTarget[destination.index].position || 0;
-                newPosition = Math.round((before + after) / 2);
-            }
+            // Drop in between
+            const before = otherTasks[destination.index - 1].position || 0;
+            const after = otherTasks[destination.index].position || 0;
+            newPosition = Math.round((before + after) / 2);
         }
 
-        const taskInArray = updatedTasks.find(t => t.id === draggableId);
-        if (taskInArray) taskInArray.position = newPosition;
-
-        setLocalTasks(updatedTasks);
+        // Apply new position to local state
+        setLocalTasks(prev => prev.map(t =>
+            t.id === draggableId ? { ...t, status: newStatus as any, position: newPosition } : t
+        ));
 
         try {
             const token = localStorage.getItem('token');
@@ -219,7 +218,9 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
                                                             style={{
                                                                 ...provided.draggableProps.style,
                                                             }}
-                                                            className={`bg-surface p-3 rounded-lg border border-foreground/5 hover:border-primary/50 group cursor-pointer shadow-sm transition-all ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/50 rotate-2' : 'hover:-translate-y-1'
+                                                            className={`bg-surface p-4 rounded-xl border border-border/50 hover:border-primary/50 group cursor-pointer shadow-sm transition-all ${snapshot.isDragging
+                                                                ? 'shadow-2xl ring-2 ring-primary/50 rotate-3 scale-105 z-50 bg-surface-lighter'
+                                                                : 'hover:-translate-y-1 hover:shadow-md'
                                                                 }`}
                                                         >
                                                             {/* Card Content */}

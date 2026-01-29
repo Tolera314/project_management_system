@@ -83,6 +83,69 @@ export class FileController {
             res.status(500).end();
         }
     }
+
+    getFileDetails = async (req: Request, res: Response) => {
+        try {
+            const { id } = req.params;
+            const file = await fileService.getFileDetails(id);
+            res.json(file);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch file details' });
+        }
+    };
+
+    getFileVersions = async (req: Request, res: Response) => {
+        try {
+            const { id } = req.params;
+            const versions = await fileService.getFileVersions(id);
+            res.json(versions);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch versions' });
+        }
+    };
+
+    linkFile = async (req: Request, res: Response) => {
+        try {
+            const { id } = req.params;
+            const { type, entityId } = req.body; // type: 'PROJECT', 'TASK', 'COMMENT'
+            const userId = (req as any).userId;
+
+            const link = await fileService.linkFile(id, entityId, type, userId);
+            res.status(201).json(link);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to link file' });
+        }
+    };
+
+    getFileLinks = async (req: Request, res: Response) => {
+        try {
+            const { id } = req.params;
+            const links = await fileService.getFileLinks(id);
+            res.json(links);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch links' });
+        }
+    };
+
+    downloadFile = async (req: Request, res: Response) => {
+        try {
+            const { id } = req.params;
+            const file = await fileService.getFileDetails(id);
+            if (!file) return res.status(404).json({ error: 'File not found' });
+
+            // If it's a Cloudinary URL, we can use the fl_attachment flag to force download
+            let downloadUrl = file.url;
+            if (downloadUrl.includes('cloudinary.com')) {
+                // Insert fl_attachment into the URL
+                downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
+            }
+
+            res.redirect(downloadUrl);
+        } catch (error) {
+            console.error('Download error:', error);
+            res.status(500).json({ error: 'Failed to initiate download' });
+        }
+    };
 }
 
 export default new FileController();

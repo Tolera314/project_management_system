@@ -102,6 +102,104 @@ export const createTask = async (req: Request, res: Response) => {
     }
 };
 
+export const duplicateTask = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).userId;
+
+        const originalTask = await prisma.task.findUnique({
+            where: { id },
+            include: {
+                children: true,
+                tags: true,
+                assignees: true,
+                dependents: true, // Things this task depends on
+            }
+        });
+
+        if (!originalTask) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+
+        // Calculate position (put it right after original)
+        const nextPosition = (originalTask.position || 0) + 1;
+
+        const newTask = await prisma.task.create({
+            data: {
+                title: `${originalTask.title} (Copy)`,
+                description: originalTask.description,
+                priority: originalTask.priority,
+                status: 'TODO', // Reset status for new task
+                startDate: originalTask.startDate,
+                dueDate: originalTask.dueDate,
+                projectId: originalTask.projectId,
+                listId: originalTask.listId,
+                parentId: originalTask.parentId,
+                position: nextPosition,
+                createdById: userId,
+                updatedById: userId,
+                tags: {
+                    create: originalTask.tags.map(t => ({
+                        tagId: t.tagId
+                    }))
+                },
+                assignees: {
+                    create: originalTask.assignees.map(a => ({
+                        projectMemberId: a.projectMemberId,
+                        assignedById: userId
+                    }))
+                },
+                dependents: {
+                    create: originalTask.dependents.map(d => ({
+                        sourceId: d.sourceId,
+                        type: d.type
+                    }))
+                },
+                children: {
+                    create: originalTask.children.map(child => ({
+                        title: child.title,
+                        description: child.description,
+                        priority: child.priority,
+                        status: 'TODO',
+                        startDate: child.startDate,
+                        dueDate: child.dueDate,
+                        projectId: child.projectId,
+                        listId: child.listId,
+                        position: child.position,
+                        createdById: userId,
+                        updatedById: userId,
+                    }))
+                }
+            },
+            include: {
+                children: true,
+                tags: { include: { tag: true } },
+                assignees: { include: { projectMember: { include: { organizationMember: { include: { user: true } } } } } }
+            }
+        });
+
+        // Emit Socket Event
+        const project = await prisma.project.findUnique({
+            where: { id: originalTask.projectId },
+            select: { organizationId: true }
+        });
+
+        if (project) {
+            SocketService.emitToWorkspace(project.organizationId, 'task-updated', {
+                taskId: newTask.id,
+                projectId: newTask.projectId,
+                action: 'CREATE',
+                task: newTask
+            });
+        }
+
+        res.status(201).json({ task: newTask });
+    } catch (error) {
+        console.error('Duplicate task error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 export const updateTask = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
@@ -152,6 +250,19 @@ export const updateTask = async (req: Request, res: Response) => {
             if (unfinishedDependencies.length > 0) {
                 const sourceTitles = unfinishedDependencies.map(d => d.source.title).join(', ');
                 res.status(400).json({ error: `Cannot complete task: Waiting on unfinished dependencies (${sourceTitles})` });
+                return;
+            }
+
+            // Subtask check: Cannot complete if children are not done
+            const unfinishedSubtasks = await prisma.task.findMany({
+                where: {
+                    parentId: id,
+                    status: { not: 'DONE' }
+                }
+            });
+
+            if (unfinishedSubtasks.length > 0) {
+                res.status(400).json({ error: 'Cannot complete task: Waiting on unfinished subtasks' });
                 return;
             }
         }
@@ -813,6 +924,190 @@ export const restoreTask = async (req: Request, res: Response) => {
         res.json({ message: 'Task restored successfully' });
     } catch (error) {
         console.error('Restore task error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const getTasks = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { organizationId, projectId, status, priority, assigneeId } = req.query;
+
+        const where: any = {
+            project: {
+                organizationId: organizationId as string,
+                organization: {
+                    members: { some: { userId } }
+                }
+            }
+        };
+
+        if (projectId) where.projectId = projectId as string;
+        if (status) where.status = status as any; // Assuming TaskStatusEnum is imported or defined
+        if (priority) where.priority = priority as any;
+        if (assigneeId) {
+            where.assignees = {
+                some: {
+                    projectMember: {
+                        organizationMember: { userId: assigneeId as string }
+                    }
+                }
+            };
+        }
+
+        const tasks = await prisma.task.findMany({
+            where,
+            include: {
+                project: { select: { name: true } },
+                assignees: {
+                    include: {
+                        projectMember: {
+                            include: {
+                                organizationMember: {
+                                    include: { user: { select: { firstName: true, lastName: true, avatarUrl: true } } }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: { updatedAt: 'desc' }
+        });
+
+        res.json(tasks);
+    } catch (error) {
+        console.error('Get tasks error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const addTaskDependency = async (req: Request, res: Response) => {
+    try {
+        const { id: targetId } = req.params;
+        const { sourceId, type } = req.body;
+        const userId = (req as any).userId;
+
+        // Verify access to both tasks
+        const tasks = await prisma.task.findMany({
+            where: {
+                id: { in: [targetId, sourceId] },
+                project: { organization: { members: { some: { userId } } } }
+            }
+        });
+
+        if (tasks.length < 2) {
+            res.status(403).json({ error: 'Access denied or tasks not found' });
+            return;
+        }
+
+        const dependency = await prisma.taskDependency.create({
+            data: {
+                sourceId,
+                targetId,
+                type: type || 'FINISH_TO_START'
+            }
+        });
+
+        res.status(201).json(dependency);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const getTaskActivity = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).userId;
+
+        const activity = await prisma.activityLog.findMany({
+            where: {
+                taskId: id,
+                task: {
+                    project: { organization: { members: { some: { userId } } } }
+                }
+            },
+            include: {
+                user: { select: { firstName: true, lastName: true, avatarUrl: true } }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 50
+        });
+
+        res.json({ activity });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const updateComment = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id } = req.params;
+        const { content } = req.body;
+
+        const comment = await prisma.comment.findUnique({ where: { id } });
+        if (!comment || comment.createdById !== userId) {
+            res.status(403).json({ error: 'Comment not found or access denied' });
+            return;
+        }
+
+        const updated = await prisma.comment.update({
+            where: { id },
+            data: { content }
+        });
+
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const deleteComment = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id } = req.params;
+
+        const comment = await prisma.comment.findUnique({ where: { id } });
+        if (!comment || comment.createdById !== userId) {
+            res.status(403).json({ error: 'Comment not found or access denied' });
+            return;
+        }
+
+        await prisma.comment.delete({ where: { id } });
+        res.json({ message: 'Comment deleted' });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const addTagToTask = async (req: Request, res: Response) => {
+    try {
+        const { id: taskId } = req.params;
+        const { tagId } = req.body;
+        const userId = (req as any).userId;
+
+        const task = await prisma.task.findUnique({ where: { id: taskId } });
+        if (!task) return res.status(404).json({ error: 'Task not found' });
+
+        const taskTag = await prisma.taskTag.create({
+            data: { taskId, tagId },
+            include: { tag: true }
+        });
+
+        res.status(201).json(taskTag);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const removeTagFromTask = async (req: Request, res: Response) => {
+    try {
+        const { id: taskId, tagId } = req.params;
+        await prisma.taskTag.delete({
+            where: { taskId_tagId: { taskId, tagId } }
+        });
+        res.status(204).send();
+    } catch (error) {
         res.status(500).json({ error: 'Internal server error' });
     }
 };

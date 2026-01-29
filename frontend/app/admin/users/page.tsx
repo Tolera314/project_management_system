@@ -5,6 +5,8 @@ import { Search, Filter, MoreHorizontal, Shield, User, UserX, Mail, Key, LayoutG
 import { useState, useEffect } from 'react';
 import { AdminService } from '../../services/admin.service';
 import { motion, AnimatePresence } from 'framer-motion';
+import ConfirmationModal from '../../components/shared/ConfirmationModal';
+import UserAvatar from '../../components/shared/UserAvatar';
 
 export default function UsersAdmin() {
     const [users, setUsers] = useState<any[]>([]);
@@ -14,10 +16,18 @@ export default function UsersAdmin() {
     const [filterRole, setFilterRole] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [page, setPage] = useState(1);
-    const [metadata, setMetadata] = useState<any>({});
+    const [pagination, setPagination] = useState<any>({
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 1,
+        hasNext: false,
+        hasPrev: false
+    });
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const [selectedUser, setSelectedUser] = useState<any | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [confirmAction, setConfirmAction] = useState<{ type: 'SUSPEND' | 'RESTORE' | 'RESET_MFA' | 'DELETE', user: any } | null>(null);
 
     useEffect(() => {
         loadUsers();
@@ -26,9 +36,23 @@ export default function UsersAdmin() {
     const loadUsers = async () => {
         try {
             setLoading(true);
-            const data = await AdminService.getUsers(page, 10, searchQuery, filterRole, filterStatus);
+            const token = localStorage.getItem('token');
+            const params = new URLSearchParams({
+                page: page.toString(),
+                limit: '10',
+                ...(searchQuery && { search: searchQuery }),
+                ...(filterRole && { role: filterRole })
+            });
+
+            const response = await fetch(`http://localhost:4000/admin/users?${params}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) throw new Error('Failed to load users');
+
+            const data = await response.json();
             setUsers(data.users);
-            setMetadata(data.metadata);
+            setPagination(data.pagination);
         } catch (error) {
             console.error("Failed to load users", error);
             setError("Failed to load user data. Access denied.");
@@ -67,6 +91,33 @@ export default function UsersAdmin() {
         }
     };
 
+    const executeConfirmAction = async () => {
+        if (!confirmAction) return;
+        const { type, user } = confirmAction;
+
+        try {
+            setIsUpdating(true);
+            if (type === 'SUSPEND') {
+                await AdminService.updateUser(user.id, { status: 'SUSPENDED' });
+            } else if (type === 'RESTORE') {
+                await AdminService.updateUser(user.id, { status: 'ACTIVE' });
+            } else if (type === 'RESET_MFA') {
+                await AdminService.updateUser(user.id, { resetMFA: true });
+            }
+            loadUsers();
+            if (selectedUser?.id === user.id) {
+                const updatedStatus = type === 'SUSPEND' ? 'SUSPENDED' : (type === 'RESTORE' ? 'ACTIVE' : user.status);
+                const updatedMfa = type === 'RESET_MFA' ? false : user.mfaEnabled;
+                setSelectedUser({ ...user, status: updatedStatus, mfaEnabled: updatedMfa });
+            }
+        } catch (error) {
+            alert(`Failed to perform ${type.toLowerCase()} action`);
+        } finally {
+            setIsUpdating(false);
+            setConfirmAction(null);
+        }
+    };
+
     const toggleMenu = (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
         setActiveMenuId(activeMenuId === id ? null : id);
@@ -85,18 +136,18 @@ export default function UsersAdmin() {
                 <div className={`flex-1 transition-all duration-300 ${selectedUser ? 'mr-[450px]' : ''} overflow-y-auto pr-4`}>
                     <div className="space-y-8 pb-20">
                         <div>
-                            <h1 className="text-2xl font-bold text-white tracking-tight">Global User Directory</h1>
-                            <p className="text-slate-500 text-sm mt-1">Search and manage all accounts across every workspace.</p>
+                            <h1 className="text-2xl font-bold text-text-primary tracking-tight">Global User Directory</h1>
+                            <p className="text-text-secondary text-sm mt-1">Search and manage all accounts across every workspace.</p>
                         </div>
 
                         {/* Search & Filter */}
-                        <div className="flex flex-wrap items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/5">
+                        <div className="flex flex-wrap items-center gap-4 bg-surface p-4 rounded-2xl border border-border">
                             <div className="flex-1 min-w-[300px] relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={16} />
                                 <input
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    className="w-full bg-foreground/[0.03] border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                                     placeholder="Search by name, email, or user UID..."
                                 />
                             </div>
@@ -104,10 +155,10 @@ export default function UsersAdmin() {
                                 <select
                                     value={filterRole}
                                     onChange={(e) => setFilterRole(e.target.value)}
-                                    className="bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-xs font-bold text-white outline-none cursor-pointer hover:bg-white/10 transition-all"
+                                    className="bg-surface border border-border rounded-xl py-2.5 px-4 text-xs font-bold text-text-primary outline-none cursor-pointer hover:bg-surface-secondary transition-all"
                                 >
                                     <option value="">All Roles</option>
-                                    <option value="SYSTEM_ADMIN">System Admin</option>
+                                    <option value="ADMIN">System Admin</option>
                                     <option value="USER">Standard User</option>
                                 </select>
                                 <select
@@ -124,19 +175,19 @@ export default function UsersAdmin() {
                         </div>
 
                         {/* User List */}
-                        <div className="bg-white/5 border border-white/5 rounded-3xl overflow-hidden shadow-2xl shadow-black/50">
+                        <div className="bg-surface border border-border rounded-3xl overflow-hidden shadow-2xl">
                             <table className="w-full border-collapse">
                                 <thead>
-                                    <tr className="bg-white/[0.02] border-b border-white/5">
-                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">User</th>
-                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Global Role</th>
-                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Workspaces</th>
-                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Last Activity</th>
-                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Status</th>
-                                        <th className="px-6 py-4 text-right text-[10px] font-bold text-slate-500 uppercase tracking-widest">Control</th>
+                                    <tr className="bg-surface-secondary border-b border-border">
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-text-secondary uppercase tracking-widest">User</th>
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-text-secondary uppercase tracking-widest">Global Role</th>
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-text-secondary uppercase tracking-widest">Workspaces</th>
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-text-secondary uppercase tracking-widest">Last Activity</th>
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-text-secondary uppercase tracking-widest">Status</th>
+                                        <th className="px-6 py-4 text-right text-[10px] font-bold text-text-secondary uppercase tracking-widest">Control</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-white/5">
+                                <tbody className="divide-y divide-border">
                                     {loading && users.length === 0 ? (
                                         <tr>
                                             <td colSpan={6} className="px-6 py-20 text-center text-slate-500 text-sm italic">Loading platform users...</td>
@@ -153,22 +204,22 @@ export default function UsersAdmin() {
                                         >
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center gap-3">
-                                                    {user.avatarUrl ? (
-                                                        <img src={user.avatarUrl} className="w-10 h-10 rounded-full object-cover border border-white/10" alt="" />
-                                                    ) : (
-                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-indigo-500/20 flex items-center justify-center text-xs font-bold text-white border border-white/10">
-                                                            {user.firstName[0]}{user.lastName[0]}
-                                                        </div>
-                                                    )}
+                                                    <UserAvatar
+                                                        userId={user.id}
+                                                        firstName={user.firstName}
+                                                        lastName={user.lastName}
+                                                        avatarUrl={user.avatarUrl}
+                                                        size="md"
+                                                    />
                                                     <div>
-                                                        <p className="text-sm font-bold text-white group-hover:text-primary transition-colors">{user.firstName} {user.lastName}</p>
-                                                        <p className="text-[10px] text-slate-500">{user.email}</p>
+                                                        <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors">{user.firstName} {user.lastName}</p>
+                                                        <p className="text-[10px] text-text-secondary">{user.email}</p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase transition-all ${user.systemRole === 'SYSTEM_ADMIN' ? 'bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20' : 'bg-white/5 text-slate-400'}`}>
-                                                    {user.systemRole === 'SYSTEM_ADMIN' ? 'System Admin' : 'Standard User'}
+                                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase transition-all ${user.systemRole === 'ADMIN' ? 'bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20' : 'bg-white/5 text-slate-400'}`}>
+                                                    {user.systemRole === 'ADMIN' ? 'System Admin' : 'Standard User'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -201,26 +252,34 @@ export default function UsersAdmin() {
                                                                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                                                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                                className="absolute right-8 top-12 z-50 bg-[#0A0F1D] border border-white/10 rounded-xl shadow-2xl w-48 overflow-hidden py-1"
+                                                                className="absolute right-8 top-12 z-50 bg-surface border border-border rounded-xl shadow-2xl w-48 overflow-hidden py-1"
                                                                 onClick={(e) => e.stopPropagation()}
                                                             >
                                                                 <button
                                                                     onClick={() => setSelectedUser(user)}
-                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:bg-white/5 transition-colors"
+                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-secondary transition-colors"
                                                                 >
                                                                     <User size={14} /> View Intelligence
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => handleUpdateStatus(user, user.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE')}
-                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:bg-white/5 transition-colors"
+                                                                    onClick={() => setConfirmAction({ type: user.status === 'ACTIVE' ? 'SUSPEND' : 'RESTORE', user })}
+                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-secondary transition-colors"
                                                                 >
                                                                     {user.status === 'ACTIVE' ? <UserX size={14} className="text-rose-400" /> : <UserCheck size={14} className="text-emerald-400" />}
                                                                     {user.status === 'ACTIVE' ? 'Suspend Access' : 'Restore Access'}
                                                                 </button>
-                                                                <div className="h-px bg-white/5 my-1" />
+                                                                {user.mfaEnabled && (
+                                                                    <button
+                                                                        onClick={() => setConfirmAction({ type: 'RESET_MFA', user })}
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-secondary transition-colors"
+                                                                    >
+                                                                        <ShieldCheck size={14} className="text-blue-400" /> Reset MFA
+                                                                    </button>
+                                                                )}
+                                                                <div className="h-px bg-border my-1" />
                                                                 <button
                                                                     onClick={() => alert('Password reset link sent to ' + user.email)}
-                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-400 hover:bg-white/5 transition-colors"
+                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-secondary transition-colors"
                                                                 >
                                                                     <Key size={14} /> Reset Password
                                                                 </button>
@@ -234,28 +293,7 @@ export default function UsersAdmin() {
                                 </tbody>
                             </table>
 
-                            {/* Pagination */}
-                            {metadata.totalPages > 1 && (
-                                <div className="p-4 bg-white/[0.02] border-t border-white/5 flex items-center justify-between">
-                                    <p className="text-xs text-slate-500">Showing page {page} of {metadata.totalPages}</p>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            disabled={page === 1}
-                                            onClick={() => setPage(p => p - 1)}
-                                            className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-white disabled:opacity-30"
-                                        >
-                                            Prev
-                                        </button>
-                                        <button
-                                            disabled={page === metadata.totalPages}
-                                            onClick={() => setPage(p => p + 1)}
-                                            className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-white disabled:opacity-30"
-                                        >
-                                            Next
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+
                         </div>
 
                         {/* Audit Governance Label */}
@@ -284,12 +322,12 @@ export default function UsersAdmin() {
                                 animate={{ x: 0 }}
                                 exit={{ x: '100%' }}
                                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                                className="fixed top-0 right-0 bottom-0 w-[450px] bg-[#0A0F1D] border-l border-white/10 shadow-2xl z-[70] overflow-y-auto"
+                                className="fixed top-0 right-0 bottom-0 w-[450px] bg-surface border-l border-border shadow-2xl z-[70] overflow-y-auto"
                             >
                                 <div className="p-8 space-y-8">
                                     {/* Header */}
                                     <div className="flex items-center justify-between">
-                                        <h2 className="text-xl font-bold text-white">User Intelligence</h2>
+                                        <h2 className="text-xl font-bold text-text-primary">User Intelligence</h2>
                                         <button onClick={() => setSelectedUser(null)} className="p-2 hover:bg-white/5 rounded-full text-slate-400 transition-colors">
                                             <X size={20} />
                                         </button>
@@ -297,13 +335,15 @@ export default function UsersAdmin() {
 
                                     {/* User Profiling */}
                                     <div className="flex flex-col items-center text-center p-6 bg-white/[0.02] border border-white/10 rounded-3xl">
-                                        {selectedUser.avatarUrl ? (
-                                            <img src={selectedUser.avatarUrl} className="w-24 h-24 rounded-full border-2 border-primary shadow-xl mb-4" alt="" />
-                                        ) : (
-                                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/30 to-indigo-500/30 flex items-center justify-center text-3xl font-bold text-white border-2 border-primary mb-4">
-                                                {selectedUser.firstName[0]}{selectedUser.lastName[0]}
-                                            </div>
-                                        )}
+                                        <div className="mb-4">
+                                            <UserAvatar
+                                                userId={selectedUser.id}
+                                                firstName={selectedUser.firstName}
+                                                lastName={selectedUser.lastName}
+                                                avatarUrl={selectedUser.avatarUrl}
+                                                size="xl"
+                                            />
+                                        </div>
                                         <h3 className="text-lg font-bold text-white">{selectedUser.firstName} {selectedUser.lastName}</h3>
                                         <p className="text-slate-500 text-sm mb-4">{selectedUser.email}</p>
 
@@ -320,15 +360,19 @@ export default function UsersAdmin() {
                                     {/* Actions */}
                                     <div className="grid grid-cols-2 gap-3">
                                         <button
-                                            onClick={() => handleUpdateStatus(selectedUser, selectedUser.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE')}
+                                            onClick={() => setConfirmAction({ type: selectedUser.status === 'ACTIVE' ? 'SUSPEND' : 'RESTORE', user: selectedUser })}
                                             className={`p-4 rounded-2xl border transition-all flex flex-col items-center gap-2 ${selectedUser.status === 'ACTIVE' ? 'bg-danger/5 border-danger/20 text-danger hover:bg-danger/10' : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10'}`}
                                         >
                                             {selectedUser.status === 'ACTIVE' ? <UserX size={20} /> : <UserCheck size={20} />}
                                             <span className="text-[10px] font-bold uppercase tracking-widest">{selectedUser.status === 'ACTIVE' ? 'Suspend' : 'Activate'}</span>
                                         </button>
-                                        <button className="p-4 rounded-2xl bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 transition-all flex flex-col items-center gap-2">
-                                            <Key size={20} />
-                                            <span className="text-[10px] font-bold uppercase tracking-widest">Reset Pass</span>
+                                        <button
+                                            onClick={() => setConfirmAction({ type: 'RESET_MFA', user: selectedUser })}
+                                            className={`p-4 rounded-2xl bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 transition-all flex flex-col items-center gap-2 ${!selectedUser.mfaEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            disabled={!selectedUser.mfaEnabled}
+                                        >
+                                            <ShieldCheck size={20} />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest">Reset MFA</span>
                                         </button>
                                     </div>
 
@@ -343,7 +387,7 @@ export default function UsersAdmin() {
                                             className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/30"
                                         >
                                             <option value="USER">Standard Platform User</option>
-                                            <option value="SYSTEM_ADMIN">System Administrator (Full Access)</option>
+                                            <option value="ADMIN">System Administrator (Full Access)</option>
                                         </select>
                                     </div>
 
@@ -401,6 +445,75 @@ export default function UsersAdmin() {
                         </>
                     )}
                 </AnimatePresence>
+
+                {/* Global Confirmation Modal */}
+                <ConfirmationModal
+                    isOpen={!!confirmAction}
+                    onClose={() => setConfirmAction(null)}
+                    onConfirm={executeConfirmAction}
+                    title={
+                        confirmAction?.type === 'SUSPEND' ? 'Suspend User Access?' :
+                            confirmAction?.type === 'RESTORE' ? 'Restore User Access?' :
+                                confirmAction?.type === 'RESET_MFA' ? 'Reset Multi-Factor Authentication?' :
+                                    'Confirm Action'
+                    }
+                    message={
+                        confirmAction?.type === 'SUSPEND' ? `Are you sure you want to suspend ${confirmAction.user.firstName}? They will be immediately logged out and unable to access the platform.` :
+                            confirmAction?.type === 'RESTORE' ? `This will restore platform access for ${confirmAction.user.firstName}.` :
+                                confirmAction?.type === 'RESET_MFA' ? `This will disable MFA for ${confirmAction.user.firstName}. They should re-enable it immediately for security.` :
+                                    `Are you sure you want to perform this action on ${confirmAction?.user?.firstName}?`
+                    }
+                    confirmText={
+                        confirmAction?.type === 'SUSPEND' ? 'Suspend User' :
+                            confirmAction?.type === 'RESTORE' ? 'Restore User' :
+                                confirmAction?.type === 'RESET_MFA' ? 'Reset MFA' :
+                                    'Confirm'
+                    }
+                    variant={confirmAction?.type === 'SUSPEND' ? 'danger' : (confirmAction?.type === 'RESET_MFA' ? 'warning' : 'primary')}
+                    isLoading={isUpdating}
+                />
+
+                {/* Pagination Controls */}
+                {!loading && pagination?.totalPages > 1 && (
+                    <div className="mt-8 flex items-center justify-between px-6 py-4 bg-surface/50 rounded-xl border border-border">
+                        <div className="text-sm text-text-secondary">
+                            Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} users
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setPage(page - 1)}
+                                disabled={!pagination.hasPrev}
+                                className="px-4 py-2 bg-surface border border-border rounded-lg hover:bg-surface-secondary disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                                Previous
+                            </button>
+                            <div className="flex items-center gap-1">
+                                {Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, i) => {
+                                    const pageNum = i + 1;
+                                    return (
+                                        <button
+                                            key={pageNum}
+                                            onClick={() => setPage(pageNum)}
+                                            className={`w-10 h-10 rounded-lg text-sm ${page === pageNum
+                                                ? 'bg-primary text-white'
+                                                : 'bg-surface border border-border hover:bg-surface-secondary'
+                                                }`}
+                                        >
+                                            {pageNum}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <button
+                                onClick={() => setPage(page + 1)}
+                                disabled={!pagination.hasNext}
+                                className="px-4 py-2 bg-surface border border-border rounded-lg hover:bg-surface-secondary disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </AdminLayout>
     );

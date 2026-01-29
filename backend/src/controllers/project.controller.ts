@@ -154,6 +154,15 @@ export const createProject = async (req: Request, res: Response) => {
                 });
 
                 if (template) {
+                    // Security Check: Ensure user has access to this template
+                    const isSystem = template.templateVisibility === 'SYSTEM';
+                    const isOwner = template.createdById === userId;
+
+                    if (!isSystem && !isOwner) {
+                        throw new Error('Access denied: You do not have permission to use this template.');
+                    }
+
+                    // Clone Milestones
                     // Clone Milestones
                     // Calculate date shift
                     const dateShift = startDate && template.startDate
@@ -335,8 +344,14 @@ export const getTemplates = async (req: Request, res: Response) => {
 
         const templates = await prisma.project.findMany({
             where: {
-                organizationId,
-                isTemplate: true
+                isTemplate: true,
+                OR: [
+                    { templateVisibility: 'SYSTEM' },
+                    {
+                        templateVisibility: 'PRIVATE',
+                        createdById: userId
+                    }
+                ]
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -352,13 +367,18 @@ export const getProjectDetails = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const userId = (req as any).userId;
+        const { includeArchived } = req.query;
+        const showArchived = includeArchived === 'true';
 
+        // Check Permissions: Actor must be member of organization UNLESS it is a template preview
         const project = await prisma.project.findFirst({
             where: {
                 id,
-                organization: {
-                    members: { some: { userId } }
-                }
+                OR: [
+                    { organization: { members: { some: { userId } } } },
+                    { isTemplate: true, templateVisibility: 'SYSTEM' },
+                    { isTemplate: true, createdById: userId }
+                ]
             },
             include: {
                 lists: {
@@ -368,7 +388,10 @@ export const getProjectDetails = async (req: Request, res: Response) => {
                             include: { source: true }
                         },
                         tasks: {
-                            where: { parentId: null }, // Only top-level tasks
+                            where: {
+                                parentId: null,
+                                ...(showArchived ? {} : { isArchived: false })
+                            },
                             orderBy: { position: 'asc' },
                             include: {
                                 assignees: {
@@ -378,18 +401,18 @@ export const getProjectDetails = async (req: Request, res: Response) => {
                                                 organizationMember: {
                                                     include: {
                                                         user: {
-                                                            select: { id: true, firstName: true, lastName: true, email: true } // Added email
+                                                            select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true }
                                                         }
                                                     }
                                                 },
-                                                role: true // Include Role
+                                                role: true
                                             }
                                         }
                                     }
                                 },
                                 children: {
                                     orderBy: { position: 'asc' },
-                                    include: { // Include assignees for subtasks too
+                                    include: {
                                         assignees: {
                                             include: {
                                                 projectMember: {
@@ -397,7 +420,7 @@ export const getProjectDetails = async (req: Request, res: Response) => {
                                                         organizationMember: {
                                                             include: {
                                                                 user: {
-                                                                    select: { id: true, firstName: true, lastName: true, email: true }
+                                                                    select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true }
                                                                 }
                                                             }
                                                         },
@@ -420,7 +443,7 @@ export const getProjectDetails = async (req: Request, res: Response) => {
                         organizationMember: {
                             include: {
                                 user: {
-                                    select: { id: true, firstName: true, lastName: true, email: true }
+                                    select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true }
                                 }
                             }
                         },
@@ -441,7 +464,7 @@ export const getProjectDetails = async (req: Request, res: Response) => {
                         members: {
                             include: {
                                 user: {
-                                    select: { id: true, firstName: true, lastName: true, email: true }
+                                    select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true }
                                 },
                                 role: true
                             }
@@ -585,6 +608,28 @@ export const addMember = async (req: Request, res: Response) => {
 
         if (!project) {
             res.status(404).json({ error: 'Project not found' });
+            return;
+        }
+
+        // Check Permissions: Actor must be PM or have 'manage_project_members'
+        const actor = await prisma.projectMember.findFirst({
+            where: {
+                projectId: id,
+                organizationMember: { userId }
+            },
+            include: { role: { include: { permissions: { include: { permission: true } } } } }
+        });
+
+        const isProjectManager = actor?.role.name === 'Project Manager';
+        const hasMemberPermission = actor?.role.permissions.some(p => p.permission.name === 'manage_project_members');
+
+        // Also allow Workspace Admins/Owners
+        const workspaceMember = await prisma.organizationMember.findFirst({
+            where: { organizationId: project.organizationId, userId, role: { name: { in: ['Owner', 'Admin'] } } }
+        });
+
+        if (!isProjectManager && !hasMemberPermission && !workspaceMember) {
+            res.status(403).json({ error: 'Access denied. You do not have permission to manage project members.' });
             return;
         }
 
@@ -780,6 +825,23 @@ export const removeMember = async (req: Request, res: Response) => {
         const { id, memberId } = req.params;
         const userId = (req as any).userId;
 
+        // Check Permissions: Actor must be PM or have 'manage_project_members'
+        const project = await prisma.project.findUnique({ where: { id } });
+        if (!project) return res.status(404).json({ error: 'Project not found' });
+
+        const actor = await prisma.projectMember.findFirst({
+            where: { projectId: id, organizationMember: { userId } },
+            include: { role: { include: { permissions: { include: { permission: true } } } } }
+        });
+
+        const workspaceMember = await prisma.organizationMember.findFirst({
+            where: { organizationId: project.organizationId, userId, role: { name: { in: ['Owner', 'Admin'] } } }
+        });
+
+        if (actor?.role.name !== 'Project Manager' && !actor?.role.permissions.some(p => p.permission.name === 'manage_project_members') && !workspaceMember) {
+            return res.status(403).json({ error: 'Access denied. You do not have permission to manage project members.' });
+        }
+
         // Find the member to be removed
         const memberToRemove = await prisma.projectMember.findFirst({
             where: { id: memberId, projectId: id },
@@ -834,6 +896,23 @@ export const updateMemberRole = async (req: Request, res: Response) => {
             return;
         }
 
+        // Check Permissions: Actor must be PM or have 'manage_project_members'
+        const project = await prisma.project.findUnique({ where: { id } });
+        if (!project) return res.status(404).json({ error: 'Project not found' });
+
+        const actor = await prisma.projectMember.findFirst({
+            where: { projectId: id, organizationMember: { userId } },
+            include: { role: { include: { permissions: { include: { permission: true } } } } }
+        });
+
+        const workspaceMember = await prisma.organizationMember.findFirst({
+            where: { organizationId: project.organizationId, userId, role: { name: { in: ['Owner', 'Admin'] } } }
+        });
+
+        if (actor?.role.name !== 'Project Manager' && !actor?.role.permissions.some(p => p.permission.name === 'manage_project_members') && !workspaceMember) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
         const member = await prisma.projectMember.findFirst({
             where: { id: memberId, projectId: id },
             include: { role: true, organizationMember: { include: { user: true } } }
@@ -850,16 +929,13 @@ export const updateMemberRole = async (req: Request, res: Response) => {
             return;
         }
 
-        // Validate role belongs to the same organization
-        const project = await prisma.project.findUnique({
-            where: { id },
-            select: { organizationId: true }
-        });
-
+        // Since we already fetched project above, we can reuse organizationId if select was used or it was included.
+        // Let's just use the organizationId from the 'project' variable we already have at line 861.
         if (project && newRole.organizationId !== project.organizationId) {
             res.status(400).json({ error: 'Role does not belong to this organization' });
             return;
         }
+
 
         // Safety Rule: Cannot downgrade/change own role via this endpoint
         // (Prevents accidental self-lockout or privilege escalation)
@@ -897,6 +973,65 @@ export const updateMemberRole = async (req: Request, res: Response) => {
         res.json({ member: updatedMember });
     } catch (error) {
         console.error('Update member role error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const updateProject = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id } = req.params;
+        const validation = createProjectSchema.partial().safeParse(req.body);
+
+        if (!validation.success) {
+            res.status(400).json({ error: validation.error.issues[0].message });
+            return;
+        }
+
+        // Verify user is PM
+        const member = await prisma.projectMember.findFirst({
+            where: { projectId: id, organizationMember: { userId }, role: { name: 'Project Manager' } }
+        });
+
+        if (!member) {
+            res.status(403).json({ error: 'Only project managers can update project settings' });
+            return;
+        }
+
+        const updated = await prisma.project.update({
+            where: { id },
+            data: {
+                ...validation.data,
+                updatedById: userId
+            }
+        });
+
+        res.json(updated);
+    } catch (error) {
+        console.error('Update project error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const deleteProject = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id } = req.params;
+
+        // Verify user is PM
+        const member = await prisma.projectMember.findFirst({
+            where: { projectId: id, organizationMember: { userId }, role: { name: 'Project Manager' } }
+        });
+
+        if (!member) {
+            res.status(403).json({ error: 'Only project managers can delete projects' });
+            return;
+        }
+
+        await prisma.project.delete({ where: { id } });
+        res.json({ message: 'Project deleted successfully' });
+    } catch (error) {
+        console.error('Delete project error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };

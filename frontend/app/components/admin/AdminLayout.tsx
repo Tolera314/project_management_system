@@ -13,7 +13,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     return (
-        <div className="min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-primary/30">
+        <div className="min-h-screen bg-background text-text-primary font-sans selection:bg-primary/30">
             <AdminSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
 
             <div className={`transition-all duration-300 ${isCollapsed ? 'pl-20' : 'pl-64'}`}>

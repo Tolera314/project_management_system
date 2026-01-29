@@ -10,9 +10,12 @@ A comprehensive white-box audit was conducted on the Project Management System. 
 ## 2. Backend Security Audit
 
 ### 2.1 Workspace Controller (`workspace.controller.ts`)
-*   **Authorization:** Excellent. All endpoints (Create, Invite, Remove) verify `userId` from the verified JWT token.
-*   **Logic Integrity:** Prevents removing the last Admin from a workspace, ensuring no workspace becomes "headless".
-*   **Recommendation:** None.
+*   **Authorization:** All endpoints verify `userId` from the verified JWT token.
+*   **Token Security (Vulnerability):** Invitation tokens are generated using `Math.random().toString(36)`. This is not cryptographically secure and could be guessable.
+    *   *Recommendation:* Use `crypto.randomBytes(32).toString('hex')` for all secure token generation.
+*   **Hardcoded Roles:** Permissions logic often relies on hardcoded strings like `'Workspace Manager'` or `'Admin'`.
+    *   *Recommendation:* Centralize role names in a constant or enum to prevent bugs during renames or multi-language support.
+*   **Logic Integrity:** Prevents removing the last Admin from a workspace.
 
 ### 2.2 Project Controller (`project.controller.ts`)
 *   **Membership Checks:** Correctly verifies that a user belongs to the parent organization before granting access to project data.
@@ -57,9 +60,21 @@ A comprehensive white-box audit was conducted on the Project Management System. 
 
 ## 4. Code Quality & Architecture
 
-### 4.1 Type Safety
-*   **Issue:** Widely used `(req as any).userId` casting.
-*   **Recommendation:** Create a custom type definition file (`express.d.ts`) to extend `express.Request` interface to include `userId` and `systemRole` natively.
+### 4.1 Type Safety & Request Context
+*   **Issue:** Widely used `(req as any).userId` and `(req as any).systemRole` casting. This bypasses TypeScript's safety and makes refactoring difficult.
+*   **Recommendation:** Create a `types/express/index.d.ts` file to extend the `Express.Request` interface.
+```typescript
+declare global {
+  namespace Express {
+    interface Request {
+      userId?: string;
+      systemRole?: string;
+    }
+  }
+}
+```
+*   **Issue:** Hardcoded API URLs in frontend services (e.g., `auth.service.ts`).
+    *   *Recommendation:* Use environment variables for all API base URLs.
 
 ### 4.2 Error Handling
 *   Consistent `try/catch` blocks used across all controllers.

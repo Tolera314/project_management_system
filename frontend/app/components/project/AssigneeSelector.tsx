@@ -129,10 +129,14 @@ export default function AssigneeSelector({ currentAssignees, projectMembers, onA
                                             disabled={assigned}
                                             className={`w-full text-left p-2 rounded-lg flex items-center gap-3 transition-colors ${assigned ? 'opacity-50 cursor-default' : 'hover:bg-white/5 cursor-pointer'}`}
                                         >
-                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-xs font-bold text-white uppercase">
-                                                {member.organizationMember.user.firstName[0]}
-                                                {member.organizationMember.user.lastName[0]}
-                                            </div>
+                                            <UserAvatar
+                                                userId={member.organizationMember.user.id}
+                                                firstName={member.organizationMember.user.firstName}
+                                                lastName={member.organizationMember.user.lastName}
+                                                avatarUrl={member.organizationMember.user.avatarUrl}
+                                                size="md"
+                                                className="bg-gradient-to-br from-gray-700 to-gray-600 ring-1 ring-white/10"
+                                            />
                                             <div className="flex-1">
                                                 <div className="text-sm text-white font-medium">
                                                     {member.organizationMember.user.firstName} {member.organizationMember.user.lastName}

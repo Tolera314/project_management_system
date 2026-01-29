@@ -18,15 +18,18 @@ export interface NotificationPayload {
 
 export class NotificationService {
     static async sendWelcomeEmail(user: { email: string, firstName: string }) {
-        try {
-            await sendEmail({
-                to: user.email,
-                subject: 'Welcome to ProjectOS!',
-                html: getPlatformWelcomeTemplate(user.firstName)
-            });
-        } catch (error) {
-            console.error('[NotificationService] Failed to send welcome email:', error);
-        }
+        // Fire-and-forget: Don't await, don't block caller
+        setImmediate(async () => {
+            try {
+                await sendEmail({
+                    to: user.email,
+                    subject: 'Welcome to ProjectOS!',
+                    html: getPlatformWelcomeTemplate(user.firstName)
+                });
+            } catch (error) {
+                console.error('[NotificationService] Failed to send welcome email:', error);
+            }
+        });
     }
 
     /**
@@ -47,6 +50,17 @@ export class NotificationService {
 
             // 2. Create In-App Notification if enabled
             if (shouldSendInApp) {
+                // Auto-generate link if missing
+                let link = payload.link;
+                if (!link) {
+                    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+                    if (payload.taskId && payload.projectId) {
+                        link = `${baseUrl}/projects/${payload.projectId}?taskId=${payload.taskId}`;
+                    } else if (payload.projectId) {
+                        link = `${baseUrl}/projects/${payload.projectId}`;
+                    }
+                }
+
                 const notification = await prisma.notification.create({
                     data: {
                         type: payload.type,
@@ -58,6 +72,11 @@ export class NotificationService {
                         title: payload.title,
                         message: payload.message,
                         metadata: payload.metadata
+                    },
+                    include: {
+                        actor: { select: { firstName: true, lastName: true, avatarUrl: true } },
+                        project: { select: { id: true, name: true } },
+                        task: { select: { id: true, title: true } }
                     }
                 });
 
@@ -69,9 +88,10 @@ export class NotificationService {
                     message: notification.message,
                     createdAt: notification.createdAt,
                     isRead: false,
-                    actor: payload.actorId ? { id: payload.actorId } : undefined, // Minimal actor info, frontend should re-fetch if needed or we enrich
-                    project: payload.projectId ? { id: payload.projectId } : undefined,
-                    task: payload.taskId ? { id: payload.taskId } : undefined
+                    actor: notification.actor,
+                    project: notification.project,
+                    task: notification.task,
+                    link: link || payload.link
                 });
             }
 

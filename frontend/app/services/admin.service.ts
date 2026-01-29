@@ -61,7 +61,7 @@ export class AdminService {
         return response.data;
     }
 
-    static async updateUser(id: string, data: { systemRole?: string, status?: string }): Promise<any> {
+    static async updateUser(id: string, data: { systemRole?: string, status?: string, resetMFA?: boolean }): Promise<any> {
         const response = await axios.patch(`${API_URL}/users/${id}`, data, {
             headers: { Authorization: `Bearer ${AuthService.getToken()}` }
         });
@@ -107,6 +107,41 @@ export class AdminService {
 
     static async getPlatformStats(): Promise<any> {
         const response = await axios.get(`${API_URL}/stats/platform`, {
+            headers: { Authorization: `Bearer ${AuthService.getToken()}` }
+        });
+        return response.data;
+    }
+
+    static async getAlerts(): Promise<any[]> {
+        const response = await axios.get(`${API_URL}/alerts`, {
+            headers: { Authorization: `Bearer ${AuthService.getToken()}` }
+        });
+        return response.data;
+    }
+
+    static async acknowledgeAlert(id: string): Promise<any> {
+        const response = await axios.post(`${API_URL}/alerts/${id}/acknowledge`, {}, {
+            headers: { Authorization: `Bearer ${AuthService.getToken()}` }
+        });
+        return response.data;
+    }
+
+    static async provisionWorkspace(data: { name: string; ownerEmail: string; plan: string; color?: string }): Promise<any> {
+        const response = await axios.post(`${API_URL}/workspaces/provision`, data, {
+            headers: { Authorization: `Bearer ${AuthService.getToken()}` }
+        });
+        return response.data;
+    }
+
+    static async getNotifications(): Promise<any[]> {
+        const response = await axios.get(`${API_URL}/notifications`, {
+            headers: { Authorization: `Bearer ${AuthService.getToken()}` }
+        });
+        return response.data;
+    }
+
+    static async markNotificationRead(id: string): Promise<any> {
+        const response = await axios.post(`${API_URL}/notifications/${id}/read`, {}, {
             headers: { Authorization: `Bearer ${AuthService.getToken()}` }
         });
         return response.data;

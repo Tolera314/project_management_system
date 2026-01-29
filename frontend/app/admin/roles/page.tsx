@@ -84,7 +84,7 @@ export default function RolesPermissionsPage() {
     };
 
     const togglePermission = (permissionId: string) => {
-        if (!selectedRole || (selectedRole.isSystem && selectedRole.name === 'SYSTEM_ADMIN')) return;
+        if (!selectedRole || (selectedRole.isSystem && selectedRole.name === 'ADMIN')) return;
 
         setStagedPermissions(prev =>
             prev.includes(permissionId)
@@ -149,7 +149,7 @@ export default function RolesPermissionsPage() {
         );
     }
 
-    const isSystemAdminRole = selectedRole?.isSystem && selectedRole?.name === 'SYSTEM_ADMIN';
+    const isSystemAdminRole = selectedRole?.isSystem && selectedRole?.name === 'ADMIN';
     const hasChanges = selectedRole && JSON.stringify(stagedPermissions.sort()) !== JSON.stringify(selectedRole.permissions.map(p => p.permissionId).sort());
 
     return (

@@ -87,7 +87,10 @@ export const FileService = {
     },
 
     getFileUrl: (filename: string) => {
-        // Direct link to serve endpoint
+        // If it's already a full URL (like Cloudinary), return it directly
+        if (filename.startsWith('http')) return filename;
+
+        // Direct link to serve endpoint for local files
         // In S3 world, this would be a pre-signed URL or direct public URL
         // Since backend route is /serve/:filename, we construct that.
         // BUT, backend File object stores `url` as `uploads/filename`.

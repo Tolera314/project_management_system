@@ -14,9 +14,17 @@ import {
     History,
     Terminal
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { AdminService, AdminStats } from '../services/admin.service';
+
+interface SystemAlert {
+    id: string;
+    title: string;
+    message: string;
+    severity: 'INFO' | 'WARNING' | 'CRITICAL';
+    createdAt: string;
+}
 
 
 const systemServices = [
@@ -29,11 +37,31 @@ const systemServices = [
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState<AdminStats | null>(null);
+    const [alerts, setAlerts] = useState<SystemAlert[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         loadStats();
+        loadAlerts();
     }, []);
+
+    const loadAlerts = async () => {
+        try {
+            const data = await AdminService.getAlerts();
+            setAlerts(data || []);
+        } catch (error) {
+            console.error("Failed to load alerts", error);
+        }
+    };
+
+    const handleAcknowledge = async (id: string) => {
+        try {
+            await AdminService.acknowledgeAlert(id);
+            setAlerts(alerts.filter(a => a.id !== id));
+        } catch (error) {
+            console.error("Failed to acknowledge alert", error);
+        }
+    };
 
     const loadStats = async () => {
         try {
@@ -60,8 +88,8 @@ export default function AdminDashboard() {
             <div className="space-y-8">
                 {/* Header Title */}
                 <div>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">Platform Overview</h1>
-                    <p className="text-slate-500 text-sm mt-1">Real-time health and operational status of the entire system.</p>
+                    <h1 className="text-2xl font-bold text-text-primary tracking-tight">Platform Overview</h1>
+                    <p className="text-text-secondary text-sm mt-1">Real-time health and operational status of the entire system.</p>
                 </div>
 
                 {/* Health Cards Row */}
@@ -72,20 +100,20 @@ export default function AdminDashboard() {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: i * 0.1 }}
-                            className="bg-white/5 border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-all group"
+                            className="bg-surface border border-border rounded-2xl p-6 hover:border-primary/30 transition-all group"
                         >
                             <div className="flex items-center justify-between mb-4">
-                                <div className={`p-2.5 rounded-xl bg-white/5 ${card.color}`}>
+                                <div className={`p-2.5 rounded-xl bg-foreground/[0.03] ${card.color}`}>
                                     <card.icon size={20} />
                                 </div>
-                                <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${card.trend.includes('+') ? 'bg-emerald-500/10 text-emerald-500' : 'bg-white/5 text-slate-400'} uppercase tracking-wider`}>
+                                <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${card.trend.includes('+') ? 'bg-success/10 text-success' : 'bg-foreground/[0.03] text-text-secondary'} uppercase tracking-wider`}>
                                     {card.trend}
                                 </span>
                             </div>
-                            <h3 className="text-slate-400 text-xs font-bold uppercase tracking-widest">{card.label}</h3>
+                            <h3 className="text-text-secondary text-xs font-bold uppercase tracking-widest">{card.label}</h3>
                             <div className="mt-1 flex items-baseline gap-2">
-                                <span className="text-3xl font-bold text-white">{card.value}</span>
-                                <ArrowUpRight size={14} className="text-emerald-500" />
+                                <span className="text-3xl font-bold text-text-primary">{card.value}</span>
+                                <ArrowUpRight size={14} className="text-success" />
                             </div>
                         </motion.div>
                     ))}
@@ -95,47 +123,47 @@ export default function AdminDashboard() {
                     {/* System Status */}
                     <div className="lg:col-span-2 space-y-4">
                         <div className="flex items-center justify-between px-2">
-                            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                            <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
                                 <Activity size={18} className="text-primary" />
                                 System Services
                             </h2>
                             <button className="text-[10px] font-bold text-primary uppercase tracking-widest hover:underline">View Advanced Metrics</button>
                         </div>
-                        <div className="bg-white/5 border border-white/5 rounded-3xl overflow-hidden">
+                        <div className="bg-surface border border-border rounded-3xl overflow-hidden">
                             <table className="w-full border-collapse">
                                 <thead>
-                                    <tr className="bg-white/[0.02] border-b border-white/5">
-                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Service</th>
-                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Status</th>
-                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Uptime</th>
-                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Load</th>
+                                    <tr className="bg-foreground/[0.02] border-b border-border">
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-text-secondary uppercase tracking-widest">Service</th>
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-text-secondary uppercase tracking-widest">Status</th>
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-text-secondary uppercase tracking-widest">Uptime</th>
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-text-secondary uppercase tracking-widest">Load</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-white/5">
+                                <tbody className="divide-y divide-border">
                                     {systemServices.map((service) => (
-                                        <tr key={service.name} className="hover:bg-white/[0.01] transition-colors group">
+                                        <tr key={service.name} className="hover:bg-foreground/[0.01] transition-colors group">
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`w-2 h-2 rounded-full animate-pulse bg-${service.color}-500`} />
-                                                    <span className="text-sm font-medium text-white">{service.name}</span>
+                                                    <div className={`w-2 h-2 rounded-full animate-pulse ${service.color === 'emerald' ? 'bg-success' : service.color === 'blue' ? 'bg-primary' : 'bg-warning'}`} />
+                                                    <span className="text-sm font-medium text-text-primary">{service.name}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`text-xs font-bold px-2.5 py-1 rounded-lg bg-${service.color}-500/10 text-${service.color}-500 inline-flex items-center gap-1.5`}>
+                                                <span className={`text-xs font-bold px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 ${service.color === 'emerald' ? 'bg-success/10 text-success' : service.color === 'blue' ? 'bg-primary/10 text-primary' : 'bg-warning/10 text-warning'}`}>
                                                     {service.status === 'Healthy' ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
                                                     {service.status}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-sm text-slate-400">{service.uptime}</td>
+                                            <td className="px-6 py-4 text-sm text-text-secondary">{service.uptime}</td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden w-20">
+                                                    <div className="flex-1 h-1.5 bg-foreground/[0.05] rounded-full overflow-hidden w-20">
                                                         <div
                                                             className="h-full bg-primary rounded-full transition-all duration-1000"
                                                             style={{ width: service.load === '-' ? '0%' : service.load }}
                                                         />
                                                     </div>
-                                                    <span className="text-xs text-slate-500 font-mono">{service.load}</span>
+                                                    <span className="text-xs text-text-secondary font-mono">{service.load}</span>
                                                 </div>
                                             </td>
                                         </tr>
@@ -148,32 +176,32 @@ export default function AdminDashboard() {
                     {/* Recent Activity */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between px-2">
-                            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                            <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
                                 <History size={18} className="text-primary" />
                                 Audit Log
                             </h2>
                         </div>
-                        <div className="bg-white/5 border border-white/5 rounded-3xl p-6 space-y-6">
+                        <div className="bg-surface border border-border rounded-3xl p-6 space-y-6">
                             {stats && stats.recentActivity && stats.recentActivity.map((log, i) => (
                                 <div key={i} className="flex gap-4 group">
-                                    <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center shrink-0 group-hover:border-primary/50 transition-colors">
-                                        <Terminal size={16} className="text-slate-500 group-hover:text-primary" />
+                                    <div className="w-10 h-10 rounded-xl bg-foreground/[0.03] border border-border flex items-center justify-center shrink-0 group-hover:border-primary/50 transition-colors">
+                                        <Terminal size={16} className="text-text-secondary group-hover:text-primary" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2 mb-1">
-                                            <p className="text-sm font-bold text-white truncate">{log.action}</p>
-                                            <span className="text-[10px] text-slate-500 whitespace-nowrap">{new Date(log.time).toLocaleTimeString()}</span>
+                                            <p className="text-sm font-bold text-text-primary truncate">{log.action}</p>
+                                            <span className="text-[10px] text-text-secondary whitespace-nowrap">{new Date(log.time).toLocaleTimeString()}</span>
                                         </div>
-                                        <p className="text-xs text-slate-400 truncate">
+                                        <p className="text-xs text-text-secondary truncate">
                                             <span className="text-primary font-medium">{log.user}</span> → {log.target}
                                         </p>
                                     </div>
                                 </div>
                             ))}
                             {(!stats || !stats.recentActivity || stats.recentActivity.length === 0) && (
-                                <div className="text-center text-slate-500 text-sm py-4">No recent activity</div>
+                                <div className="text-center text-text-secondary text-sm py-4">No recent activity</div>
                             )}
-                            <button className="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-white transition-all uppercase tracking-widest">
+                            <button className="w-full py-2.5 bg-foreground/[0.03] hover:bg-foreground/[0.06] border border-border rounded-xl text-xs font-bold text-text-primary transition-all uppercase tracking-widest">
                                 View Full Audit Trail
                             </button>
                         </div>
@@ -181,18 +209,42 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* System Alerts Strip */}
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-500">
-                            <AlertTriangle size={20} />
-                        </div>
-                        <div>
-                            <p className="text-sm font-bold text-white">System Advisory</p>
-                            <p className="text-xs text-amber-500/80">Scheduled maintenance for 'Push Notifications' node in 4 hours. No downtime expected.</p>
-                        </div>
-                    </div>
-                    <button className="px-4 py-2 bg-amber-500 text-[#020617] text-[10px] font-bold rounded-lg uppercase tracking-widest hover:bg-amber-400 transition-colors">Acknowledge</button>
-                </div>
+                <AnimatePresence>
+                    {alerts.map((alert) => (
+                        <motion.div
+                            key={alert.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, x: 20 }}
+                            className={`rounded-2xl p-4 flex items-center justify-between mb-4 border ${alert.severity === 'CRITICAL' ? 'bg-danger/10 border-danger/20 text-danger' :
+                                alert.severity === 'WARNING' ? 'bg-warning/10 border-warning/20 text-warning' :
+                                    'bg-primary/10 border-primary/20 text-primary'
+                                }`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${alert.severity === 'CRITICAL' ? 'bg-danger/20' :
+                                    alert.severity === 'WARNING' ? 'bg-warning/20' :
+                                        'bg-primary/20'
+                                    }`}>
+                                    <AlertTriangle size={20} />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-text-primary">{alert.title}</p>
+                                    <p className="text-xs opacity-80">{alert.message}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => handleAcknowledge(alert.id)}
+                                className={`px-4 py-2 text-[10px] font-bold rounded-lg uppercase tracking-widest transition-colors ${alert.severity === 'CRITICAL' ? 'bg-danger text-white hover:bg-danger/90' :
+                                    alert.severity === 'WARNING' ? 'bg-warning text-white hover:bg-warning/90' :
+                                        'bg-primary text-white hover:bg-primary/90'
+                                    }`}
+                            >
+                                Acknowledge
+                            </button>
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
             </div>
         </AdminLayout>
     );

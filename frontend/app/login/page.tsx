@@ -1,21 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion } from 'framer-motion';
-import { Shield, Lock, FolderLock, Loader2, ArrowRight, X } from 'lucide-react';
+import { Loader2, ArrowRight, Eye, EyeOff, Globe, Rocket, Shield, Cloud, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { loginSchema, LoginFormData } from '@/lib/schema';
 import axios from 'axios';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, Suspense } from 'react';
+import { File } from 'lucide-react';
+import { FcGoogle } from 'react-icons/fc';
 
 function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showPassword, setShowPassword] = useState(false);
 
     const invitationToken = searchParams.get('invitation');
     const invitedEmail = searchParams.get('email');
@@ -46,7 +48,7 @@ function LoginContent() {
             localStorage.setItem('token', token);
             localStorage.setItem('user', JSON.stringify(response.data.user));
 
-            let redirectUrl = response.data.user.systemRole === 'SYSTEM_ADMIN' ? '/admin' : '/dashboard';
+            let redirectUrl = response.data.user.systemRole === 'ADMIN' ? '/admin' : '/dashboard';
 
             // If there's an invitation, accept it
             if (invitationToken) {
@@ -59,7 +61,6 @@ function LoginContent() {
                     }
                 } catch (inviteErr: any) {
                     console.error('Failed to auto-accept invitation:', inviteErr);
-                    // Continue to dashboard anyway, maybe show a toast later
                 }
             }
 
@@ -77,170 +78,135 @@ function LoginContent() {
         }
     };
 
+    const handleGoogleLogin = () => {
+        window.location.href = 'http://localhost:4000/auth/google';
+    };
+
     return (
-        <div className="min-h-screen bg-background flex flex-col justify-between relative overflow-hidden font-sans">
-            {/* Enhanced Background */}
-            <div className="absolute inset-0 bg-[#020617]">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,_#4F46E520,_transparent_60%)]" />
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,_#A78BFA15,_transparent_50%)]" />
-            </div>
+        <div className="min-h-screen bg-[#070514] flex flex-col items-center justify-center relative overflow-hidden font-sans">
+            {/* Background Effects */}
+            <div className="absolute top-[-20%] left-[20%] w-[600px] h-[600px] bg-purple-900/20 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-[-10%] right-[30%] w-[500px] h-[500px] bg-indigo-900/20 rounded-full blur-[100px] pointer-events-none" />
 
-            {/* Header */}
-            <header className="relative z-10 w-full p-6 text-center">
-                <Link href="/" className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-text-secondary inline-block">
-                    ProjectOS
-                </Link>
-            </header>
+            {/* Brand Logo - Centered Top */}
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="mb-8 flex flex-col items-center gap-2 z-10"
+            >
+                <div className="w-12 h-12 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <File className="text-white fill-white" size={24} />
+                </div>
+                <h1 className="text-2xl font-bold text-white tracking-tight">ProjectOS</h1>
+            </motion.div>
 
-            {/* Main Content */}
-            <main className="relative z-10 w-full max-w-md mx-auto px-6 flex-1 flex flex-col justify-center py-16 lg:py-20">
+            {/* Login Card */}
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="w-full max-w-[420px] bg-[#0E0C24] border border-white/5 rounded-[32px] p-8 shadow-2xl relative z-10"
+            >
+                {/* Inner gradient glow */}
+                <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent rounded-[32px] pointer-events-none" />
 
-                <div className="text-center mb-12">
-                    <motion.h1
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6 }}
-                        className="text-3xl md:text-4xl font-bold text-white mb-4 tracking-tight"
-                    >
-                        Welcome Back
-                    </motion.h1>
-                    <motion.p
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.1 }}
-                        className="text-text-secondary text-base leading-relaxed"
-                    >
-                        Sign in to continue managing your projects and teams.
-                    </motion.p>
+                <div className="mb-8 text-left">
+                    <h2 className="text-2xl font-bold text-white mb-2">Welcome Back</h2>
+                    <p className="text-slate-400 text-sm">Enter your credentials to access your workspace.</p>
                 </div>
 
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
-                    className="relative bg-gradient-to-b from-surface/60 to-surface/40 border border-white/[0.08] rounded-3xl p-8 shadow-2xl shadow-black/40"
-                >
-                    {/* Subtle inner glow */}
-                    <div className="absolute inset-0 rounded-3xl bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                    {/* Email */}
+                    <div className="space-y-2">
+                        <label className="text-xs text-slate-400 ml-1">Email Address</label>
+                        <input
+                            {...register('email')}
+                            type="email"
+                            className="w-full bg-transparent border-b border-white/10 px-1 py-2 text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                        />
+                        {errors.email && <span className="text-xs text-rose-500">{errors.email.message}</span>}
+                    </div>
 
-                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 relative z-10">
-
-                        {/* Email */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-text-primary">Email Address</label>
-                            <input
-                                {...register('email')}
-                                type="email"
-                                placeholder="you@company.com"
-                                autoComplete="email"
-                                className={`w-full bg-background/60 border ${errors.email ? 'border-danger focus:ring-danger/50' : 'border-white/[0.08] focus:border-primary/50'} rounded-xl px-4 py-3.5 text-white placeholder:text-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm`}
-                            />
-                            {errors.email && (
-                                <p className="text-xs text-danger flex items-center gap-1.5">
-                                    <X className="w-3 h-3" />
-                                    {errors.email.message}
-                                </p>
-                            )}
+                    {/* Password */}
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                            <label className="text-xs text-slate-400 ml-1">Password</label>
                         </div>
-
-                        {/* Password */}
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <label className="text-sm font-medium text-text-primary">Password</label>
-                                <Link href="/forgot-password" className="text-xs text-text-secondary hover:text-primary transition-colors">
-                                    Forgot password?
-                                </Link>
-                            </div>
+                        <div className="relative">
                             <input
                                 {...register('password')}
-                                type="password"
-                                placeholder="Enter your password"
-                                autoComplete="current-password"
-                                className={`w-full bg-background/60 border ${errors.password ? 'border-danger focus:ring-danger/50' : 'border-white/[0.08] focus:border-primary/50'} rounded-xl px-4 py-3.5 text-white placeholder:text-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm`}
+                                type={showPassword ? 'text' : 'password'}
+                                className="w-full bg-transparent border-b border-white/10 px-1 py-2 text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors pr-8"
                             />
-                            {errors.password && (
-                                <p className="text-xs text-danger flex items-center gap-1.5">
-                                    <X className="w-3 h-3" />
-                                    {errors.password.message}
-                                </p>
-                            )}
-                        </div>
-
-                        {error && (
-                            <motion.div
-                                initial={{ opacity: 0, y: -10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="p-3.5 bg-danger/10 border border-danger/20 rounded-xl text-danger text-sm text-center"
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
                             >
-                                {error}
-                            </motion.div>
-                        )}
-
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="relative w-full bg-primary hover:bg-primary/90 text-white font-semibold py-4 rounded-xl transition-all shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group mt-6 hover:-translate-y-0.5 active:translate-y-0"
-                        >
-                            {isLoading ? (
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                            ) : (
-                                <>
-                                    Sign In
-                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                </>
-                            )}
-                        </button>
-
-                    </form>
-                </motion.div>
-
-                {/* Trust Signals - Reduced Emphasis */}
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.8, delay: 0.7 }}
-                    className="mt-10 flex justify-center gap-8 text-text-secondary/40"
-                >
-                    <div className="flex items-center gap-2">
-                        <Shield size={14} className="opacity-70" />
-                        <span className="text-[11px] font-medium">Secure</span>
+                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                        </div>
+                        {errors.password && <span className="text-xs text-rose-500">{errors.password.message}</span>}
                     </div>
-                    <div className="flex items-center gap-2">
-                        <FolderLock size={14} className="opacity-70" />
-                        <span className="text-[11px] font-medium">Encrypted</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Lock size={14} className="opacity-70" />
-                        <span className="text-[11px] font-medium">Private</span>
-                    </div>
-                </motion.div>
 
-                {/* Sign Up Redirect */}
-                <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.8, delay: 0.9 }}
-                    className="text-center mt-8 text-text-secondary/80 text-sm"
-                >
-                    Don't have an account?{' '}
-                    <Link href="/signup" className="text-white font-medium hover:text-primary transition-colors">
-                        Sign up
-                    </Link>
-                </motion.p>
+                    <div className="flex justify-end">
+                        <Link href="/forgot-password" className="text-[10px] uppercase tracking-wider text-slate-400 hover:text-white transition-colors font-medium">
+                            Forgot Password?
+                        </Link>
+                    </div>
 
-            </main>
+                    {error && (
+                        <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-400 text-sm text-center">
+                            {error}
+                        </div>
+                    )}
+
+                    <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full h-12 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 mt-4"
+                    >
+                        {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> :
+                            <>
+                                Continue to Dashboard
+                                <ArrowRight size={16} />
+                            </>}
+                    </button>
+
+                    <div className="relative py-2">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-white/5"></div>
+                        </div>
+                        <div className="relative flex justify-center text-[10px] uppercase tracking-widest">
+                            <span className="bg-[#0E0C24] px-4 text-slate-600 font-bold">Secure Sign In</span>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={handleGoogleLogin}
+                        className="w-full h-12 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-slate-300 hover:text-white font-medium transition-all flex items-center justify-center gap-2"
+                    >
+                        <FcGoogle size={20} />
+                        Continue with Google
+                    </button>
+
+                </form>
+            </motion.div>
 
             {/* Footer */}
-            <footer className="relative z-10 w-full p-6 text-center">
-                <div className="flex justify-center gap-6 text-[11px] text-text-secondary/50 mb-2">
-                    <Link href="#" className="hover:text-white/70 transition-colors">Privacy Policy</Link>
-                    <Link href="#" className="hover:text-white/70 transition-colors">Terms of Service</Link>
-                    <Link href="#" className="hover:text-white/70 transition-colors">Security</Link>
+            <div className="mt-8 flex flex-col items-center gap-6 z-10">
+                <div className="flex items-center gap-1 text-sm text-slate-500">
+                    New here? <Link href="/signup" className="text-white font-bold hover:text-purple-400 transition-colors flex items-center">Create an account <span className="ml-1 text-lg">+</span></Link>
                 </div>
-                <p className="text-[10px] text-text-secondary/40">
-                    © 2025 Project Management System
-                </p>
-            </footer>
+
+                <div className="flex gap-6 text-[9px] font-bold text-slate-600 uppercase tracking-widest">
+                    <div className="flex items-center gap-1.5"><Shield size={10} /> Encryption</div>
+                    <div className="flex items-center gap-1.5"><Cloud size={10} /> CloudSync</div>
+                    <div className="flex items-center gap-1.5"><Lock size={10} /> Enterprise</div>
+                </div>
+            </div>
         </div>
     );
 }
@@ -248,8 +214,8 @@ function LoginContent() {
 export default function LoginPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-[#0A0B10] flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="min-h-screen bg-[#070514] flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
             </div>
         }>
             <LoginContent />

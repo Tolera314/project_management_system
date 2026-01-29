@@ -10,4 +10,26 @@ export class AuthService {
         }
         return null;
     }
+
+    static getUser(): any {
+        if (typeof window !== 'undefined') {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                try {
+                    return JSON.parse(userStr);
+                } catch (e) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    static logout(): void {
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+    }
 }

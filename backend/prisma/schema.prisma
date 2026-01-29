@@ -6,6 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
 // enums
 enum Priority {
   LOW
@@ -31,8 +32,7 @@ enum ProjectStatus {
 }
 
 enum SystemRole {
-  SYSTEM_ADMIN
-  SUPPORT
+  ADMIN
   USER
 }
 
@@ -56,6 +56,8 @@ enum NotificationType {
   INVITATION_ACCEPTED
   PERMISSION_CHANGED
   SECURITY_ALERT
+  SYSTEM_ANNOUNCEMENT
+  BILLING_NOTICE
 }
 
 enum InvitationType {
@@ -72,45 +74,51 @@ enum InvitationStatus {
 
 // Base models with relations
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  firstName String
-  lastName  String
-  avatarUrl String?
-  systemRole SystemRole @default(USER)
-  status    String   @default("ACTIVE") // active, suspended, pending, deleted
-  passwordVersion Int @default(1)
-  mfaEnabled Boolean  @default(false)
-  lastLogin DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
+  id              String     @id @default(cuid())
+  email           String     @unique
+  password        String
+  firstName       String
+  lastName        String
+  avatarUrl       String?
+  systemRole      SystemRole @default(USER)
+  status          String     @default("ACTIVE") // active, suspended, pending, deleted
+  passwordVersion Int        @default(1)
+  mfaEnabled      Boolean    @default(false)
+  lastLogin       DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
   // Relations
-  organizationMembers OrganizationMember[]
-  createdProjects Project[] @relation("ProjectCreator")
-  updatedProjects Project[] @relation("ProjectUpdater")
-  createdTasks    Task[]    @relation("TaskCreator")
-  updatedTasks    Task[]    @relation("TaskUpdater")
-  assignedTasks   TaskAssignee[]
-  comments        Comment[]
-  activityLogs    ActivityLog[]
-  notifications   Notification[]
-  actedNotifications Notification[] @relation("NotificationActor")
+  organizationMembers    OrganizationMember[]
+  createdProjects        Project[]               @relation("ProjectCreator")
+  updatedProjects        Project[]               @relation("ProjectUpdater")
+  createdTasks           Task[]                  @relation("TaskCreator")
+  updatedTasks           Task[]                  @relation("TaskUpdater")
+  assignedTasks          TaskAssignee[]
+  comments               Comment[]
+  activityLogs           ActivityLog[]
+  notifications          Notification[]
+  actedNotifications     Notification[]          @relation("NotificationActor")
   notificationPreference NotificationPreference?
-  sessions        Session[]
-  createdFiles    File[] @relation("UserCreatedFiles")
-  createdFileVersions FileVersion[] @relation("UserCreatedFileVersions")
-  projectTemplates ProjectTemplate[] @relation("UserCreatedProjectTemplates")
-  taskStatuses     TaskStatusDefinition[] @relation("UserCreatedTaskStatuses")
-  createdRoles     Role[] @relation("UserCreatedRoles")
-  createdMilestones Milestone[] @relation("MilestoneCreator")
-  mentions        Mention[] @relation("UserMentions")
-  mentionedIn     Mention[] @relation("UserMentionedIn")
-  sentInvitations Invitation[] @relation("UserSentInvitations")
-  watchedTasks    TaskWatcher[]
-  auditLogs       AdminAuditLog[] @relation("UserAuditLogs")
-  performedAudits AdminAuditLog[] @relation("AdminPerformedAudits")
+  sessions               Session[]
+  resetTokens            ResetToken[]
+  createdFiles           File[]                  @relation("UserCreatedFiles")
+  createdFileVersions    FileVersion[]           @relation("UserCreatedFileVersions")
+  projectTemplates       ProjectTemplate[]       @relation("UserCreatedProjectTemplates")
+  taskStatuses           TaskStatusDefinition[]  @relation("UserCreatedTaskStatuses")
+  createdRoles           Role[]                  @relation("UserCreatedRoles")
+  createdMilestones      Milestone[]             @relation("MilestoneCreator")
+  mentions               Mention[]               @relation("UserMentions")
+  mentionedIn            Mention[]               @relation("UserMentionedIn")
+  sentInvitations        Invitation[]            @relation("UserSentInvitations")
+  watchedTasks           TaskWatcher[]
+  auditLogs              AdminAuditLog[]         @relation("UserAuditLogs")
+  performedAudits        AdminAuditLog[]         @relation("AdminPerformedAudits")
+  systemBackups          SystemBackup[]
+  alertAcknowledgements AdminAlertAcknowledgement[]
+
+  @@index([email])
+  @@index([systemRole])
 }
 
 model Organization {
@@ -119,15 +127,15 @@ model Organization {
   color     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relations
-  members OrganizationMember[]
-  projects Project[]
-  roles Role[]
+  members          OrganizationMember[]
+  projects         Project[]
+  roles            Role[]
   projectTemplates ProjectTemplate[]
-  taskStatuses TaskStatusDefinition[]
-  invitations Invitation[]
-  tags        Tag[]
+  taskStatuses     TaskStatusDefinition[]
+  invitations      Invitation[]
+  tags             Tag[]
 }
 
 model OrganizationMember {
@@ -137,34 +145,34 @@ model OrganizationMember {
   roleId         String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  
+
   // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role         Role         @relation(fields: [roleId], references: [id])
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           Role            @relation(fields: [roleId], references: [id])
   projectMembers ProjectMember[]
-  
+
   @@unique([organizationId, userId])
 }
 
 model Role {
-  id              String   @id @default(cuid())
-  name            String
-  description     String?
-  isSystem        Boolean  @default(false)
-  organizationId  String
-  createdById     String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  isSystem       Boolean  @default(false)
+  organizationId String
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
   // Relations
-  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  members         OrganizationMember[]
-  permissions     RolePermission[]
-  projectMembers  ProjectMember[]
-  createdBy       User?              @relation("UserCreatedRoles", fields: [createdById], references: [id])
-  invitations     Invitation[]
-  
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members        OrganizationMember[]
+  permissions    RolePermission[]
+  projectMembers ProjectMember[]
+  createdBy      User?                @relation("UserCreatedRoles", fields: [createdById], references: [id])
+  invitations    Invitation[]
+
   @@unique([organizationId, name])
 }
 
@@ -175,70 +183,75 @@ model Permission {
   category    String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relations
   rolePermissions RolePermission[]
 }
 
 model RolePermission {
-  id            String   @id @default(cuid())
-  roleId        String
-  permissionId  String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
   // Relations
   role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-  
+
   @@unique([roleId, permissionId])
 }
 
 model Project {
-  id              String         @id @default(cuid())
-  name            String
-  description     String?
-  status          ProjectStatus  @default(NOT_STARTED)
-  priority        Priority       @default(MEDIUM)
-  color           String?        @default("#4F46E5")
-  startDate       DateTime?
-  dueDate         DateTime?
-  completedAt     DateTime?
-  organizationId  String
-  templateId      String?
-  isArchived      Boolean        @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  createdById     String
-  updatedById     String
-  
+  id             String        @id @default(cuid())
+  name           String
+  description    String?
+  status         ProjectStatus @default(NOT_STARTED)
+  priority       Priority      @default(MEDIUM)
+  color          String?       @default("#4F46E5")
+  startDate      DateTime?
+  dueDate        DateTime?
+  completedAt    DateTime?
+  organizationId String
+  templateId     String?
+  isArchived     Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  createdById    String
+  updatedById    String
+
   // Relations
-  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  template     ProjectTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  createdBy    User             @relation("ProjectCreator", fields: [createdById], references: [id])
-  updatedBy    User             @relation("ProjectUpdater", fields: [updatedById], references: [id])
-  members      ProjectMember[]
-  lists        List[]
-  tasks        Task[]
-  comments     Comment[]
-  activityLogs ActivityLog[]
+  organization  Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template      ProjectTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  createdBy     User             @relation("ProjectCreator", fields: [createdById], references: [id])
+  updatedBy     User             @relation("ProjectUpdater", fields: [updatedById], references: [id])
+  members       ProjectMember[]
+  lists         List[]
+  tasks         Task[]
+  comments      Comment[]
+  activityLogs  ActivityLog[]
   notifications Notification[]
-  files        File[]
+  files         File[]
   attachedFiles FileLink[]
-  milestones   Milestone[]
-  invitations  Invitation[]
+  milestones    Milestone[]
+  invitations   Invitation[]
 
   // Template Logic
-  isTemplate         Boolean              @default(false)
-  isPublic           Boolean              @default(false)
+  isTemplate         Boolean             @default(false)
+  isPublic           Boolean             @default(false)
   category           String?
-  templateVisibility TemplateVisibility?  @default(WORKSPACE)
+  templateVisibility TemplateVisibility? @default(WORKSPACE)
   sourceTemplateId   String?
-  sourceTemplate     Project?             @relation("ProjectTemplateSource", fields: [sourceTemplateId], references: [id])
-  derivedProjects    Project[]            @relation("ProjectTemplateSource")
-  
+  sourceTemplate     Project?            @relation("ProjectTemplateSource", fields: [sourceTemplateId], references: [id])
+  derivedProjects    Project[]           @relation("ProjectTemplateSource")
+
   dependencies ProjectDependency[] @relation("SourceProject")
   dependents   ProjectDependency[] @relation("TargetProject")
+
+  @@index([organizationId])
+  @@index([createdById])
+  @@index([status])
+  @@index([isTemplate, templateVisibility])
 }
 
 model ProjectDependency {
@@ -247,11 +260,11 @@ model ProjectDependency {
   targetId  String
   type      String   @default("FINISH_TO_START")
   createdAt DateTime @default(now())
-  
+
   // Relations
   source Project @relation("SourceProject", fields: [sourceId], references: [id], onDelete: Cascade)
   target Project @relation("TargetProject", fields: [targetId], references: [id], onDelete: Cascade)
-  
+
   @@unique([sourceId, targetId])
 }
 
@@ -263,7 +276,7 @@ model ProjectTemplate {
   createdById    String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  
+
   // Relations
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projects     Project[]
@@ -271,13 +284,13 @@ model ProjectTemplate {
 }
 
 model ProjectMember {
-  id                String   @id @default(cuid())
-  projectId         String
+  id                   String   @id @default(cuid())
+  projectId            String
   organizationMemberId String
-  roleId            String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
+  roleId               String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
   // Relations
   project            Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
   organizationMember OrganizationMember @relation(fields: [organizationMemberId], references: [id], onDelete: Cascade)
@@ -285,73 +298,73 @@ model ProjectMember {
   assignedTasks      TaskAssignee[]
   timeEntries        TimeEntry[]
   ownedMilestones    Milestone[]        @relation("MilestoneOwner")
-  
+
   @@unique([projectId, organizationMemberId])
 }
 
 model List {
-  id        String   @id @default(cuid())
-  name      String
-  position  Int
-  projectId String
+  id          String   @id @default(cuid())
+  name        String
+  position    Int
+  projectId   String
   description String?
-  color     String?
-  status    String   @default("ACTIVE")
-  priority  String   @default("MEDIUM")
-  isArchived Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
+  color       String?
+  status      String   @default("ACTIVE")
+  priority    String   @default("MEDIUM")
+  isArchived  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   // Relations
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks   Task[]
+  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks        Task[]
   dependencies ListDependency[] @relation("SourceList")
   dependents   ListDependency[] @relation("TargetList")
   activityLogs ActivityLog[]
 }
 
 model Task {
-  id              String   @id @default(cuid())
-  title           String
-  description     String?
-  statusId        String?
-  priority        String   @default("MEDIUM")
-  startDate       DateTime?
-  dueDate         DateTime?
-  completedAt     DateTime?
-  estimatedHours  Float?
-  position        Int      @default(0)
-  projectId       String
-  listId          String?
-  parentId        String?
-  isArchived      Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  createdById     String
-  updatedById     String
-  
+  id             String    @id @default(cuid())
+  title          String
+  description    String?
+  statusId       String?
+  priority       String    @default("MEDIUM")
+  startDate      DateTime?
+  dueDate        DateTime?
+  completedAt    DateTime?
+  estimatedHours Float?
+  position       Int       @default(0)
+  projectId      String
+  listId         String?
+  parentId       String?
+  isArchived     Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdById    String
+  updatedById    String
+
   // Relations
-  project     Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  list        List?              @relation(fields: [listId], references: [id], onDelete: SetNull)
-  statusDef   TaskStatusDefinition? @relation(fields: [statusId], references: [id], onDelete: SetNull)
-  status      TaskStatusEnum      @default(TODO)
-  parent      Task?     @relation("SubTasks", fields: [parentId], references: [id], onDelete: Cascade)
-  children    Task[]    @relation("SubTasks")
-  createdBy   User      @relation("TaskCreator", fields: [createdById], references: [id])
-  updatedBy   User      @relation("TaskUpdater", fields: [updatedById], references: [id])
-  assignees   TaskAssignee[]
-  comments    Comment[]
-  dependencies TaskDependency[] @relation("SourceTask")
-  dependents   TaskDependency[] @relation("TargetTask")
-  activityLogs ActivityLog[]
+  project       Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  list          List?                 @relation(fields: [listId], references: [id], onDelete: SetNull)
+  statusDef     TaskStatusDefinition? @relation(fields: [statusId], references: [id], onDelete: SetNull)
+  status        TaskStatusEnum        @default(TODO)
+  parent        Task?                 @relation("SubTasks", fields: [parentId], references: [id], onDelete: Cascade)
+  children      Task[]                @relation("SubTasks")
+  createdBy     User                  @relation("TaskCreator", fields: [createdById], references: [id])
+  updatedBy     User                  @relation("TaskUpdater", fields: [updatedById], references: [id])
+  assignees     TaskAssignee[]
+  comments      Comment[]
+  dependencies  TaskDependency[]      @relation("SourceTask")
+  dependents    TaskDependency[]      @relation("TargetTask")
+  activityLogs  ActivityLog[]
   notifications Notification[]
-  timeEntries  TimeEntry[]
-  files        FileLink[]
+  timeEntries   TimeEntry[]
+  files         FileLink[]
   attachedFiles File[]
-  milestoneId  String?
-  milestone    Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
-  watchers     TaskWatcher[]
-  tags         TaskTag[]
+  milestoneId   String?
+  milestone     Milestone?            @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  watchers      TaskWatcher[]
+  tags          TaskTag[]
 }
 
 model TaskAssignee {
@@ -360,12 +373,12 @@ model TaskAssignee {
   projectMemberId String
   assignedAt      DateTime @default(now())
   assignedById    String
-  
+
   // Relations
-  task         Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task          Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
   projectMember ProjectMember @relation(fields: [projectMemberId], references: [id], onDelete: Cascade)
-  assignedBy   User          @relation(fields: [assignedById], references: [id])
-  
+  assignedBy    User          @relation(fields: [assignedById], references: [id])
+
   @@unique([taskId, projectMemberId])
 }
 
@@ -378,30 +391,30 @@ model Comment {
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relations
-  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies   Comment[] @relation("CommentReplies")
-  createdBy User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  task      Task?      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  project   Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent    Comment?   @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[]  @relation("CommentReplies")
+  createdBy User       @relation(fields: [createdById], references: [id], onDelete: Cascade)
   files     FileLink[]
   mentions  Mention[]
 }
 
 model Mention {
-  id        String   @id @default(cuid())
-  commentId String
-  userId    String
+  id            String   @id @default(cuid())
+  commentId     String
+  userId        String
   mentionedById String
-  createdAt DateTime @default(now())
-  
+  createdAt     DateTime @default(now())
+
   // Relations
-  comment       Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
-  user          User    @relation("UserMentions", fields: [userId], references: [id], onDelete: Cascade)
-  mentionedBy   User    @relation("UserMentionedIn", fields: [mentionedById], references: [id], onDelete: Cascade)
-  notification  Notification?
-  
+  comment      Comment       @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user         User          @relation("UserMentions", fields: [userId], references: [id], onDelete: Cascade)
+  mentionedBy  User          @relation("UserMentionedIn", fields: [mentionedById], references: [id], onDelete: Cascade)
+  notification Notification?
+
   @@unique([commentId, userId])
 }
 
@@ -411,25 +424,25 @@ model TaskDependency {
   targetId  String
   type      String   @default("FINISH_TO_START")
   createdAt DateTime @default(now())
-  
+
   // Relations
   source Task @relation("SourceTask", fields: [sourceId], references: [id], onDelete: Cascade)
   target Task @relation("TargetTask", fields: [targetId], references: [id], onDelete: Cascade)
-  
+
   @@unique([sourceId, targetId])
 }
 
 model ListDependency {
-  id         String   @id @default(cuid())
-  sourceId   String
-  targetId   String
-  type       String   @default("FINISH_TO_START")
-  createdAt  DateTime @default(now())
-  
+  id        String   @id @default(cuid())
+  sourceId  String
+  targetId  String
+  type      String   @default("FINISH_TO_START")
+  createdAt DateTime @default(now())
+
   // Relations
   source List @relation("SourceList", fields: [sourceId], references: [id], onDelete: Cascade)
   target List @relation("TargetList", fields: [targetId], references: [id], onDelete: Cascade)
-  
+
   @@unique([sourceId, targetId])
 }
 
@@ -444,17 +457,17 @@ model TaskStatusDefinition {
   createdById    String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  
+
   // Relations
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   tasks        Task[]
   createdBy    User?        @relation("UserCreatedTaskStatuses", fields: [createdById], references: [id])
-  
+
   @@unique([organizationId, name])
 }
 
 model Milestone {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
   description String?
   dueDate     DateTime
@@ -462,28 +475,28 @@ model Milestone {
   projectId   String
   createdById String
   ownerId     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
   // Relations
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy User    @relation("MilestoneCreator", fields: [createdById], references: [id])
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User           @relation("MilestoneCreator", fields: [createdById], references: [id])
   owner     ProjectMember? @relation("MilestoneOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   tasks     Task[]
 }
 
 model ActivityLog {
-  id         String   @id @default(cuid())
-  action     String
-  entityType String
-  entityId   String
+  id          String   @id @default(cuid())
+  action      String
+  entityType  String
+  entityId    String
   description String?
-  userId     String
-  projectId  String?
-  listId     String?
-  taskId     String?
-  createdAt  DateTime @default(now())
-  
+  userId      String
+  projectId   String?
+  listId      String?
+  taskId      String?
+  createdAt   DateTime @default(now())
+
   // Relations
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -497,68 +510,68 @@ model Notification {
   title       String
   message     String
   isRead      Boolean          @default(false)
-  userId      String           // Recipient
-  actorId     String?          // Who did the action
+  userId      String // Recipient
+  actorId     String? // Who did the action
   projectId   String?
   taskId      String?
   milestoneId String?
-  mentionId   String?           @unique
-  metadata    Json?             // Store extra details like old/new status
-  createdAt   DateTime          @default(now())
+  mentionId   String?          @unique
+  metadata    Json? // Store extra details like old/new status
+  createdAt   DateTime         @default(now())
   readAt      DateTime?
-  
+
   // Relations
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  actor     User?    @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
-  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  mention   Mention? @relation(fields: [mentionId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actor   User?    @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task    Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  mention Mention? @relation(fields: [mentionId], references: [id], onDelete: Cascade)
 }
 
 model NotificationPreference {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Task Notifications
-  taskAssignedInApp    Boolean @default(true)
-  taskAssignedEmail    Boolean @default(true)
-  taskStatusInApp      Boolean @default(true)
-  taskStatusEmail      Boolean @default(false)
-  taskCommentInApp     Boolean @default(true)
-  taskCommentEmail     Boolean @default(true)
-  taskDueInApp         Boolean @default(true)
-  taskDueEmail         Boolean @default(true)
+  taskAssignedInApp Boolean @default(true)
+  taskAssignedEmail Boolean @default(true)
+  taskStatusInApp   Boolean @default(true)
+  taskStatusEmail   Boolean @default(false)
+  taskCommentInApp  Boolean @default(true)
+  taskCommentEmail  Boolean @default(true)
+  taskDueInApp      Boolean @default(true)
+  taskDueEmail      Boolean @default(true)
 
   // Project Notifications
-  projectMemberInApp   Boolean @default(true)
-  projectMemberEmail   Boolean @default(true)
-  projectRoleInApp     Boolean @default(true)
-  projectRoleEmail     Boolean @default(false)
-  milestoneInApp       Boolean @default(true)
-  milestoneEmail       Boolean @default(false)
+  projectMemberInApp Boolean @default(true)
+  projectMemberEmail Boolean @default(true)
+  projectRoleInApp   Boolean @default(true)
+  projectRoleEmail   Boolean @default(false)
+  milestoneInApp     Boolean @default(true)
+  milestoneEmail     Boolean @default(false)
 
   // System Notifications
-  invitationInApp      Boolean @default(true)
-  invitationEmail      Boolean @default(true)
-  securityEmail        Boolean @default(true)
+  invitationInApp Boolean @default(true)
+  invitationEmail Boolean @default(true)
+  securityEmail   Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model TimeEntry {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   description     String?
   startTime       DateTime
   endTime         DateTime?
-  duration        Int?     // in minutes
-  billable        Boolean  @default(false)
+  duration        Int? // in minutes
+  billable        Boolean   @default(false)
   taskId          String
   projectMemberId String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
   // Relations
   task          Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
   projectMember ProjectMember @relation(fields: [projectMemberId], references: [id], onDelete: Cascade)
@@ -568,20 +581,20 @@ model File {
   id          String   @id @default(cuid())
   name        String
   mimeType    String
-  size        Int      // in bytes
+  size        Int // in bytes
   url         String
   projectId   String?
   taskId      String?
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relations
-  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  task      Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  createdBy User     @relation("UserCreatedFiles", fields: [createdById], references: [id])
+  project   Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task      Task?         @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  createdBy User          @relation("UserCreatedFiles", fields: [createdById], references: [id])
   versions  FileVersion[]
-  links     FileLink[] @relation("FileLinks")
+  links     FileLink[]    @relation("FileLinks")
 }
 
 model FileVersion {
@@ -594,11 +607,11 @@ model FileVersion {
   url         String
   createdById String
   createdAt   DateTime @default(now())
-  
+
   // Relations
   file      File @relation(fields: [fileId], references: [id], onDelete: Cascade)
   createdBy User @relation("UserCreatedFileVersions", fields: [createdById], references: [id])
-  
+
   @@unique([fileId, version])
 }
 
@@ -609,15 +622,13 @@ model FileLink {
   commentId String?
   projectId String?
   createdAt DateTime @default(now())
-  
+
   // Relations
-  file    File    @relation("FileLinks", fields: [fileId], references: [id], onDelete: Cascade)
-  task    Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  file    File     @relation("FileLinks", fields: [fileId], references: [id], onDelete: Cascade)
+  task    Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
   comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
   project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
-
-
 
 model Invitation {
   id             String           @id @default(cuid())
@@ -625,8 +636,8 @@ model Invitation {
   email          String
   type           InvitationType
   status         InvitationStatus @default(PENDING)
-  organizationId String?          // For workspace invitations
-  projectId      String?          // For project invitations
+  organizationId String? // For workspace invitations
+  projectId      String? // For project invitations
   roleId         String
   invitedById    String
   expiresAt      DateTime
@@ -637,23 +648,23 @@ model Invitation {
   // Relations
   invitedBy    User          @relation("UserSentInvitations", fields: [invitedById], references: [id], onDelete: Cascade)
   role         Role          @relation(fields: [roleId], references: [id])
-  project      Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([email])
   @@index([token])
 }
 
 model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
-  userAgent String?
-  ipAddress String?
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String   @unique
+  userAgent  String?
+  ipAddress  String?
   lastActive DateTime @default(now())
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
 
   @@index([userId])
 }
@@ -664,8 +675,8 @@ model TaskWatcher {
   userId    String
   createdAt DateTime @default(now())
 
-  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([taskId, userId])
   @@index([userId])
@@ -679,60 +690,94 @@ model Tag {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  tasks          TaskTag[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tasks        TaskTag[]
 
   @@unique([organizationId, name])
 }
 
 model TaskTag {
-  id      String @id @default(cuid())
-  taskId  String
-  tagId   String
+  id     String @id @default(cuid())
+  taskId String
+  tagId  String
 
-  task    Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@unique([taskId, tagId])
 }
 
 model AdminAuditLog {
-  id          String   @id @default(cuid())
-  action      String   // e.g., USER_ROLE_CHANGED, USER_SUSPENDED, USER_ACTIVATED, etc.
-  targetUserId String? // User who was affected by the action
+  id            String   @id @default(cuid())
+  action        String // e.g., USER_ROLE_CHANGED, USER_SUSPENDED, USER_ACTIVATED, etc.
+  targetUserId  String? // User who was affected by the action
   performedById String // Admin who performed the action
-  entityType  String   // USER, WORKSPACE, SYSTEM, etc.
-  entityId    String?  // ID of affected entity
-  metadata    Json?    // Additional data (old/new values, etc.)
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
-  
+  entityType    String // USER, WORKSPACE, SYSTEM, etc.
+  entityId      String? // ID of affected entity
+  metadata      Json? // Additional data (old/new values, etc.)
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
   // Relations
-  targetUser  User?    @relation("UserAuditLogs", fields: [targetUserId], references: [id], onDelete: SetNull)
-  performedBy User     @relation("AdminPerformedAudits", fields: [performedById], references: [id], onDelete: Cascade)
-  
+  targetUser  User? @relation("UserAuditLogs", fields: [targetUserId], references: [id], onDelete: SetNull)
+  performedBy User  @relation("AdminPerformedAudits", fields: [performedById], references: [id], onDelete: Cascade)
+
   @@index([targetUserId])
   @@index([performedById])
   @@index([createdAt])
 }
+
 model SystemSetting {
   id          String   @id @default(cuid())
-  group       String   // GENERAL, SECURITY, EMAIL, BACKUP
+  group       String // GENERAL, SECURITY, EMAIL, BACKUP
   key         String
   value       Json
   description String?
   isPublic    Boolean  @default(false)
   updatedAt   DateTime @updatedAt
-  
+
   @@unique([group, key])
 }
 
 model SystemBackup {
   id          String   @id @default(cuid())
   filename    String
+  path        String
   sizeBytes   BigInt
-  status      String   // PENDING, COMPLETED, FAILED
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
 }
 
+model ResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+model SystemAlert {
+  id        String   @id @default(cuid())
+  title     String
+  message   String
+  severity  String   @default("INFO") // INFO, WARNING, CRITICAL
+  isActive  Boolean  @default(true)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+
+  acknowledgements AdminAlertAcknowledgement[]
+}
+
+model AdminAlertAcknowledgement {
+  id        String   @id @default(cuid())
+  alertId   String
+  adminId   String
+  createdAt DateTime @default(now())
+
+  alert SystemAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  admin User        @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([alertId, adminId])
+}

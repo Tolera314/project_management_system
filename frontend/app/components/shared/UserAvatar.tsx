@@ -24,7 +24,12 @@ export default function UserAvatar({
 
     // If this avatar represents the current user, use the live data from context
     const isCurrentUser = user && userId === user.id;
-    const finalAvatarUrl = isCurrentUser ? user.avatarUrl : avatarUrl;
+    let finalAvatarUrl = isCurrentUser ? user.avatarUrl : avatarUrl;
+
+    // Handle relative URLs for uploaded avatars
+    if (finalAvatarUrl && !finalAvatarUrl.startsWith('http') && !finalAvatarUrl.startsWith('data:')) {
+        finalAvatarUrl = `http://localhost:4000/uploads/${finalAvatarUrl}`;
+    }
     const finalFirstName = isCurrentUser ? user.firstName : firstName;
     // const finalLastName = isCurrentUser ? user.lastName : lastName; // Optional: update name too
 
