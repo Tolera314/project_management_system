@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useToast } from '../ui/Toast';
 
 const projectColors = [
     { name: 'Primary', value: '#4F46E5' },
@@ -46,6 +47,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess, initial
     const [existingProjects, setExistingProjects] = useState<any[]>([]);
     const [isDependencySearchOpen, setIsDependencySearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const { showToast } = useToast();
 
     const {
         register,
@@ -135,7 +137,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess, initial
             const userStr = localStorage.getItem('user');
 
             if (!token || !userStr) {
-                alert('Please log in to create a project');
+                showToast('error', 'Authentication Error', 'Please log in to create a project');
                 window.location.href = '/login';
                 return;
             }
@@ -144,7 +146,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess, initial
             const organizationId = user.organizations?.[0]?.id;
 
             if (!organizationId) {
-                alert('No organization found.');
+                showToast('error', 'Organization Error', 'No organization found.');
                 return;
             }
 
@@ -181,7 +183,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess, initial
 
         } catch (error: any) {
             console.error('Create project error:', error);
-            alert(error.message || 'Failed to create project');
+            showToast('error', 'Creation Failed', error.message || 'Failed to create project');
         } finally {
             setIsSubmitting(false);
         }

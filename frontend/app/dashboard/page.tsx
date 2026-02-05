@@ -71,6 +71,14 @@ export default function DashboardPage() {
                 },
             });
 
+            if (workspaceResponse.status === 401) {
+                console.warn('[Dashboard] Session expired (401)');
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                router.push('/login');
+                return;
+            }
+
             if (workspaceResponse.ok) {
                 const workspaceData = await workspaceResponse.json();
                 console.log('[Dashboard] Workspace data:', workspaceData);

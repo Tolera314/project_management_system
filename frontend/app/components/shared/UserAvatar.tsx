@@ -1,5 +1,4 @@
-'use client';
-
+import { useState, useEffect } from 'react';
 import { useUser } from '../../context/UserContext';
 
 interface UserAvatarProps {
@@ -21,9 +20,15 @@ export default function UserAvatar({
     size = 'md'
 }: UserAvatarProps) {
     const { user } = useUser();
+    const [mounted, setMounted] = useState(false);
 
-    // If this avatar represents the current user, use the live data from context
-    const isCurrentUser = user && userId === user.id;
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // During SSR and first client render (before mount), we can't know the user context from generic storage
+    // So we rely purely on props or default to '?' to match server
+    const isCurrentUser = mounted && user && userId === user.id;
     let finalAvatarUrl = isCurrentUser ? user.avatarUrl : avatarUrl;
 
     // Handle relative URLs for uploaded avatars

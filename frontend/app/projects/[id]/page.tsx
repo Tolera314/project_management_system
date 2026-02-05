@@ -82,7 +82,9 @@ interface Project {
     };
 }
 
-export default function ProjectPage() {
+import { Suspense } from 'react';
+
+function ProjectContent() {
     const params = useParams();
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -117,6 +119,14 @@ export default function ProjectPage() {
                     'Authorization': `Bearer ${token}`
                 }
             });
+
+            if (res.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                router.push('/login');
+                return;
+            }
+
             const data = await res.json();
             if (data.project) {
                 setProject(data.project);
@@ -321,202 +331,217 @@ export default function ProjectPage() {
 
 
     return (
-        <DashboardLayout>
-            <div className="flex h-full relative overflow-hidden">
-                <div className="flex-1 flex flex-col min-w-0">
-                    <ProjectHeader
-                        project={project}
-                        activeView={activeView}
-                        onViewChange={setActiveView}
-                        onCreateList={() => setIsCreateListModalOpen(true)}
-                        onInviteMember={() => setIsInviteModalOpen(true)}
-                        onManageMembers={() => setIsMembersModalOpen(true)}
-                        canInvite={hasPermission('manage_project_members')}
-                        sortBy={sortBy}
-                        onSortChange={setSortBy}
-                        filterStatus={filterStatus}
-                        filterAssignee={filterAssignee}
-                        showArchived={showArchived}
-                        onShowArchivedChange={setShowArchived}
-                        onFilterChange={(type, value) => {
-                            if (type === 'status') setFilterStatus(value);
-                            if (type === 'assignee') setFilterAssignee(value);
-                        }}
-                        isPreview={isPreview}
-                        onUseTemplate={() => setIsUseTemplateModalOpen(true)}
-                    />
+        <div className="flex h-full relative overflow-hidden">
+            <div className="flex-1 flex flex-col min-w-0">
+                <ProjectHeader
+                    project={project}
+                    activeView={activeView}
+                    onViewChange={setActiveView}
+                    onCreateList={() => setIsCreateListModalOpen(true)}
+                    onInviteMember={() => setIsInviteModalOpen(true)}
+                    onManageMembers={() => setIsMembersModalOpen(true)}
+                    canInvite={hasPermission('manage_project_members')}
+                    sortBy={sortBy}
+                    onSortChange={setSortBy}
+                    filterStatus={filterStatus}
+                    filterAssignee={filterAssignee}
+                    showArchived={showArchived}
+                    onShowArchivedChange={setShowArchived}
+                    onFilterChange={(type, value) => {
+                        if (type === 'status') setFilterStatus(value);
+                        if (type === 'assignee') setFilterAssignee(value);
+                    }}
+                    isPreview={isPreview}
+                    onUseTemplate={() => setIsUseTemplateModalOpen(true)}
+                />
 
-                    <div className="flex-1 overflow-auto custom-scrollbar">
-                        <div className="p-6 md:p-8 max-w-400 mx-auto space-y-8">
-                            <ProjectOverviewStrip project={project} />
+                <div className="flex-1 overflow-auto custom-scrollbar">
+                    <div className="p-6 md:p-8 max-w-400 mx-auto space-y-8">
+                        <ProjectOverviewStrip project={project} />
 
-                            <AnimatePresence mode="wait">
-                                {activeView === 'list' && (
-                                    <motion.div
-                                        key="list"
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -20 }}
-                                        transition={{ duration: 0.3 }}
-                                    >
-                                        <TaskListView
-                                            lists={processedProject!.lists}
-                                            projectId={projectId}
-                                            project={project}
-                                            onTaskClick={(task: Task) => setSelectedTask(task)}
-                                            onListClick={(listId: string) => setSelectedListId(listId)}
-                                            onRefresh={() => fetchProjectData(true)}
-                                        />
-                                    </motion.div>
-                                )}
+                        <AnimatePresence mode="wait">
+                            {activeView === 'list' && (
+                                <motion.div
+                                    key="list"
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ duration: 0.3 }}
+                                >
+                                    <TaskListView
+                                        lists={processedProject!.lists}
+                                        projectId={projectId}
+                                        project={project}
+                                        onTaskClick={(task: Task) => setSelectedTask(task)}
+                                        onListClick={(listId: string) => setSelectedListId(listId)}
+                                        onRefresh={() => fetchProjectData(true)}
+                                    />
+                                </motion.div>
+                            )}
 
-                                {activeView === 'board' && (
-                                    <motion.div
-                                        key="board"
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -20 }}
-                                        transition={{ duration: 0.3 }}
-                                        className="h-full"
-                                    >
-                                        <BoardView
-                                            tasks={processedProject!.lists.flatMap((l: List) => l.tasks)}
-                                            projectId={projectId}
-                                            project={project}
-                                            onTaskClick={(task: Task) => setSelectedTask(task)}
-                                            onRefresh={() => fetchProjectData(true)}
-                                            onAddTask={(status) => {
-                                                setCreateTaskInitialStatus(status);
-                                                setIsCreateTaskModalOpen(true);
-                                            }}
-                                        />
-                                    </motion.div>
-                                )}
+                            {activeView === 'board' && (
+                                <motion.div
+                                    key="board"
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="h-full"
+                                >
+                                    <BoardView
+                                        tasks={processedProject!.lists.flatMap((l: List) => l.tasks)}
+                                        projectId={projectId}
+                                        project={project}
+                                        onTaskClick={(task: Task) => setSelectedTask(task)}
+                                        onRefresh={() => fetchProjectData(true)}
+                                        onAddTask={(status) => {
+                                            setCreateTaskInitialStatus(status);
+                                            setIsCreateTaskModalOpen(true);
+                                        }}
+                                    />
+                                </motion.div>
+                            )}
 
-                                {activeView === 'milestones' && (
-                                    <motion.div
-                                        key="milestones"
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -20 }}
-                                        transition={{ duration: 0.3 }}
-                                    >
-                                        <MilestoneDashboard
-                                            projectId={projectId}
-                                            onRefresh={() => fetchProjectData(true)}
-                                            projectTasks={processedProject!.lists.flatMap((list: List) => list.tasks)}
-                                            onMilestoneClick={(milestone: Milestone) => setSelectedMilestone(milestone)}
-                                        />
-                                    </motion.div>
-                                )}
+                            {activeView === 'milestones' && (
+                                <motion.div
+                                    key="milestones"
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ duration: 0.3 }}
+                                >
+                                    <MilestoneDashboard
+                                        projectId={projectId}
+                                        onRefresh={() => fetchProjectData(true)}
+                                        projectTasks={processedProject!.lists.flatMap((list: List) => list.tasks)}
+                                        onMilestoneClick={(milestone: Milestone) => setSelectedMilestone(milestone)}
+                                    />
+                                </motion.div>
+                            )}
 
-                                {activeView === 'timeline' && (
-                                    <motion.div
-                                        key="timeline"
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -20 }}
-                                        transition={{ duration: 0.3 }}
-                                        className="h-full"
-                                    >
-                                        <TimelineView
-                                            tasks={processedProject!.lists.flatMap((l: List) => l.tasks)}
-                                            milestones={processedProject!.milestones || []}
-                                            projectId={projectId}
-                                            onTaskClick={(task: Task) => setSelectedTask(task)}
-                                            onRefresh={() => fetchProjectData(true)}
-                                        />
-                                    </motion.div>
-                                )}
+                            {activeView === 'timeline' && (
+                                <motion.div
+                                    key="timeline"
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="h-full"
+                                >
+                                    <TimelineView
+                                        tasks={processedProject!.lists.flatMap((l: List) => l.tasks)}
+                                        milestones={processedProject!.milestones || []}
+                                        projectId={projectId}
+                                        onTaskClick={(task: Task) => setSelectedTask(task)}
+                                        onRefresh={() => fetchProjectData(true)}
+                                    />
+                                </motion.div>
+                            )}
 
-                                {activeView === 'files' && (
-                                    <motion.div
-                                        key="files"
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -20 }}
-                                        transition={{ duration: 0.3 }}
-                                    >
-                                        <FileList projectId={projectId} />
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </div>
+                            {activeView === 'files' && (
+                                <motion.div
+                                    key="files"
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ duration: 0.3 }}
+                                >
+                                    <FileList projectId={projectId} />
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 </div>
-
-                <AnimatePresence>
-                    {selectedTask && (
-                        <TaskDetailPanel
-                            key="task-detail-panel"
-                            task={selectedTask}
-                            project={project}
-                            onClose={() => setSelectedTask(null)}
-                            onUpdate={() => fetchProjectData(true)}
-                        />
-                    )}
-                    {selectedMilestone && (
-                        <MilestoneDetailPanel
-                            key="milestone-detail-panel"
-                            milestone={selectedMilestone}
-                            onClose={() => setSelectedMilestone(null)}
-                            onRefresh={() => fetchProjectData(true)}
-                        />
-                    )}
-                    <ListDetailPanel
-                        key="list-detail-panel"
-                        listId={selectedListId}
-                        isOpen={!!selectedListId}
-                        onClose={() => setSelectedListId(null)}
-                        onRefresh={() => fetchProjectData(true)}
-                        projectId={projectId}
-                    />
-                    <CreateListModal
-                        key="create-list-modal"
-                        isOpen={isCreateListModalOpen}
-                        onClose={() => setIsCreateListModalOpen(false)}
-                        projectId={projectId}
-                        onSuccess={() => fetchProjectData(true)}
-                    />
-                    <CreateTaskModal
-                        key="create-task-modal"
-                        isOpen={isCreateTaskModalOpen}
-                        onClose={() => setIsCreateTaskModalOpen(false)}
-                        projectId={projectId}
-                        onSuccess={() => fetchProjectData(true)}
-                        initialStatus={createTaskInitialStatus}
-                        lists={project?.lists || []}
-                    />
-                    <InviteMemberModal
-                        key="invite-member-modal"
-                        isOpen={isInviteModalOpen}
-                        onClose={() => setIsInviteModalOpen(false)}
-                        projectId={projectId}
-                        onInvite={handleInviteMember}
-                        roles={project?.organization?.roles || []}
-                        workspaceMembers={project?.organization?.members || []}
-                        projectMembers={project?.members || []}
-                    />
-                    <ProjectMembersModal
-                        key="project-members-modal"
-                        isOpen={isMembersModalOpen}
-                        onClose={() => setIsMembersModalOpen(false)}
-                        project={project}
-                        onUpdateRole={handleUpdateMemberRole}
-                        onRemoveMember={handleRemoveMember}
-                        currentUser={{ id: currentMemberId }} // We need user info more than just member ID for "You" tag, but basic check works
-                        roles={(project?.organization?.roles || []).filter((r: MemberRole) =>
-                            ['Project Manager', 'Project Member', 'Project Viewer'].includes(r.name)
-                        )}
-                    />
-                    <CreateProjectModal
-                        isOpen={isUseTemplateModalOpen}
-                        onClose={() => setIsUseTemplateModalOpen(false)}
-                        onSuccess={handleUseTemplateSubmission}
-                        initialTemplateId={projectId}
-                    />
-                </AnimatePresence>
             </div>
+
+            <AnimatePresence>
+                {selectedTask && (
+                    <TaskDetailPanel
+                        key="task-detail-panel"
+                        task={selectedTask}
+                        project={project}
+                        onClose={() => setSelectedTask(null)}
+                        onUpdate={() => fetchProjectData(true)}
+                    />
+                )}
+                {selectedMilestone && (
+                    <MilestoneDetailPanel
+                        key="milestone-detail-panel"
+                        milestone={selectedMilestone}
+                        onClose={() => setSelectedMilestone(null)}
+                        onRefresh={() => fetchProjectData(true)}
+                    />
+                )}
+                <ListDetailPanel
+                    key="list-detail-panel"
+                    listId={selectedListId}
+                    isOpen={!!selectedListId}
+                    onClose={() => setSelectedListId(null)}
+                    onRefresh={() => fetchProjectData(true)}
+                    projectId={projectId}
+                />
+                <CreateListModal
+                    key="create-list-modal"
+                    isOpen={isCreateListModalOpen}
+                    onClose={() => setIsCreateListModalOpen(false)}
+                    projectId={projectId}
+                    onSuccess={() => fetchProjectData(true)}
+                />
+                <CreateTaskModal
+                    key="create-task-modal"
+                    isOpen={isCreateTaskModalOpen}
+                    onClose={() => setIsCreateTaskModalOpen(false)}
+                    projectId={projectId}
+                    onSuccess={() => fetchProjectData(true)}
+                    initialStatus={createTaskInitialStatus}
+                    lists={project?.lists || []}
+                />
+                <InviteMemberModal
+                    key="invite-member-modal"
+                    isOpen={isInviteModalOpen}
+                    onClose={() => setIsInviteModalOpen(false)}
+                    projectId={projectId}
+                    onInvite={handleInviteMember}
+                    roles={project?.organization?.roles || []}
+                    workspaceMembers={project?.organization?.members || []}
+                    projectMembers={project?.members || []}
+                />
+                <ProjectMembersModal
+                    key="project-members-modal"
+                    isOpen={isMembersModalOpen}
+                    onClose={() => setIsMembersModalOpen(false)}
+                    project={project}
+                    onUpdateRole={handleUpdateMemberRole}
+                    onRemoveMember={handleRemoveMember}
+                    currentUser={{ id: currentMemberId }} // We need user info more than just member ID for "You" tag, but basic check works
+                    roles={(project?.organization?.roles || []).filter((r: MemberRole) =>
+                        ['Project Manager', 'Project Member', 'Project Viewer'].includes(r.name)
+                    )}
+                />
+                <CreateProjectModal
+                    isOpen={isUseTemplateModalOpen}
+                    onClose={() => setIsUseTemplateModalOpen(false)}
+                    onSuccess={handleUseTemplateSubmission}
+                    initialTemplateId={projectId}
+                />
+            </AnimatePresence>
+        </div>
+    );
+}
+
+export default function ProjectPage() {
+    return (
+        <DashboardLayout>
+            <Suspense fallback={
+                <div className="flex items-center justify-center h-full">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                        <p className="text-text-secondary animate-pulse">Loading project...</p>
+                    </div>
+                </div>
+            }>
+                <ProjectContent />
+            </Suspense>
         </DashboardLayout>
     );
 }

@@ -26,6 +26,8 @@ import { useUser } from '../../context/UserContext';
 import UserAvatar from '../shared/UserAvatar';
 import { useToast } from '../ui/Toast';
 import { Loader2 } from 'lucide-react';
+import ProjectPresence from './ProjectPresence';
+import ProjectSettingsModal from './ProjectSettingsModal';
 
 interface ProjectHeaderProps {
     project: any;
@@ -45,6 +47,7 @@ interface ProjectHeaderProps {
     onShowArchivedChange?: (show: boolean) => void;
     isPreview?: boolean;
     onUseTemplate?: () => void;
+    onUpdate?: () => void;
 }
 
 export default function ProjectHeader({
@@ -64,12 +67,14 @@ export default function ProjectHeader({
     showArchived = false,
     onShowArchivedChange,
     isPreview = false,
-    onUseTemplate
+    onUseTemplate,
+    onUpdate
 }: ProjectHeaderProps) {
     const [showCreateMenu, setShowCreateMenu] = useState<boolean | 'more' | 'export'>(false);
     const [showSortMenu, setShowSortMenu] = useState(false);
     const [showFilterMenu, setShowFilterMenu] = useState(false);
     const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const { user } = useUser();
     const { showToast } = useToast();
@@ -82,7 +87,8 @@ export default function ProjectHeader({
 
             if (format === 'pdf') {
                 showToast('info', 'Preparing PDF...', 'Your report is being generated.');
-                const response = await fetch(`http://localhost:4000/projects/${projectId}/report`, {
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+                const response = await fetch(`${apiUrl}/projects/${projectId}/report`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await response.json();
@@ -163,7 +169,8 @@ export default function ProjectHeader({
             }
 
             showToast('info', `Exporting ${format.toUpperCase()}...`, 'Generating your download.');
-            const url = `http://localhost:4000/projects/${projectId}/report?format=${format}`;
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const url = `${apiUrl}/projects/${projectId}/report?format=${format}`;
             const response = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -223,7 +230,10 @@ export default function ProjectHeader({
                     </div>
                     {/* Members stack - Moved to right side per request */}
                     <div className="flex items-center gap-2">
-                        <div className="flex -space-x-2 mr-2">
+                        {/* Live Presence */}
+                        <ProjectPresence projectId={project.id} members={project.members} />
+
+                        <div className="flex -space-x-2 mr-2 border-l border-white/10 pl-2 ml-2">
                             {project.members?.filter((m: any) => m.organizationMember?.user).map((member: any) => {
                                 const isPM = member.role?.name === 'Project Manager';
                                 const user = member.organizationMember.user;
@@ -257,7 +267,7 @@ export default function ProjectHeader({
                         <button
                             onClick={() => {
                                 navigator.clipboard.writeText(window.location.href);
-                                alert('Project link copied to clipboard!');
+                                showToast('success', 'Link Copied', 'Project link copied to clipboard!');
                             }}
                             className="p-2 hover:bg-slate-100 dark:hover:bg-hover-bg rounded-lg transition-colors text-slate-600 dark:text-text-secondary hover:text-primary dark:hover:text-primary"
                             title="Copy Project Link"
@@ -298,9 +308,9 @@ export default function ProjectHeader({
                                         <button
                                             onClick={() => {
                                                 setShowCreateMenu(false);
-                                                alert('Project Settings coming soon!');
+                                                setShowSettingsModal(true);
                                             }}
-                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors flex items-center gap-2"
+                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-sm text-slate-600 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
                                         >
                                             <LayoutGrid size={16} />
                                             Project Settings
@@ -604,6 +614,21 @@ export default function ProjectHeader({
                     )}
                 </div>
             </div>
-        </div>
+
+            <ProjectSettingsModal
+                isOpen={showSettingsModal}
+                onClose={() => setShowSettingsModal(false)}
+                project={project}
+                onUpdate={onUpdate}
+            />
+
+            <SaveAsTemplateModal
+                isOpen={showSaveAsTemplate}
+                onClose={() => setShowSaveAsTemplate(false)}
+                projectId={project.id}
+                projectName={project.name}
+                onSuccess={() => setShowSaveAsTemplate(false)}
+            />
+        </div >
     );
 }

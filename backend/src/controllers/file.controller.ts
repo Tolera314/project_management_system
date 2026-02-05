@@ -131,16 +131,32 @@ export class FileController {
         try {
             const { id } = req.params;
             const file = await fileService.getFileDetails(id);
-            if (!file) return res.status(404).json({ error: 'File not found' });
-
-            // If it's a Cloudinary URL, we can use the fl_attachment flag to force download
-            let downloadUrl = file.url;
-            if (downloadUrl.includes('cloudinary.com')) {
-                // Insert fl_attachment into the URL
-                downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
+            if (!file) {
+                res.status(404).json({ error: 'File not found' });
+                return;
             }
 
-            res.redirect(downloadUrl);
+            // Check if it's a Cloudinary URL
+            if (file.url && file.url.includes('cloudinary.com')) {
+                let downloadUrl = file.url;
+                // Add fl_attachment to force download for Cloudinary files
+                if (downloadUrl.includes('/upload/') && !downloadUrl.includes('/fl_attachment')) {
+                    downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
+                }
+                res.redirect(downloadUrl);
+            } else {
+                // Assume local file serve
+                // If url is just the filename
+                const filename = file.url ? path.basename(file.url) : file.name;
+                const filepath = path.join(process.cwd(), 'uploads', filename);
+
+                if (fs.existsSync(filepath)) {
+                    res.download(filepath, file.name || filename);
+                } else {
+                    console.error(`File not found on disk: ${filepath}`);
+                    res.status(404).json({ error: 'File source not found' });
+                }
+            }
         } catch (error) {
             console.error('Download error:', error);
             res.status(500).json({ error: 'Failed to initiate download' });

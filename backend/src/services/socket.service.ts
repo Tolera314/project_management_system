@@ -9,10 +9,12 @@ interface JwtPayload {
 export class SocketService {
     private static io: SocketIOServer;
 
+    private static activeUsers: Map<string, Set<string>> = new Map(); // projectId -> Set<userId>
+
     public static initialize(server: HttpServer) {
         this.io = new SocketIOServer(server, {
             cors: {
-                origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+                origin: [process.env.FRONTEND_URL || 'http://localhost:3000', 'http://127.0.0.1:3000'],
                 methods: ['GET', 'POST', 'PATCH', 'DELETE'],
                 credentials: true
             }
@@ -33,20 +35,60 @@ export class SocketService {
         });
 
         this.io.on('connection', (socket) => {
-            console.log(`🔌 Client connected: ${socket.id} (User: ${socket.data.userId})`);
+            const userId = socket.data.userId;
+            console.log(`🔌 Client connected: ${socket.id} (User: ${userId})`);
 
             // Auto-join user room
-            if (socket.data.userId) {
-                socket.join(`user-${socket.data.userId}`);
+            if (userId) {
+                socket.join(`user-${userId}`);
             }
 
             socket.on('join-workspace', (workspaceId: string) => {
                 socket.join(`workspace-${workspaceId}`);
-                console.log(`📡 Socket ${socket.id} joined workspace-${workspaceId}`);
+            });
+
+            // Presence: Join Project
+            socket.on('join-project', (projectId: string) => {
+                socket.join(`project-${projectId}`);
+
+                if (!this.activeUsers.has(projectId)) {
+                    this.activeUsers.set(projectId, new Set());
+                }
+                this.activeUsers.get(projectId)?.add(userId);
+
+                // Broadcast new list
+                this.io.to(`project-${projectId}`).emit('presence-update', Array.from(this.activeUsers.get(projectId)!));
+            });
+
+            // Presence: Leave Project
+            socket.on('leave-project', (projectId: string) => {
+                socket.leave(`project-${projectId}`);
+                if (this.activeUsers.has(projectId)) {
+                    this.activeUsers.get(projectId)?.delete(userId);
+                    if (this.activeUsers.get(projectId)?.size === 0) {
+                        this.activeUsers.delete(projectId);
+                    } else {
+                        this.io.to(`project-${projectId}`).emit('presence-update', Array.from(this.activeUsers.get(projectId)!));
+                    }
+                }
             });
 
             socket.on('disconnect', () => {
                 console.log(`🔌 Client disconnected: ${socket.id}`);
+                // Cleanup presence from all projects
+                // Note: efficient lookup would require reverse map or iterating. 
+                // For simplicity/perf in memory, iterating small map is okay, or just rely on explicit leave if client can. 
+                // But disconnect should cleanup.
+                this.activeUsers.forEach((users, projectId) => {
+                    if (users.has(userId)) {
+                        users.delete(userId);
+                        if (users.size === 0) {
+                            this.activeUsers.delete(projectId);
+                        } else {
+                            this.io.to(`project-${projectId}`).emit('presence-update', Array.from(users));
+                        }
+                    }
+                });
             });
         });
 
