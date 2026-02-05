@@ -7,6 +7,7 @@ import { AdminService } from '../../services/admin.service';
 import { motion, AnimatePresence } from 'framer-motion';
 import ConfirmationModal from '../../components/shared/ConfirmationModal';
 import UserAvatar from '../../components/shared/UserAvatar';
+import { useToast } from '../../components/ui/Toast';
 
 export default function UsersAdmin() {
     const [users, setUsers] = useState<any[]>([]);
@@ -28,6 +29,7 @@ export default function UsersAdmin() {
     const [selectedUser, setSelectedUser] = useState<any | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
     const [confirmAction, setConfirmAction] = useState<{ type: 'SUSPEND' | 'RESTORE' | 'RESET_MFA' | 'DELETE', user: any } | null>(null);
+    const { showToast } = useToast();
 
     useEffect(() => {
         loadUsers();
@@ -69,8 +71,9 @@ export default function UsersAdmin() {
             if (selectedUser?.id === user.id) {
                 setSelectedUser({ ...user, status: newStatus });
             }
+            showToast('success', 'Status Updated', `User status updated to ${newStatus}`);
         } catch (error) {
-            alert("Failed to update user status");
+            showToast('error', 'Update Failed', 'Failed to update user status');
         } finally {
             setIsUpdating(false);
         }
@@ -84,8 +87,9 @@ export default function UsersAdmin() {
             if (selectedUser?.id === user.id) {
                 setSelectedUser({ ...user, systemRole: newRole });
             }
+            showToast('success', 'Role Updated', `User role updated to ${newRole}`);
         } catch (error) {
-            alert("Failed to update user role");
+            showToast('error', 'Update Failed', 'Failed to update user role');
         } finally {
             setIsUpdating(false);
         }
@@ -110,8 +114,9 @@ export default function UsersAdmin() {
                 const updatedMfa = type === 'RESET_MFA' ? false : user.mfaEnabled;
                 setSelectedUser({ ...user, status: updatedStatus, mfaEnabled: updatedMfa });
             }
+            showToast('success', 'Action Completed', `Action ${type.toLowerCase()} completed successfully`);
         } catch (error) {
-            alert(`Failed to perform ${type.toLowerCase()} action`);
+            showToast('error', 'Action Failed', `Failed to perform ${type.toLowerCase()} action`);
         } finally {
             setIsUpdating(false);
             setConfirmAction(null);
@@ -278,7 +283,7 @@ export default function UsersAdmin() {
                                                                 )}
                                                                 <div className="h-px bg-border my-1" />
                                                                 <button
-                                                                    onClick={() => alert('Password reset link sent to ' + user.email)}
+                                                                    onClick={() => showToast('success', 'Link Sent', 'Password reset link sent to ' + user.email)}
                                                                     className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-secondary transition-colors"
                                                                 >
                                                                     <Key size={14} /> Reset Password

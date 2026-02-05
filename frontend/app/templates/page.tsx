@@ -6,6 +6,7 @@ import { Plus, Layout, Calendar, CheckSquare, MoreHorizontal, Search } from 'luc
 import { useRouter } from 'next/navigation';
 import TemplatePreviewModal from '../components/templates/TemplatePreviewModal';
 import TemplateConfigModal from '../components/templates/TemplateConfigModal';
+import { useToast } from '../components/ui/Toast';
 
 export default function TemplatesPage() {
     const [templates, setTemplates] = useState<any[]>([]);
@@ -17,6 +18,7 @@ export default function TemplatesPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState('All');
     const router = useRouter();
+    const { showToast } = useToast();
 
     const categories = ['All', 'Software', 'Marketing', 'Operations', 'Design', 'Other'];
 
@@ -60,7 +62,7 @@ export default function TemplatesPage() {
     };
 
     const handleCreateTemplate = () => {
-        alert('To create a template, create a project and select "Save as Template" in settings.');
+        showToast('info', 'How to Create Helper', 'To create a template, first create a regular project, then use "Save as Template" in project settings.');
     };
 
     const handleTemplateClick = (templateId: string) => {
@@ -113,7 +115,7 @@ export default function TemplatesPage() {
             }
         } catch (err: any) {
             console.error('Failed to create project from template', err);
-            alert('Failed to create project. Please try again.');
+            showToast('error', 'Creation Failed', 'Failed to create project. Please try again.');
         }
     };
 
@@ -134,7 +136,7 @@ export default function TemplatesPage() {
             }
         } catch (err) {
             console.error('Delete template error:', err);
-            alert('Failed to delete template');
+            showToast('error', 'Delete Failed', 'Failed to delete template.');
         }
     };
 

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import UserAvatar from '../shared/UserAvatar';
+import { useToast } from '../ui/Toast';
 
 interface BoardViewProps {
     tasks: any[];
@@ -42,6 +43,7 @@ const COLUMN_COLORS: { [key: string]: string } = {
 
 export default function BoardView({ tasks, projectId, project, onTaskClick, onRefresh, onAddTask, isTemplate = false }: BoardViewProps) {
     const [localTasks, setLocalTasks] = useState(tasks);
+    const { showToast } = useToast();
 
     // Keep localTasks in sync with props when they change (but not during a drag)
     useEffect(() => {
@@ -149,13 +151,13 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
             if (!res.ok) {
                 const errorData = await res.json();
                 setLocalTasks(tasks);
-                alert(`Failed to move task: ${errorData.error || 'Server error'}`);
+                showToast('error', 'Move Failed', `Failed to move task: ${errorData.error || 'Server error'}`);
             } else {
                 onRefresh();
             }
         } catch (error) {
             setLocalTasks(tasks);
-            alert('Connection to server failed. Please ensure the backend is running on port 4000.');
+            showToast('error', 'Connection Error', 'Connection to server failed. Please ensure the backend is running on port 4000.');
         }
     };
 

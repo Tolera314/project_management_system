@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Building2, User, Check, Building } from 'lucide-react';
 import { useState } from 'react';
+import { useToast } from '../ui/Toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -34,6 +35,7 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
     const [selectedType, setSelectedType] = useState<'personal' | 'team' | 'company'>('personal');
     const [selectedColor, setSelectedColor] = useState(workspaceColors[0]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { showToast } = useToast();
 
     const {
         register,
@@ -95,7 +97,7 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
 
         } catch (error: any) {
             console.error('Create workspace error:', error);
-            alert(error.message || 'Failed to create workspace');
+            showToast('error', 'Creation Failed', error.message || 'Failed to create workspace');
         } finally {
             setIsSubmitting(false);
         }
@@ -121,7 +123,7 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
                     className="relative w-full max-w-2xl bg-surface border border-white/10 rounded-[32px] overflow-hidden shadow-2xl"
                 >
-                    <div className="p-8 md:p-10">
+                    <div className="p-6 md:p-10">
                         <div className="flex items-center gap-4 mb-8">
                             <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center">
                                 <Building className="w-6 h-6 text-primary" />
@@ -145,7 +147,7 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
 
                             <div className="space-y-3">
                                 <label className="text-sm font-medium text-text-primary">Workspace Type</label>
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                     {workspaceTypes.map((type) => (
                                         <button
                                             key={type.value}

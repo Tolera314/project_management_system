@@ -4,9 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Trash2, Mail, User, Plus, Search } from 'lucide-react';
 import InviteToWorkspaceModal from '../workspace/InviteToWorkspaceModal';
+import { useToast } from '../ui/Toast';
 
 export default function WorkspaceMembersList() {
     const [members, setMembers] = useState<any[]>([]);
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [workspace, setWorkspace] = useState<any>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
@@ -84,7 +86,7 @@ export default function WorkspaceMembersList() {
             }
         } catch (error) {
             console.error('Update role error:', error);
-            alert('Failed to update role');
+            showToast('error', 'Update Failed', 'Failed to update role');
         }
     };
 
@@ -106,6 +108,7 @@ export default function WorkspaceMembersList() {
             }
         } catch (error) {
             alert('Failed to remove member');
+            showToast('error', 'Remove Failed', 'Failed to remove member');
         }
     };
 

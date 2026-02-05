@@ -18,6 +18,11 @@ import UserAvatar from '../shared/UserAvatar';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { user } = useUser();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
     const router = useRouter();
     const pathname = usePathname();
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -55,6 +60,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 const res = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+
+                if (res.status === 401) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    router.push('/login');
+                    return;
+                }
+
                 const data = await res.json();
                 if (data.workspace) {
                     setWorkspace(data.workspace);
@@ -254,9 +267,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         >
                             <UserAvatar
                                 userId={user?.id}
-                                firstName={user?.firstName}
-                                lastName={user?.lastName}
-                                avatarUrl={user?.avatarUrl}
+                                firstName={mounted ? user?.firstName : undefined}
+                                lastName={mounted ? user?.lastName : undefined}
+                                avatarUrl={mounted ? user?.avatarUrl : undefined}
                                 size="md"
                                 className="border-2 border-background"
                             />
@@ -418,9 +431,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     <div className="flex items-center gap-3 mb-4">
                                         <UserAvatar
                                             userId={user?.id}
-                                            firstName={user?.firstName}
-                                            lastName={user?.lastName}
-                                            avatarUrl={user?.avatarUrl}
+                                            firstName={mounted ? user?.firstName : undefined}
+                                            lastName={mounted ? user?.lastName : undefined}
+                                            avatarUrl={mounted ? user?.avatarUrl : undefined}
                                             size="sm"
                                         />
                                         <div className="flex-1 min-w-0">

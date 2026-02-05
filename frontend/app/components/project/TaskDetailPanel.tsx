@@ -37,6 +37,7 @@ import InlineAssigneeSelector from './InlineAssigneeSelector';
 import CommentComposer from './CommentComposer';
 import FileUploader from '../files/FileUploader';
 import { FileService } from '../../services/file.service';
+import { useToast } from '../ui/Toast';
 
 interface TaskDetailPanelProps {
     task: any;
@@ -65,6 +66,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
     const [newTagColor, setNewTagColor] = useState('#3B82F6');
     const [isCreatingTag, setIsCreatingTag] = useState(false);
     const subtaskInputRef = useRef<HTMLInputElement>(null);
+    const { showToast } = useToast();
 
     const [currentMemberRole, setCurrentMemberRole] = useState<any>(null);
 
@@ -125,7 +127,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
         } catch (error) {
             console.error('Fetch task details error:', error);
             if (error instanceof TypeError && error.message === 'Failed to fetch') {
-                alert('Connection to server failed. Please ensure the backend is running on port 4000.');
+                showToast('error', 'Connection Error', 'Connection to server failed. Please ensure the backend is running on port 4000.');
             }
         } finally {
             setLoading(false);
@@ -540,7 +542,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
 
             if (!inviteRes.ok) {
                 const errorArr = await inviteRes.json();
-                alert(errorArr.error || 'Failed to invite user');
+                showToast('error', 'Invite Failed', errorArr.error || 'Failed to invite user');
                 return;
             }
 

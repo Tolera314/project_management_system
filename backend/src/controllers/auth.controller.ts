@@ -189,6 +189,20 @@ export const logout = async (req: Request, res: Response) => {
     }
 };
 
+export const revokeAllSessions = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        await prisma.user.update({
+            where: { id: userId },
+            data: { tokenVersion: { increment: 1 } }
+        });
+        await prisma.session.deleteMany({ where: { userId } });
+        res.json({ message: 'All sessions revoked' });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 export const refreshToken = async (req: Request, res: Response) => {
     try {
         const { token } = req.body;
@@ -318,6 +332,12 @@ export const resetPassword = async (req: Request, res: Response) => {
         // Revoke all sessions
         await prisma.session.deleteMany({ where: { userId: resetToken.userId } });
 
+        // Revoke tokens by incrementing version
+        await prisma.user.update({
+            where: { id: resetToken.userId },
+            data: { tokenVersion: { increment: 1 } }
+        });
+
         res.json({ message: 'Password reset successfully' });
     } catch (error) {
         console.error('Reset password error:', error);
@@ -446,7 +466,7 @@ export const googleCallback = async (req: Request, res: Response) => {
         }
 
         // Generate JWT
-        const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
+        const token = jwt.sign({ userId: user.id, tokenVersion: user.tokenVersion }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
         // Create Session
         await prisma.session.create({

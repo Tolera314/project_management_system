@@ -21,7 +21,9 @@ interface Project {
     };
 }
 
-export default function ProjectsPage() {
+import { Suspense } from 'react';
+
+function ProjectsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(true);
@@ -86,7 +88,7 @@ export default function ProjectsPage() {
     );
 
     return (
-        <DashboardLayout>
+        <>
             <CreateProjectModal
                 isOpen={isCreateModalOpen}
                 onClose={() => {
@@ -189,6 +191,25 @@ export default function ProjectsPage() {
                     </div>
                 )}
             </div>
+        </>
+    );
+}
+
+export default function ProjectsPage() {
+    return (
+        <DashboardLayout>
+            <Suspense fallback={
+                <div className="p-6 md:p-8 max-w-7xl mx-auto">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                        <div>
+                            <div className="h-8 w-32 bg-surface/40 rounded-lg animate-pulse mb-2" />
+                            <div className="h-4 w-64 bg-surface/40 rounded-lg animate-pulse" />
+                        </div>
+                    </div>
+                </div>
+            }>
+                <ProjectsContent />
+            </Suspense>
         </DashboardLayout>
     );
 }

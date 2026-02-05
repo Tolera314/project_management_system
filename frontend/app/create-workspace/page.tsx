@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
+import { useToast } from '../components/ui/Toast';
 
 const workspaceSchema = z.object({
     name: z.string().min(1, 'Workspace name is required').max(100, 'Name is too long'),
@@ -31,6 +32,7 @@ export default function CreateWorkspacePage() {
     const [selectedType, setSelectedType] = useState<'personal' | 'team' | 'company'>('personal');
     const [selectedColor, setSelectedColor] = useState(workspaceColors[0]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { showToast } = useToast();
 
     const {
         register,
@@ -96,7 +98,7 @@ export default function CreateWorkspacePage() {
 
         } catch (error: any) {
             console.error('Create workspace error:', error);
-            alert(error.message || 'Failed to create workspace');
+            showToast('error', 'Creation Failed', error.message || 'Failed to create workspace');
             setIsSubmitting(false);
         }
     };

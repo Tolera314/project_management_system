@@ -1123,8 +1123,14 @@ export const searchTasks = async (req: Request, res: Response) => {
             tagIds,
             projectId,
             isArchived,
-            workspaceId
+            workspaceId,
+            page = '1',
+            limit = '20'
         } = req.query;
+
+        const pageNum = parseInt(page as string);
+        const limitNum = parseInt(limit as string);
+        const skip = (pageNum - 1) * limitNum;
 
         const where: any = {
             // Only tasks in projects where user is a member or workspace-wide if requested (and permitted)
@@ -1202,10 +1208,21 @@ export const searchTasks = async (req: Request, res: Response) => {
                 }
             } as any,
             orderBy: { updatedAt: 'desc' },
-            take: 50
+            take: limitNum,
+            skip: skip
         });
 
-        res.json({ tasks });
+        const total = await prisma.task.count({ where });
+
+        res.json({
+            tasks,
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total,
+                totalPages: Math.ceil(total / limitNum)
+            }
+        });
     } catch (error) {
         console.error('Search tasks error:', error);
         res.status(500).json({ error: 'Internal server error' });
