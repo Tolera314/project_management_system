@@ -9,10 +9,9 @@ interface JwtPayload {
 }
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+    let token: string | undefined;
     try {
         const authHeader = req.headers.authorization;
-
-        let token: string | undefined;
 
         if (authHeader && authHeader.startsWith('Bearer ')) {
             token = authHeader.substring(7);
@@ -20,7 +19,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
             token = req.query.token;
         }
 
-        if (!token) {
+        if (!token || token === 'undefined' || token === 'null') {
             res.status(401).json({ error: 'No token provided' });
             return;
         }
@@ -43,8 +42,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         next();
 
     } catch (error: any) {
-        console.error('[AuthMiddleware] Error:', error);
-
         if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
             res.status(401).json({ error: 'Invalid or expired token' });
             return;

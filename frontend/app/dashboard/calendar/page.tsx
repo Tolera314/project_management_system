@@ -19,7 +19,6 @@ import {
 } from 'date-fns';
 // ... rest of the file ...
 import { useRouter } from 'next/navigation';
-import DashboardLayout from '../../components/dashboard/DashboardLayout';
 import TaskDetailPanel from '../../components/project/TaskDetailPanel';
 import { useToast } from '../../components/ui/Toast';
 import { socketService } from '../../services/socket.service';
@@ -652,7 +651,7 @@ export default function CalendarPage() {
     };
 
     return (
-        <DashboardLayout>
+        <>
             <div className="p-4 md:p-8 max-w-[1600px] mx-auto flex flex-col h-screen overflow-hidden">
                 {renderHeader()}
 
@@ -710,7 +709,7 @@ export default function CalendarPage() {
                     </motion.div>
                 </div>
             )}
-        </DashboardLayout>
+        </>
     );
 }
 
