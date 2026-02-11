@@ -25,6 +25,7 @@ function AuthSuccessContent() {
                 // Optionally dispatch to context if available
                 setUser(user);
 
+                // If no workspace, the dashboard will open the modal
                 router.push('/dashboard');
             } catch (e) {
                 console.error('Failed to parse user data', e);

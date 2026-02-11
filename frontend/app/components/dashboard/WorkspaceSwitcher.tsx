@@ -56,11 +56,21 @@ const WorkspaceSwitcher = ({ currentWorkspace, isCollapsed = false, onOpenModal 
     }, []);
 
     const fetchWorkspaces = async () => {
+        const token = localStorage.getItem('token');
+        if (!token || token === 'undefined' || token === 'null') return;
+
         try {
-            const token = localStorage.getItem('token');
             const res = await fetch('http://localhost:4000/workspaces/list', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+
+            if (res.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                router.push('/login');
+                return;
+            }
+
             const data = await res.json();
             if (data.workspaces) {
                 setWorkspaces(data.workspaces);

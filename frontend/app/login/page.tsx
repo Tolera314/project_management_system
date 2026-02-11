@@ -65,6 +65,7 @@ function LoginContent() {
             }
 
             setTimeout(() => {
+                // If the user has no workspace, they will be prompted on the dashboard
                 router.push(redirectUrl);
             }, 800);
 

@@ -504,13 +504,15 @@ export const getProjectStats = async (req: Request, res: Response) => {
         const { id } = req.params;
         const userId = (req as any).userId;
 
-        // Verify Access
+        // Verify Access - Allow if member OR if it's a template preview
         const project = await prisma.project.findFirst({
             where: {
                 id,
-                organization: {
-                    members: { some: { userId } }
-                }
+                OR: [
+                    { organization: { members: { some: { userId } } } },
+                    { isTemplate: true, templateVisibility: 'SYSTEM' },
+                    { isTemplate: true, createdById: userId }
+                ]
             },
             include: {
                 invitations: { where: { status: 'PENDING' } },

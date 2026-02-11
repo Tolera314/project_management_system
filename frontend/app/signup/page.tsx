@@ -59,28 +59,19 @@ function SignUpContent() {
         try {
             const signupRes = await axios.post('http://localhost:4000/auth/register', data);
 
-            const token = signupRes.data.token;
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(signupRes.data.user));
+            // Do not store token/user yet, wait for verification
+            // localStorage.setItem('token', token);
+            // localStorage.setItem('user', JSON.stringify(signupRes.data.user));
 
-            let redirectUrl = '/dashboard';
+            let redirectUrl = `/auth/verify-otp?email=${encodeURIComponent(data.email)}`;
 
             if (invitationToken) {
-                try {
-                    const acceptRes = await axios.post(`http://localhost:4000/invitations/accept/${invitationToken}`, {}, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    if (acceptRes.data.redirectUrl) {
-                        redirectUrl = acceptRes.data.redirectUrl;
-                    }
-                } catch (inviteErr: any) {
-                    console.error('Failed to auto-accept invitation after signup:', inviteErr);
-                }
+                redirectUrl += `&invitation=${invitationToken}`;
             }
 
             setTimeout(() => {
                 router.push(redirectUrl);
-            }, 1000);
+            }, 800);
 
         } catch (err: any) {
             if (axios.isAxiosError(err) && err.response) {

@@ -13,7 +13,6 @@ import {
     ResponsiveContainer, Legend
 } from 'recharts';
 import { useRouter } from 'next/navigation';
-import DashboardLayout from '../../components/dashboard/DashboardLayout';
 import { useToast } from '../../components/ui/Toast';
 
 interface Task {
@@ -203,7 +202,7 @@ export default function ReportsPage() {
     const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#94a3b8'];
 
     return (
-        <DashboardLayout>
+        <>
             <style jsx global>{`
                 @media print {
                     aside, nav, .no-print, button { display: none !important; }
@@ -393,6 +392,6 @@ export default function ReportsPage() {
                     </>
                 )}
             </div>
-        </DashboardLayout >
+        </>
     );
 }
