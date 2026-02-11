@@ -5,7 +5,6 @@ import { FolderPlus, CheckSquare, Calendar, TrendingUp, Clock, Users, MoreHorizo
 import { useState, useEffect } from 'react';
 import { useToast } from '../components/ui/Toast';
 import { useRouter } from 'next/navigation';
-import DashboardLayout from '../components/dashboard/DashboardLayout';
 import CreateProjectModal from '../components/dashboard/CreateProjectModal';
 import WorkspaceCreationModal from '../components/dashboard/WorkspaceCreationModal';
 import ProjectCard from '../components/dashboard/ProjectCard';
@@ -70,6 +69,14 @@ export default function DashboardPage() {
                     'Authorization': `Bearer ${token}`,
                 },
             });
+
+            if (workspaceResponse.status === 401) {
+                console.warn('[Dashboard] Session expired (401)');
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                router.push('/login');
+                return;
+            }
 
             if (workspaceResponse.ok) {
                 const workspaceData = await workspaceResponse.json();
@@ -168,16 +175,14 @@ export default function DashboardPage() {
 
     if (loading) {
         return (
-            <DashboardLayout>
-                <div className="flex items-center justify-center h-screen">
-                    <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                </div>
-            </DashboardLayout>
+            <div className="flex items-center justify-center h-screen">
+                <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            </div>
         );
     }
 
     return (
-        <DashboardLayout>
+        <>
             <CreateProjectModal
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
@@ -332,6 +337,6 @@ export default function DashboardPage() {
                     </motion.div>
                 )}
             </div>
-        </DashboardLayout>
+        </>
     );
 }

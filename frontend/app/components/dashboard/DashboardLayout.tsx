@@ -18,12 +18,18 @@ import UserAvatar from '../shared/UserAvatar';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { user } = useUser();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
     const router = useRouter();
     const pathname = usePathname();
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
     const [workspace, setWorkspace] = useState<any>(null);
+    const [workspaceLoading, setWorkspaceLoading] = useState(true);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
@@ -44,7 +50,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     useEffect(() => {
         const fetchWorkspace = async () => {
             const token = localStorage.getItem('token');
-            if (!token) return;
+            if (!token || token === 'undefined' || token === 'null') {
+                setWorkspaceLoading(false);
+                return;
+            }
 
             try {
                 const selectedId = localStorage.getItem('selectedWorkspaceId');
@@ -55,6 +64,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 const res = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+
+                if (res.status === 401) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    router.push('/login');
+                    return;
+                }
+
                 const data = await res.json();
                 if (data.workspace) {
                     setWorkspace(data.workspace);
@@ -64,6 +81,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 }
             } catch (error) {
                 console.error('Failed to fetch workspace:', error);
+            } finally {
+                setWorkspaceLoading(false);
             }
         };
 
@@ -138,6 +157,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
 
     // ... navItems and helper functions
+
+    if (!mounted) return null;
+
+    if (workspaceLoading) {
+        return (
+            <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden animate-in fade-in duration-500">
+                <header className="h-16 border-b border-foreground/5 bg-surface flex items-center justify-between px-4 md:px-8 z-50 shrink-0">
+                    <div className="flex items-center gap-4">
+                        <div className="w-40 h-8 bg-surface-secondary/50 rounded-lg animate-pulse" />
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-surface-secondary/50 animate-pulse" />
+                    </div>
+                </header>
+                <div className="flex flex-1 overflow-hidden">
+                    <aside className="hidden md:flex flex-col w-64 border-r border-border bg-surface-secondary p-4 space-y-4">
+                        {[1, 2, 3, 4, 5, 6].map(i => (
+                            <div key={i} className="w-full h-10 bg-surface/30 rounded-xl animate-pulse" />
+                        ))}
+                    </aside>
+                    <main className="flex-1 bg-background p-8">
+                        <div className="max-w-7xl mx-auto flex flex-col gap-6">
+                            <div className="h-10 w-64 bg-surface/30 rounded-xl animate-pulse" />
+                            <div className="h-4 w-96 bg-surface/30 rounded-xl animate-pulse" />
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+                                {[1, 2, 3, 4, 5, 6].map(i => (
+                                    <div key={i} className="h-48 bg-surface/30 border border-border rounded-2xl animate-pulse" />
+                                ))}
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
@@ -254,9 +308,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         >
                             <UserAvatar
                                 userId={user?.id}
-                                firstName={user?.firstName}
-                                lastName={user?.lastName}
-                                avatarUrl={user?.avatarUrl}
+                                firstName={mounted ? user?.firstName : undefined}
+                                lastName={mounted ? user?.lastName : undefined}
+                                avatarUrl={mounted ? user?.avatarUrl : undefined}
                                 size="md"
                                 className="border-2 border-background"
                             />
@@ -418,9 +472,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     <div className="flex items-center gap-3 mb-4">
                                         <UserAvatar
                                             userId={user?.id}
-                                            firstName={user?.firstName}
-                                            lastName={user?.lastName}
-                                            avatarUrl={user?.avatarUrl}
+                                            firstName={mounted ? user?.firstName : undefined}
+                                            lastName={mounted ? user?.lastName : undefined}
+                                            avatarUrl={mounted ? user?.avatarUrl : undefined}
                                             size="sm"
                                         />
                                         <div className="flex-1 min-w-0">

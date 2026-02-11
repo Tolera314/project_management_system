@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Building, Check, Palette, Type, Save } from 'lucide-react';
+import { useToast } from '../ui/Toast';
 
 const workspaceColors = [
     '#4F46E5', '#A78BFA', '#3B82F6', '#10B981',
@@ -15,6 +16,7 @@ export default function WorkspaceSettings() {
     const [selectedColor, setSelectedColor] = useState(workspaceColors[0]);
     const [isSaving, setIsSaving] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
+    const { showToast } = useToast();
 
     useEffect(() => {
         const fetchWorkspace = async () => {
@@ -64,11 +66,11 @@ export default function WorkspaceSettings() {
                 setTimeout(() => setSuccessMessage(''), 3000);
             } else {
                 const data = await res.json();
-                alert(data.error || 'Failed to update workspace');
+                showToast('error', 'Update Failed', data.error || 'Failed to update workspace');
             }
         } catch (error) {
             console.error('Save workspace error:', error);
-            alert('Failed to save changes');
+            showToast('error', 'Update Failed', 'Failed to save changes');
         } finally {
             setIsSaving(false);
         }

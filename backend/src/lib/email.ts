@@ -277,3 +277,40 @@ export const getProjectInvitationTemplate = (projectName: string, inviterName: s
 </html>
     `;
 };
+export const getOTPVerificationTemplate = (otpCode: string) => {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .header { background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: #ffffff; padding: 40px 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.025em; }
+        .content { padding: 40px 30px; text-align: center; }
+        .otp-container { background-color: #f1f5f9; padding: 24px; border-radius: 12px; margin: 30px 0; border: 2px dashed #cbd5e1; }
+        .otp-code { font-size: 48px; font-weight: 800; color: #4F46E5; letter-spacing: 12px; font-family: 'Courier New', Courier, monospace; }
+        .footer { background-color: #f8fafc; padding: 24px; text-align: center; font-size: 13px; color: #64748b; border-top: 1px solid #e2e8f0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Verify Your Email</h1>
+        </div>
+        <div class="content">
+            <p style="font-size: 16px; color: #475569;">Hello,</p>
+            <p style="font-size: 16px; color: #475569;">To complete your signup, please use the following verification code:</p>
+            <div class="otp-container">
+                <span class="otp-code">${otpCode}</span>
+            </div>
+            <p style="font-size: 14px; color: #94a3b8;">This code will expire in 15 minutes. If you did not request this, please ignore this email.</p>
+        </div>
+        <div class="footer">
+            &copy; ${new Date().getFullYear()} ProjectOS. Professional Project Management.
+        </div>
+    </div>
+</body>
+</html>
+    `;
+};

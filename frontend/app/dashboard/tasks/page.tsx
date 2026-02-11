@@ -8,7 +8,6 @@ import {
     LayoutGrid, Tag as TagIcon, MoreHorizontal
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import DashboardLayout from '../../components/dashboard/DashboardLayout';
 import TaskDetailPanel from '../../components/project/TaskDetailPanel';
 import { useToast } from '../../components/ui/Toast';
 
@@ -115,7 +114,7 @@ export default function TasksPage() {
     );
 
     return (
-        <DashboardLayout>
+        <>
             <div className="p-6 md:p-8 max-w-7xl mx-auto h-full flex flex-col">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
@@ -254,6 +253,6 @@ export default function TasksPage() {
                     />
                 )}
             </AnimatePresence>
-        </DashboardLayout>
+        </>
     );
 }

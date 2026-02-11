@@ -7,6 +7,16 @@ import prisma from '../lib/prisma';
 import { NotificationService } from '../services/notification.service';
 import crypto from 'crypto';
 import axios from 'axios';
+import { sendEmail, getOTPVerificationTemplate } from '../lib/email';
+
+const generateOTP = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let otp = '';
+    for (let i = 0; i < 6; i++) {
+        otp += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return otp;
+};
 
 const registerSchema = z.object({
     firstName: z.string().min(1, 'First name is required'),
@@ -70,6 +80,9 @@ export const register = async (req: Request, res: Response) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        const otpCode = generateOTP();
+        const otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
         // Only create user, workspace will be created separately
         const user = await prisma.user.create({
             data: {
@@ -77,11 +90,24 @@ export const register = async (req: Request, res: Response) => {
                 firstName,
                 lastName: lastName || firstName,
                 password: hashedPassword,
+                otpCode,
+                otpExpiresAt,
+                isVerified: false,
+                status: 'PENDING_VERIFICATION'
             }
         });
 
-        // Send Welcome Email (Fire and forget - non-blocking)
-        NotificationService.sendWelcomeEmail({ email: user.email, firstName: user.firstName });
+        // Send OTP Email via Brevo
+        try {
+            await sendEmail({
+                to: user.email,
+                subject: 'Verify your email - ProjectOS',
+                html: getOTPVerificationTemplate(otpCode)
+            });
+        } catch (emailError) {
+            console.error('[Auth] Failed to send OTP email:', emailError);
+            // We still created the user, they might need to request a resend
+        }
 
         const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
@@ -139,7 +165,26 @@ export const login = async (req: Request, res: Response) => {
             return;
         }
 
-        const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
+        if (user.status === 'PENDING_VERIFICATION') {
+            res.status(403).json({
+                error: 'Account not verified. Please verify your email.',
+                requiresVerification: true,
+                email: user.email
+            });
+            return;
+        }
+
+        const token = jwt.sign(
+            { userId: user.id, tokenVersion: user.tokenVersion },
+            process.env.JWT_SECRET!,
+            { expiresIn: '7d' }
+        );
+
+        // Update Last Login
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { lastLogin: new Date() }
+        });
 
         // Create Session
         await prisma.session.create({
@@ -184,6 +229,20 @@ export const logout = async (req: Request, res: Response) => {
             await prisma.session.deleteMany({ where: { token } });
         }
         res.json({ message: 'Logged out successfully' });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const revokeAllSessions = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        await prisma.user.update({
+            where: { id: userId },
+            data: { tokenVersion: { increment: 1 } }
+        });
+        await prisma.session.deleteMany({ where: { userId } });
+        res.json({ message: 'All sessions revoked' });
     } catch (error) {
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -318,6 +377,12 @@ export const resetPassword = async (req: Request, res: Response) => {
         // Revoke all sessions
         await prisma.session.deleteMany({ where: { userId: resetToken.userId } });
 
+        // Revoke tokens by incrementing version
+        await prisma.user.update({
+            where: { id: resetToken.userId },
+            data: { tokenVersion: { increment: 1 } }
+        });
+
         res.json({ message: 'Password reset successfully' });
     } catch (error) {
         console.error('Reset password error:', error);
@@ -424,7 +489,10 @@ export const googleCallback = async (req: Request, res: Response) => {
         const { email, given_name, family_name, picture, id: googleId } = userRes.data;
 
         // Find or Create User
-        let user = await prisma.user.findUnique({ where: { email } });
+        let user = await prisma.user.findUnique({
+            where: { email },
+            include: { organizationMembers: true }
+        });
 
         if (!user) {
             // Create user with random password
@@ -439,14 +507,15 @@ export const googleCallback = async (req: Request, res: Response) => {
                     password: hashedPassword,
                     avatarUrl: picture,
                     // systemRole: 'USER' // Default
-                }
+                },
+                include: { organizationMembers: true }
             });
 
             // Send welcome email logic here if desired
         }
 
         // Generate JWT
-        const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
+        const token = jwt.sign({ userId: user.id, tokenVersion: user.tokenVersion }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
         // Create Session
         await prisma.session.create({
@@ -454,7 +523,7 @@ export const googleCallback = async (req: Request, res: Response) => {
                 userId: user.id,
                 token: token,
                 userAgent: req.headers['user-agent'],
-                ipAddress: req.toString(), // Simplified
+                ipAddress: req.ip as string, // Fixed req.toString() to req.ip
                 expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
             }
         });
@@ -466,7 +535,8 @@ export const googleCallback = async (req: Request, res: Response) => {
             firstName: user.firstName,
             lastName: user.lastName,
             avatarUrl: user.avatarUrl,
-            systemRole: user.systemRole
+            systemRole: user.systemRole,
+            hasWorkspace: user.organizationMembers.length > 0
         }))}`);
 
     } catch (error) {
@@ -474,3 +544,111 @@ export const googleCallback = async (req: Request, res: Response) => {
         res.redirect('http://localhost:3000/login?error=Google authentication failed');
     }
 };
+
+export const verifyOTP = async (req: Request, res: Response) => {
+    try {
+        const { email, otpCode } = req.body;
+
+        if (!email || !otpCode) {
+            res.status(400).json({ error: 'Email and OTP code are required' });
+            return;
+        }
+
+        const user = await prisma.user.findUnique({ where: { email } });
+
+        if (!user) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        if (user.isVerified) {
+            res.status(400).json({ error: 'User is already verified' });
+            return;
+        }
+
+        if (user.otpCode !== otpCode.toUpperCase()) {
+            res.status(400).json({ error: 'Invalid verification code' });
+            return;
+        }
+
+        if (user.otpExpiresAt && user.otpExpiresAt < new Date()) {
+            res.status(400).json({ error: 'Verification code has expired' });
+            return;
+        }
+
+        // Activate user
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                isVerified: true,
+                status: 'ACTIVE',
+                otpCode: null,
+                otpExpiresAt: null
+            }
+        });
+
+        // Send Platform Welcome Email
+        NotificationService.sendWelcomeEmail({ email: user.email, firstName: user.firstName });
+
+        const token = jwt.sign({ userId: user.id, tokenVersion: user.tokenVersion }, process.env.JWT_SECRET!, { expiresIn: '7d' });
+
+        res.status(200).json({
+            message: 'Email verified successfully',
+            token,
+            user: {
+                id: user.id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                systemRole: user.systemRole,
+                hasWorkspace: false
+            }
+        });
+
+    } catch (error) {
+        console.error('[Auth] Verify OTP error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const resendOTP = async (req: Request, res: Response) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            res.status(400).json({ error: 'Email is required' });
+            return;
+        }
+
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        if (user.isVerified) {
+            res.status(400).json({ error: 'User is already verified' });
+            return;
+        }
+
+        const otpCode = generateOTP();
+        const otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { otpCode, otpExpiresAt }
+        });
+
+        await sendEmail({
+            to: user.email,
+            subject: 'Your new verification code - ProjectOS',
+            html: getOTPVerificationTemplate(otpCode)
+        });
+
+        res.json({ message: 'New verification code sent' });
+
+    } catch (error) {
+        console.error('[Auth] Resend OTP error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
