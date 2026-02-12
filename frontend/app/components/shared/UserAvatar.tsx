@@ -1,0 +1,66 @@
+import { useState, useEffect } from 'react';
+import { useUser } from '../../context/UserContext';
+
+interface UserAvatarProps {
+    userId?: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string; // fallback if needed
+    avatarUrl?: string | null;
+    className?: string;
+    size?: 'sm' | 'md' | 'lg' | 'xl';
+}
+
+export default function UserAvatar({
+    userId,
+    firstName = '?',
+    lastName = '',
+    avatarUrl,
+    className = '',
+    size = 'md'
+}: UserAvatarProps) {
+    const { user } = useUser();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // During SSR and first client render (before mount), we can't know the user context from generic storage
+    // So we rely purely on props or default to '?' to match server
+    const isCurrentUser = mounted && user && userId === user.id;
+    let finalAvatarUrl = isCurrentUser ? user.avatarUrl : avatarUrl;
+
+    // Handle relative URLs for uploaded avatars
+    if (finalAvatarUrl && !finalAvatarUrl.startsWith('http') && !finalAvatarUrl.startsWith('data:')) {
+        finalAvatarUrl = `http://localhost:4000/uploads/${finalAvatarUrl}`;
+    }
+    const finalFirstName = isCurrentUser ? user.firstName : firstName;
+    // const finalLastName = isCurrentUser ? user.lastName : lastName; // Optional: update name too
+
+    const initials = (finalFirstName?.[0] || '?').toUpperCase();
+
+    // Default classes based on size
+    const sizeClasses = {
+        sm: 'w-6 h-6 text-[10px]',
+        md: 'w-8 h-8 text-xs',
+        lg: 'w-10 h-10 text-sm',
+        xl: 'w-20 h-20 text-xl'
+    };
+
+    return (
+        <div
+            className={`rounded-full flex items-center justify-center font-bold text-white relative overflow-hidden shrink-0 ${sizeClasses[size]} ${!finalAvatarUrl ? 'bg-gradient-to-br from-primary to-accent border border-white/10' : ''} ${className}`}
+        >
+            {finalAvatarUrl ? (
+                <img
+                    src={finalAvatarUrl}
+                    alt={`${finalFirstName} ${lastName}`}
+                    className="w-full h-full object-cover"
+                />
+            ) : (
+                <span>{initials}</span>
+            )}
+        </div>
+    );
+}

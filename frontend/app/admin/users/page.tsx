@@ -1,0 +1,525 @@
+'use client';
+
+import AdminLayout from '../../components/admin/AdminLayout';
+import { Search, Filter, MoreHorizontal, Shield, User, UserX, Mail, Key, LayoutGrid, UserCheck, Trash2, Clock, Globe, ShieldCheck, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { AdminService } from '../../services/admin.service';
+import { motion, AnimatePresence } from 'framer-motion';
+import ConfirmationModal from '../../components/shared/ConfirmationModal';
+import UserAvatar from '../../components/shared/UserAvatar';
+import { useToast } from '../../components/ui/Toast';
+
+export default function UsersAdmin() {
+    const [users, setUsers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterRole, setFilterRole] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState<any>({
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 1,
+        hasNext: false,
+        hasPrev: false
+    });
+    const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+    const [selectedUser, setSelectedUser] = useState<any | null>(null);
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [confirmAction, setConfirmAction] = useState<{ type: 'SUSPEND' | 'RESTORE' | 'RESET_MFA' | 'DELETE', user: any } | null>(null);
+    const { showToast } = useToast();
+
+    useEffect(() => {
+        loadUsers();
+    }, [page, searchQuery, filterRole, filterStatus]);
+
+    const loadUsers = async () => {
+        try {
+            setLoading(true);
+            const token = localStorage.getItem('token');
+            const params = new URLSearchParams({
+                page: page.toString(),
+                limit: '10',
+                ...(searchQuery && { search: searchQuery }),
+                ...(filterRole && { role: filterRole })
+            });
+
+            const response = await fetch(`http://localhost:4000/admin/users?${params}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) throw new Error('Failed to load users');
+
+            const data = await response.json();
+            setUsers(data.users);
+            setPagination(data.pagination);
+        } catch (error) {
+            console.error("Failed to load users", error);
+            setError("Failed to load user data. Access denied.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleUpdateStatus = async (user: any, newStatus: string) => {
+        try {
+            setIsUpdating(true);
+            await AdminService.updateUser(user.id, { status: newStatus });
+            loadUsers();
+            if (selectedUser?.id === user.id) {
+                setSelectedUser({ ...user, status: newStatus });
+            }
+            showToast('success', 'Status Updated', `User status updated to ${newStatus}`);
+        } catch (error) {
+            showToast('error', 'Update Failed', 'Failed to update user status');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handleUpdateRole = async (user: any, newRole: string) => {
+        try {
+            setIsUpdating(true);
+            await AdminService.updateUser(user.id, { systemRole: newRole });
+            loadUsers();
+            if (selectedUser?.id === user.id) {
+                setSelectedUser({ ...user, systemRole: newRole });
+            }
+            showToast('success', 'Role Updated', `User role updated to ${newRole}`);
+        } catch (error) {
+            showToast('error', 'Update Failed', 'Failed to update user role');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const executeConfirmAction = async () => {
+        if (!confirmAction) return;
+        const { type, user } = confirmAction;
+
+        try {
+            setIsUpdating(true);
+            if (type === 'SUSPEND') {
+                await AdminService.updateUser(user.id, { status: 'SUSPENDED' });
+            } else if (type === 'RESTORE') {
+                await AdminService.updateUser(user.id, { status: 'ACTIVE' });
+            } else if (type === 'RESET_MFA') {
+                await AdminService.updateUser(user.id, { resetMFA: true });
+            }
+            loadUsers();
+            if (selectedUser?.id === user.id) {
+                const updatedStatus = type === 'SUSPEND' ? 'SUSPENDED' : (type === 'RESTORE' ? 'ACTIVE' : user.status);
+                const updatedMfa = type === 'RESET_MFA' ? false : user.mfaEnabled;
+                setSelectedUser({ ...user, status: updatedStatus, mfaEnabled: updatedMfa });
+            }
+            showToast('success', 'Action Completed', `Action ${type.toLowerCase()} completed successfully`);
+        } catch (error) {
+            showToast('error', 'Action Failed', `Failed to perform ${type.toLowerCase()} action`);
+        } finally {
+            setIsUpdating(false);
+            setConfirmAction(null);
+        }
+    };
+
+    const toggleMenu = (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        setActiveMenuId(activeMenuId === id ? null : id);
+    };
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = () => setActiveMenuId(null);
+        window.addEventListener('click', handleClickOutside);
+        return () => window.removeEventListener('click', handleClickOutside);
+    }, []);
+
+    return (
+        <AdminLayout>
+            <div className="flex relative h-[calc(100vh-100px)] overflow-hidden">
+                <div className={`flex-1 transition-all duration-300 ${selectedUser ? 'mr-[450px]' : ''} overflow-y-auto pr-4`}>
+                    <div className="space-y-8 pb-20">
+                        <div>
+                            <h1 className="text-2xl font-bold text-text-primary tracking-tight">Global User Directory</h1>
+                            <p className="text-text-secondary text-sm mt-1">Search and manage all accounts across every workspace.</p>
+                        </div>
+
+                        {/* Search & Filter */}
+                        <div className="flex flex-wrap items-center gap-4 bg-surface p-4 rounded-2xl border border-border">
+                            <div className="flex-1 min-w-[300px] relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={16} />
+                                <input
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full bg-foreground/[0.03] border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    placeholder="Search by name, email, or user UID..."
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <select
+                                    value={filterRole}
+                                    onChange={(e) => setFilterRole(e.target.value)}
+                                    className="bg-surface border border-border rounded-xl py-2.5 px-4 text-xs font-bold text-text-primary outline-none cursor-pointer hover:bg-surface-secondary transition-all"
+                                >
+                                    <option value="">All Roles</option>
+                                    <option value="ADMIN">System Admin</option>
+                                    <option value="USER">Standard User</option>
+                                </select>
+                                <select
+                                    value={filterStatus}
+                                    onChange={(e) => setFilterStatus(e.target.value)}
+                                    className="bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-xs font-bold text-white outline-none cursor-pointer hover:bg-white/10 transition-all"
+                                >
+                                    <option value="">All Statuses</option>
+                                    <option value="ACTIVE">Active</option>
+                                    <option value="SUSPENDED">Suspended</option>
+                                    <option value="PENDING">Pending</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* User List */}
+                        <div className="bg-surface border border-border rounded-3xl overflow-hidden shadow-2xl">
+                            <table className="w-full border-collapse">
+                                <thead>
+                                    <tr className="bg-surface-secondary border-b border-border">
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-text-secondary uppercase tracking-widest">User</th>
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-text-secondary uppercase tracking-widest">Global Role</th>
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-text-secondary uppercase tracking-widest">Workspaces</th>
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-text-secondary uppercase tracking-widest">Last Activity</th>
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-text-secondary uppercase tracking-widest">Status</th>
+                                        <th className="px-6 py-4 text-right text-[10px] font-bold text-text-secondary uppercase tracking-widest">Control</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {loading && users.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-500 text-sm italic">Loading platform users...</td>
+                                        </tr>
+                                    ) : users.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-500 text-sm italic">No users found matching your search criteria.</td>
+                                        </tr>
+                                    ) : users.map((user) => (
+                                        <tr
+                                            key={user.id}
+                                            onClick={() => setSelectedUser(user)}
+                                            className={`hover:bg-white/[0.02] cursor-pointer transition-all group ${selectedUser?.id === user.id ? 'bg-primary/5' : ''}`}
+                                        >
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center gap-3">
+                                                    <UserAvatar
+                                                        userId={user.id}
+                                                        firstName={user.firstName}
+                                                        lastName={user.lastName}
+                                                        avatarUrl={user.avatarUrl}
+                                                        size="md"
+                                                    />
+                                                    <div>
+                                                        <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors">{user.firstName} {user.lastName}</p>
+                                                        <p className="text-[10px] text-text-secondary">{user.email}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase transition-all ${user.systemRole === 'ADMIN' ? 'bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20' : 'bg-white/5 text-slate-400'}`}>
+                                                    {user.systemRole === 'ADMIN' ? 'System Admin' : 'Standard User'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center gap-1.5 text-sm text-slate-400">
+                                                    <LayoutGrid size={12} className="text-primary/50" /> {user.workspaceCount} Workspaces
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
+                                                {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider ${user.status === 'ACTIVE' ? 'text-emerald-500' : user.status === 'SUSPENDED' ? 'text-danger' : 'text-amber-500'}`}>
+                                                    <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${user.status === 'ACTIVE' ? 'bg-emerald-500' : user.status === 'SUSPENDED' ? 'bg-danger' : 'bg-amber-500'}`} />
+                                                    {user.status}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-right whitespace-nowrap relative">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button
+                                                        onClick={(e) => toggleMenu(e, user.id)}
+                                                        className="p-2 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-all"
+                                                    >
+                                                        <MoreHorizontal size={16} />
+                                                    </button>
+
+                                                    {/* User Action Menu */}
+                                                    <AnimatePresence>
+                                                        {activeMenuId === user.id && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                                className="absolute right-8 top-12 z-50 bg-surface border border-border rounded-xl shadow-2xl w-48 overflow-hidden py-1"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <button
+                                                                    onClick={() => setSelectedUser(user)}
+                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-secondary transition-colors"
+                                                                >
+                                                                    <User size={14} /> View Intelligence
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setConfirmAction({ type: user.status === 'ACTIVE' ? 'SUSPEND' : 'RESTORE', user })}
+                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-secondary transition-colors"
+                                                                >
+                                                                    {user.status === 'ACTIVE' ? <UserX size={14} className="text-rose-400" /> : <UserCheck size={14} className="text-emerald-400" />}
+                                                                    {user.status === 'ACTIVE' ? 'Suspend Access' : 'Restore Access'}
+                                                                </button>
+                                                                {user.mfaEnabled && (
+                                                                    <button
+                                                                        onClick={() => setConfirmAction({ type: 'RESET_MFA', user })}
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-secondary transition-colors"
+                                                                    >
+                                                                        <ShieldCheck size={14} className="text-blue-400" /> Reset MFA
+                                                                    </button>
+                                                                )}
+                                                                <div className="h-px bg-border my-1" />
+                                                                <button
+                                                                    onClick={() => showToast('success', 'Link Sent', 'Password reset link sent to ' + user.email)}
+                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-secondary transition-colors"
+                                                                >
+                                                                    <Key size={14} /> Reset Password
+                                                                </button>
+                                                            </motion.div>
+                                                        )}
+                                                    </AnimatePresence>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+
+
+                        </div>
+
+                        {/* Audit Governance Label */}
+                        <div className="p-6 bg-blue-500/5 border border-blue-500/10 rounded-3xl flex items-start gap-4">
+                            <Shield className="text-blue-500 shrink-0" size={20} />
+                            <p className="text-sm text-blue-400/80 leading-relaxed italic">
+                                <strong>Platform-Wide Visibility:</strong> System Administrators have global oversight of all user accounts to ensure security and compliance. Suspended users are immediately revoked from all active sessions across all tenants.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* User Detail Drawer */}
+                <AnimatePresence>
+                    {selectedUser && (
+                        <>
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setSelectedUser(null)}
+                                className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]"
+                            />
+                            <motion.div
+                                initial={{ x: '100%' }}
+                                animate={{ x: 0 }}
+                                exit={{ x: '100%' }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                                className="fixed top-0 right-0 bottom-0 w-[450px] bg-surface border-l border-border shadow-2xl z-[70] overflow-y-auto"
+                            >
+                                <div className="p-8 space-y-8">
+                                    {/* Header */}
+                                    <div className="flex items-center justify-between">
+                                        <h2 className="text-xl font-bold text-text-primary">User Intelligence</h2>
+                                        <button onClick={() => setSelectedUser(null)} className="p-2 hover:bg-white/5 rounded-full text-slate-400 transition-colors">
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+
+                                    {/* User Profiling */}
+                                    <div className="flex flex-col items-center text-center p-6 bg-white/[0.02] border border-white/10 rounded-3xl">
+                                        <div className="mb-4">
+                                            <UserAvatar
+                                                userId={selectedUser.id}
+                                                firstName={selectedUser.firstName}
+                                                lastName={selectedUser.lastName}
+                                                avatarUrl={selectedUser.avatarUrl}
+                                                size="xl"
+                                            />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-white">{selectedUser.firstName} {selectedUser.lastName}</h3>
+                                        <p className="text-slate-500 text-sm mb-4">{selectedUser.email}</p>
+
+                                        <div className="flex flex-wrap items-center justify-center gap-2">
+                                            <div className="bg-primary/10 text-primary text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest ring-1 ring-primary/20">
+                                                Global Ident: {selectedUser.id.substring(0, 8)}...
+                                            </div>
+                                            <div className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest ring-1 ${selectedUser.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500 ring-emerald-500/20' : 'bg-danger/10 text-danger ring-danger/20'}`}>
+                                                {selectedUser.status}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            onClick={() => setConfirmAction({ type: selectedUser.status === 'ACTIVE' ? 'SUSPEND' : 'RESTORE', user: selectedUser })}
+                                            className={`p-4 rounded-2xl border transition-all flex flex-col items-center gap-2 ${selectedUser.status === 'ACTIVE' ? 'bg-danger/5 border-danger/20 text-danger hover:bg-danger/10' : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10'}`}
+                                        >
+                                            {selectedUser.status === 'ACTIVE' ? <UserX size={20} /> : <UserCheck size={20} />}
+                                            <span className="text-[10px] font-bold uppercase tracking-widest">{selectedUser.status === 'ACTIVE' ? 'Suspend' : 'Activate'}</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setConfirmAction({ type: 'RESET_MFA', user: selectedUser })}
+                                            className={`p-4 rounded-2xl bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 transition-all flex flex-col items-center gap-2 ${!selectedUser.mfaEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            disabled={!selectedUser.mfaEnabled}
+                                        >
+                                            <ShieldCheck size={20} />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest">Reset MFA</span>
+                                        </button>
+                                    </div>
+
+                                    {/* Role Management */}
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                            <ShieldCheck size={14} /> Global Authorization
+                                        </div>
+                                        <select
+                                            value={selectedUser.systemRole}
+                                            onChange={(e) => handleUpdateRole(selectedUser, e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                        >
+                                            <option value="USER">Standard Platform User</option>
+                                            <option value="ADMIN">System Administrator (Full Access)</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Tenure Info */}
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                            <Clock size={14} /> Account Meta
+                                        </div>
+                                        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="text-slate-500">Joined Platform</span>
+                                                <span className="text-white font-medium">{new Date(selectedUser.createdAt).toLocaleDateString()}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="text-slate-500">Last Authentication</span>
+                                                <span className="text-white font-medium">{selectedUser.lastLogin ? new Date(selectedUser.lastLogin).toLocaleString() : 'Never'}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="text-slate-500">MFA Status</span>
+                                                <span className={`font-bold ${selectedUser.mfaEnabled ? 'text-emerald-500' : 'text-slate-500'}`}>
+                                                    {selectedUser.mfaEnabled ? 'ENABLED' : 'DISABLED'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Workspace Memberships summary */}
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                            <Globe size={14} /> Multi-Tenant Access
+                                        </div>
+                                        <div className="space-y-2">
+                                            {selectedUser.workspaces?.length > 0 ? selectedUser.workspaces.map((ws: string, i: number) => (
+                                                <div key={i} className="flex items-center justify-between p-3 bg-white/[0.02] border border-white/5 rounded-xl text-xs">
+                                                    <span className="text-white font-medium">{ws}</span>
+                                                    <span className="text-slate-500 text-[10px] uppercase font-bold tracking-tighter">Member</span>
+                                                </div>
+                                            )) : (
+                                                <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl text-xs text-slate-500 italic">
+                                                    No workspace memberships found.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Danger Zone */}
+                                    <div className="pt-8 border-t border-white/5">
+                                        <button className="w-full p-4 rounded-xl bg-danger/5 border border-danger/20 text-danger text-xs font-bold uppercase tracking-widest hover:bg-danger/10 transition-all flex items-center justify-center gap-2">
+                                            <Trash2 size={16} /> Delete Platform Record
+                                        </button>
+                                        <p className="text-[10px] text-slate-600 mt-2 text-center uppercase tracking-tighter">Irreversible Action • Req. Confirmation</p>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>
+
+                {/* Global Confirmation Modal */}
+                <ConfirmationModal
+                    isOpen={!!confirmAction}
+                    onClose={() => setConfirmAction(null)}
+                    onConfirm={executeConfirmAction}
+                    title={
+                        confirmAction?.type === 'SUSPEND' ? 'Suspend User Access?' :
+                            confirmAction?.type === 'RESTORE' ? 'Restore User Access?' :
+                                confirmAction?.type === 'RESET_MFA' ? 'Reset Multi-Factor Authentication?' :
+                                    'Confirm Action'
+                    }
+                    message={
+                        confirmAction?.type === 'SUSPEND' ? `Are you sure you want to suspend ${confirmAction.user.firstName}? They will be immediately logged out and unable to access the platform.` :
+                            confirmAction?.type === 'RESTORE' ? `This will restore platform access for ${confirmAction.user.firstName}.` :
+                                confirmAction?.type === 'RESET_MFA' ? `This will disable MFA for ${confirmAction.user.firstName}. They should re-enable it immediately for security.` :
+                                    `Are you sure you want to perform this action on ${confirmAction?.user?.firstName}?`
+                    }
+                    confirmText={
+                        confirmAction?.type === 'SUSPEND' ? 'Suspend User' :
+                            confirmAction?.type === 'RESTORE' ? 'Restore User' :
+                                confirmAction?.type === 'RESET_MFA' ? 'Reset MFA' :
+                                    'Confirm'
+                    }
+                    variant={confirmAction?.type === 'SUSPEND' ? 'danger' : (confirmAction?.type === 'RESET_MFA' ? 'warning' : 'primary')}
+                    isLoading={isUpdating}
+                />
+
+                {/* Pagination Controls */}
+                {!loading && pagination?.totalPages > 1 && (
+                    <div className="mt-8 flex items-center justify-between px-6 py-4 bg-surface/50 rounded-xl border border-border">
+                        <div className="text-sm text-text-secondary">
+                            Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} users
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setPage(page - 1)}
+                                disabled={!pagination.hasPrev}
+                                className="px-4 py-2 bg-surface border border-border rounded-lg hover:bg-surface-secondary disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                                Previous
+                            </button>
+                            <div className="flex items-center gap-1">
+                                {Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, i) => {
+                                    const pageNum = i + 1;
+                                    return (
+                                        <button
+                                            key={pageNum}
+                                            onClick={() => setPage(pageNum)}
+                                            className={`w-10 h-10 rounded-lg text-sm ${page === pageNum
+                                                ? 'bg-primary text-white'
+                                                : 'bg-surface border border-border hover:bg-surface-secondary'
+                                                }`}
+                                        >
+                                            {pageNum}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <button
+                                onClick={() => setPage(page + 1)}
+                                disabled={!pagination.hasNext}
+                                className="px-4 py-2 bg-surface border border-border rounded-lg hover:bg-surface-secondary disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </AdminLayout>
+    );
+}

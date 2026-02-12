@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { User, Check, X, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import UserAvatar from '../shared/UserAvatar';
 
 interface AssigneeSelectorProps {
     currentAssignees: any[];
@@ -40,20 +41,21 @@ export default function AssigneeSelector({ currentAssignees, projectMembers, onA
         <div className="relative" ref={containerRef}>
             <div className="flex flex-wrap gap-2 items-center">
                 {currentAssignees.map((assignee) => (
-                    <div key={assignee.id} className="group relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-full pl-1 pr-3 py-1">
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-[10px] font-bold text-white uppercase">
-                            {assignee.projectMember.organizationMember.user.firstName[0]}
-                            {assignee.projectMember.organizationMember.user.lastName[0]}
-                        </div>
-                        <span className="text-xs text-white">
-                            {assignee.projectMember.organizationMember.user.firstName}
-                        </span>
+                    <div key={assignee.id} className="group relative">
+                        <UserAvatar
+                            userId={assignee.projectMember.organizationMember.userId} // Assuming structure matches
+                            firstName={assignee.projectMember.organizationMember.user.firstName}
+                            lastName={assignee.projectMember.organizationMember.user.lastName}
+                            avatarUrl={assignee.projectMember.organizationMember.user.avatarUrl}
+                            size="sm"
+                            className="bg-gradient-to-br from-primary to-purple-600 border border-white/10"
+                        />
                         {!readOnly && (
                             <button
                                 onClick={() => onUnassign(assignee.projectMemberId)}
-                                className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
                             >
-                                <X size={10} className="text-white" />
+                                <X size={8} className="text-white" />
                             </button>
                         )}
                     </div>
@@ -127,10 +129,14 @@ export default function AssigneeSelector({ currentAssignees, projectMembers, onA
                                             disabled={assigned}
                                             className={`w-full text-left p-2 rounded-lg flex items-center gap-3 transition-colors ${assigned ? 'opacity-50 cursor-default' : 'hover:bg-white/5 cursor-pointer'}`}
                                         >
-                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-xs font-bold text-white uppercase">
-                                                {member.organizationMember.user.firstName[0]}
-                                                {member.organizationMember.user.lastName[0]}
-                                            </div>
+                                            <UserAvatar
+                                                userId={member.organizationMember.user.id}
+                                                firstName={member.organizationMember.user.firstName}
+                                                lastName={member.organizationMember.user.lastName}
+                                                avatarUrl={member.organizationMember.user.avatarUrl}
+                                                size="md"
+                                                className="bg-gradient-to-br from-gray-700 to-gray-600 ring-1 ring-white/10"
+                                            />
                                             <div className="flex-1">
                                                 <div className="text-sm text-white font-medium">
                                                     {member.organizationMember.user.firstName} {member.organizationMember.user.lastName}

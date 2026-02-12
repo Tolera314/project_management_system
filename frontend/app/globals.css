@@ -1,22 +1,46 @@
 @import "tailwindcss";
 
 :root {
-  /* Brand Colors from README.md */
+  /* Light Theme Defaults - REFINED FOR CONTRAST */
+  --background: #F1F5F9;       /* Slate 100 - slightly darker than pure white */
+  --foreground: #020617;       /* Slate 950 - very dark */
+
+  --color-primary: #4F46E5;    /* Indigo 600 */
+  --color-surface: #FFFFFF;    /* Pure white for cards */
+  --color-surface-secondary: #E2E8F0; /* Slate 200 - more distinct */
+  
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #475569;
+  
+  --color-border: #CBD5E1;     /* Slate 300 - clearly visible */
+  
+  --color-success: #16A34A;
+  --color-warning: #D97706;
+  --color-danger: #DC2626;
+  --color-accent: #7C3AED;
+
+  --font-sans: var(--font-geist-sans, sans-serif);
+  --font-mono: var(--font-geist-mono, monospace);
+}
+
+.dark {
+  /* Dark Theme Overrides */
   --background: #020617;
   --foreground: #E5E7EB;
   
   --color-primary: #4F46E5;
   --color-surface: #1E293B;
+  --color-surface-secondary: #0F172A; /* Darker sidebar */
+  
   --color-text-primary: #E5E7EB;
   --color-text-secondary: #94A3B8;
+  
+  --color-border: #334155; /* Slate 700 */
+  
   --color-success: #10B981;
   --color-warning: #F59E0B;
   --color-danger: #EF4444;
-  --color-accent: #A78BFA;
-
-  /* Font variables (assuming they are set by Next.js layout) */
-  --font-sans: var(--font-geist-sans, sans-serif);
-  --font-mono: var(--font-geist-mono, monospace);
+  --color-accent: #8B5CF6;
 }
 
 @theme {
@@ -25,8 +49,13 @@
   
   --color-primary: var(--color-primary);
   --color-surface: var(--color-surface);
+  --color-surface-secondary: var(--color-surface-secondary);
+  
   --color-text-primary: var(--color-text-primary);
   --color-text-secondary: var(--color-text-secondary);
+  
+  --color-border: var(--color-border);
+  
   --color-success: var(--color-success);
   --color-warning: var(--color-warning);
   --color-danger: var(--color-danger);

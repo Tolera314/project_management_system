@@ -60,10 +60,10 @@ export default function InviteToWorkspaceModal({ isOpen, onClose, workspaceId, o
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-[#0A0A0A] border border-white/10 rounded-2xl shadow-2xl z-[70] overflow-hidden"
+                        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-surface border border-foreground/10 rounded-2xl shadow-2xl z-[70] overflow-hidden"
                     >
-                        <div className="p-6 border-b border-white/5 flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <div className="p-6 border-b border-foreground/5 flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
                                 <Building2 size={20} className="text-primary" />
                                 Invite to Workspace
                             </h2>
@@ -87,7 +87,7 @@ export default function InviteToWorkspaceModal({ isOpen, onClose, workspaceId, o
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder="colleague@company.com"
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-text-secondary focus:outline-none focus:border-primary/50 transition-colors"
+                                    className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-primary/50 transition-colors"
                                     autoFocus
                                     required
                                 />
@@ -101,7 +101,7 @@ export default function InviteToWorkspaceModal({ isOpen, onClose, workspaceId, o
                                         .map((role) => (
                                             <label
                                                 key={role.id}
-                                                className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${selectedRole === role.id ? 'bg-primary/10 border-primary/50' : 'bg-white/5 border-white/10 hover:border-white/20'}`}
+                                                className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${selectedRole === role.id ? 'bg-primary/10 border-primary/50' : 'bg-foreground/5 border-foreground/10 hover:border-foreground/20'}`}
                                             >
                                                 <span className="flex items-center gap-2">
                                                     <input
@@ -112,7 +112,7 @@ export default function InviteToWorkspaceModal({ isOpen, onClose, workspaceId, o
                                                         onChange={(e) => setSelectedRole(e.target.value)}
                                                         className="accent-primary"
                                                     />
-                                                    <span className={`text-sm font-medium ${selectedRole === role.id ? 'text-white' : 'text-text-secondary'}`}>{role.name}</span>
+                                                    <span className={`text-sm font-medium ${selectedRole === role.id ? 'text-primary' : 'text-text-secondary'}`}>{role.name}</span>
                                                 </span>
                                                 {role.name === 'Admin' && <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">Admin</span>}
                                                 {role.description && <span className="text-xs text-text-secondary ml-2">{role.description}</span>}

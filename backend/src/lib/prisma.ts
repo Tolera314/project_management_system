@@ -15,9 +15,15 @@ if (!connectionString) {
   throw new Error('DATABASE_URL is not defined')
 }
 
-// Create pg pool with explicit configuration
+// Create pg pool with enterprise-grade configuration
+// Supports 2000-3000 concurrent DB operations via efficient connection reuse
 const pool = new Pool({
   connectionString,
+  max: 100, // Maximum pool size (enterprise-grade capacity)
+  min: 10, // Minimum connections kept alive
+  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 10000, // Wait max 10s for connection
+  maxUses: 7500, // Recycle connections after 7500 uses (prevents leaks)
   // Ensure password is treated as string
   ssl: connectionString.includes('sslmode=require') ? { rejectUnauthorized: false } : false
 })

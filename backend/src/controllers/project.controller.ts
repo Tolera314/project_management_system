@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
-import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
+import { NotificationService } from '../services/notification.service';
+import { startOfWeek, subWeeks, endOfWeek } from 'date-fns';
 
 const createProjectSchema = z.object({
     name: z.string().min(1, 'Project name is required').max(100, 'Project name is too long'),
@@ -14,6 +15,10 @@ const createProjectSchema = z.object({
     status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'CANCELLED']).default('NOT_STARTED'),
     color: z.string().optional(),
     dependencyIds: z.array(z.string().cuid()).optional(),
+    templateId: z.string().cuid().optional(),
+    isTemplate: z.boolean().default(false),
+    category: z.string().optional(),
+    isPublic: z.boolean().default(false),
 });
 
 // Imports at top
@@ -43,7 +48,7 @@ export const createProject = async (req: Request, res: Response) => {
             return;
         }
 
-        const { name, description, organizationId, startDate, dueDate, priority, status, color, dependencyIds } = validation.data;
+        const { name, description, organizationId, startDate, dueDate, priority, status, color, dependencyIds, templateId, isTemplate, category, isPublic } = validation.data;
 
         // Verify user is member of organization
         const membership = await prisma.organizationMember.findUnique({
@@ -92,6 +97,10 @@ export const createProject = async (req: Request, res: Response) => {
                     priority,
                     status,
                     color: color || '#4F46E5',
+                    isTemplate: isTemplate || false,
+                    category,
+                    isPublic: isPublic || false,
+                    sourceTemplateId: templateId
                 },
                 include: {
                     createdBy: {
@@ -123,6 +132,127 @@ export const createProject = async (req: Request, res: Response) => {
                         type: 'FINISH_TO_START'
                     }))
                 });
+            }
+
+            // Handle Template Cloning
+            if (templateId) {
+                const template = await tx.project.findUnique({
+                    where: { id: templateId },
+                    include: {
+                        lists: {
+                            include: {
+                                tasks: {
+                                    include: {
+                                        children: true
+                                    }
+                                }
+                            }
+                        },
+                        milestones: true,
+                        // dependencies: true // Internal dependencies only? Complex to clone.
+                    }
+                });
+
+                if (template) {
+                    // Security Check: Ensure user has access to this template
+                    const isSystem = template.templateVisibility === 'SYSTEM';
+                    const isOwner = template.createdById === userId;
+
+                    if (!isSystem && !isOwner) {
+                        throw new Error('Access denied: You do not have permission to use this template.');
+                    }
+
+                    // Clone Milestones
+                    // Clone Milestones
+                    // Calculate date shift
+                    const dateShift = startDate && template.startDate
+                        ? startDate.getTime() - template.startDate.getTime()
+                        : 0;
+
+                    const shiftDate = (d: Date | null) => d ? new Date(d.getTime() + dateShift) : null;
+
+                    // Clone Milestones
+                    if (template.milestones.length > 0) {
+                        await tx.milestone.createMany({
+                            data: template.milestones.map(m => ({
+                                name: m.name,
+                                description: m.description,
+                                status: 'PENDING',
+                                dueDate: shiftDate(m.dueDate) || new Date(), // Enforce valid date
+                                projectId: newProject.id,
+                                createdById: userId
+                            }))
+                        });
+                    }
+
+                    // Clone Lists & Tasks
+                    for (const list of template.lists) {
+                        const newList = await tx.list.create({
+                            data: {
+                                name: list.name, // Fix title -> name
+                                projectId: newProject.id,
+                                position: list.position,
+                                // type: list.type // List doesn't seem to have type in schema view, removing to be safe or check schema
+                            }
+                        });
+
+                        // Filter top-level tasks
+                        const topLevelTasks = list.tasks.filter(t => !t.parentId);
+
+                        for (const task of topLevelTasks) {
+                            const newTask = await tx.task.create({
+                                data: {
+                                    title: task.title,
+                                    description: task.description,
+                                    priority: task.priority,
+                                    status: 'TODO', // Reset status
+                                    startDate: shiftDate(task.startDate),
+                                    dueDate: shiftDate(task.dueDate),
+                                    position: task.position,
+                                    listId: newList.id,
+                                    projectId: newProject.id,
+                                    createdById: userId,
+                                    updatedById: userId
+                                }
+                            });
+
+                            // Subtasks
+                            const subtasks = list.tasks.filter(t => t.parentId === task.id);
+                            if (subtasks.length > 0) {
+                                await tx.task.createMany({
+                                    data: subtasks.map(st => ({
+                                        title: st.title,
+                                        description: st.description,
+                                        priority: st.priority,
+                                        status: 'TODO',
+                                        startDate: shiftDate(st.startDate),
+                                        dueDate: shiftDate(st.dueDate),
+                                        position: st.position,
+                                        parentId: newTask.id,
+                                        listId: newList.id,
+                                        projectId: newProject.id,
+                                        createdById: userId,
+                                        updatedById: userId
+                                    }))
+                                });
+                            }
+                        }
+                    }
+                }
+            } else if (isTemplate) {
+                // Create default lists for a fresh template if needed, or leave empty
+                // For now, empty
+            } else {
+                // Default Lists for normal project (TODO, IN PROGRESS, DONE)
+                /* Commented out as requested - user wants to define their own lists
+                await tx.list.createMany({
+                    data: [
+                        { name: 'To Do', projectId: newProject.id, position: 0 },
+                        { name: 'In Progress', projectId: newProject.id, position: 1 },
+                        { name: 'Done', projectId: newProject.id, position: 2 },
+                    ]
+                });
+                */
             }
 
             return newProject;
@@ -173,6 +303,7 @@ export const getProjects = async (req: Request, res: Response) => {
         const projects = await prisma.project.findMany({
             where: {
                 organizationId,
+                isTemplate: false, // Filter out templates
             },
             include: {
                 createdBy: {
@@ -201,17 +332,53 @@ export const getProjects = async (req: Request, res: Response) => {
     }
 };
 
+export const getTemplates = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { organizationId } = req.query;
+
+        if (!organizationId || typeof organizationId !== 'string') {
+            res.status(400).json({ error: 'Organization ID is required' });
+            return;
+        }
+
+        const templates = await prisma.project.findMany({
+            where: {
+                isTemplate: true,
+                OR: [
+                    { templateVisibility: 'SYSTEM' },
+                    {
+                        templateVisibility: 'PRIVATE',
+                        createdById: userId
+                    }
+                ]
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        res.json({ templates });
+    } catch (error) {
+        console.error('Get templates error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 export const getProjectDetails = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const userId = (req as any).userId;
+        const { includeArchived } = req.query;
+        const showArchived = includeArchived === 'true';
 
+        // Check Permissions: Actor must be member of organization UNLESS it is a template preview
         const project = await prisma.project.findFirst({
             where: {
                 id,
-                organization: {
-                    members: { some: { userId } }
-                }
+                OR: [
+                    { organization: { members: { some: { userId } } } },
+                    { isTemplate: true, templateVisibility: 'SYSTEM' },
+                    { isTemplate: true, createdById: userId }
+                ]
             },
             include: {
                 lists: {
@@ -221,7 +388,10 @@ export const getProjectDetails = async (req: Request, res: Response) => {
                             include: { source: true }
                         },
                         tasks: {
-                            where: { parentId: null }, // Only top-level tasks
+                            where: {
+                                parentId: null,
+                                ...(showArchived ? {} : { isArchived: false })
+                            },
                             orderBy: { position: 'asc' },
                             include: {
                                 assignees: {
@@ -231,18 +401,18 @@ export const getProjectDetails = async (req: Request, res: Response) => {
                                                 organizationMember: {
                                                     include: {
                                                         user: {
-                                                            select: { id: true, firstName: true, lastName: true, email: true } // Added email
+                                                            select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true }
                                                         }
                                                     }
                                                 },
-                                                role: true // Include Role
+                                                role: true
                                             }
                                         }
                                     }
                                 },
                                 children: {
                                     orderBy: { position: 'asc' },
-                                    include: { // Include assignees for subtasks too
+                                    include: {
                                         assignees: {
                                             include: {
                                                 projectMember: {
@@ -250,7 +420,7 @@ export const getProjectDetails = async (req: Request, res: Response) => {
                                                         organizationMember: {
                                                             include: {
                                                                 user: {
-                                                                    select: { id: true, firstName: true, lastName: true, email: true }
+                                                                    select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true }
                                                                 }
                                                             }
                                                         },
@@ -273,7 +443,7 @@ export const getProjectDetails = async (req: Request, res: Response) => {
                         organizationMember: {
                             include: {
                                 user: {
-                                    select: { id: true, firstName: true, lastName: true, email: true }
+                                    select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true }
                                 }
                             }
                         },
@@ -294,7 +464,7 @@ export const getProjectDetails = async (req: Request, res: Response) => {
                         members: {
                             include: {
                                 user: {
-                                    select: { id: true, firstName: true, lastName: true, email: true }
+                                    select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true }
                                 },
                                 role: true
                             }
@@ -329,6 +499,95 @@ export const getProjectDetails = async (req: Request, res: Response) => {
     }
 };
 
+export const getProjectStats = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).userId;
+
+        // Verify Access - Allow if member OR if it's a template preview
+        const project = await prisma.project.findFirst({
+            where: {
+                id,
+                OR: [
+                    { organization: { members: { some: { userId } } } },
+                    { isTemplate: true, templateVisibility: 'SYSTEM' },
+                    { isTemplate: true, createdById: userId }
+                ]
+            },
+            include: {
+                invitations: { where: { status: 'PENDING' } },
+                members: true
+            }
+        });
+
+        if (!project) {
+            res.status(404).json({ error: 'Project not found' });
+            return;
+        }
+
+        const now = new Date();
+        const startOfCurrentWeek = startOfWeek(now);
+        const startOfLastWeek = startOfWeek(subWeeks(now, 1));
+        const endOfLastWeek = endOfWeek(subWeeks(now, 1));
+
+        // 1. Task Counts
+        const [totalTasks, completedTasks, openTasks, overdueTasks] = await Promise.all([
+            prisma.task.count({ where: { projectId: id } }),
+            prisma.task.count({ where: { projectId: id, status: 'DONE' } }),
+            prisma.task.count({ where: { projectId: id, status: { not: 'DONE' } } }),
+            prisma.task.count({
+                where: {
+                    projectId: id,
+                    status: { not: 'DONE' },
+                    dueDate: { lt: now }
+                }
+            })
+        ]);
+
+        // 2. Velocity (Completed tasks this week vs last week)
+        const completedThisWeek = await prisma.task.count({
+            where: {
+                projectId: id,
+                status: 'DONE',
+                completedAt: { gte: startOfCurrentWeek }
+            }
+        });
+
+        const completedLastWeek = await prisma.task.count({
+            where: {
+                projectId: id,
+                status: 'DONE',
+                completedAt: { gte: startOfLastWeek, lte: endOfLastWeek }
+            }
+        });
+
+        let velocityChange = 0;
+        if (completedLastWeek === 0) {
+            velocityChange = completedThisWeek > 0 ? 100 : 0;
+        } else {
+            velocityChange = Math.round(((completedThisWeek - completedLastWeek) / completedLastWeek) * 100);
+        }
+
+        // 3. Progress
+        const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+        res.json({
+            progress,
+            openTasks,
+            overdueTasks,
+            totalMembers: (project.members.length || 0) + (project.invitations.length || 0),
+            velocity: {
+                value: velocityChange,
+                direction: velocityChange >= 0 ? 'up' : 'down'
+            }
+        });
+
+    } catch (error) {
+        console.error('Get project stats error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 // Add Member
 export const addMember = async (req: Request, res: Response) => {
     try {
@@ -354,30 +613,87 @@ export const addMember = async (req: Request, res: Response) => {
             return;
         }
 
-        // 2. Find User by Email or provision new one
-        let userToAdd = await prisma.user.findUnique({
+        // Check Permissions: Actor must be PM or have 'manage_project_members'
+        const actor = await prisma.projectMember.findFirst({
+            where: {
+                projectId: id,
+                organizationMember: { userId }
+            },
+            include: { role: { include: { permissions: { include: { permission: true } } } } }
+        });
+
+        const isProjectManager = actor?.role.name === 'Project Manager';
+        const hasMemberPermission = actor?.role.permissions.some(p => p.permission.name === 'manage_project_members');
+
+        // Also allow Workspace Admins/Owners
+        const workspaceMember = await prisma.organizationMember.findFirst({
+            where: { organizationId: project.organizationId, userId, role: { name: { in: ['Owner', 'Admin'] } } }
+        });
+
+        if (!isProjectManager && !hasMemberPermission && !workspaceMember) {
+            res.status(403).json({ error: 'Access denied. You do not have permission to manage project members.' });
+            return;
+        }
+
+        // 2. Find User by Email
+        const userToAdd = await prisma.user.findUnique({
             where: { email }
         });
 
         if (!userToAdd) {
-            console.log(`[ProjectService] User ${email} not found. Provisioning new user.`);
-            // Provision new user
-            const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
-            const hashedPassword = await bcrypt.hash(tempPassword, 10);
+            console.log(`[ProjectService] User ${email} not found. Sending invitation.`);
 
-            const nameParts = email.split('@')[0].split('.');
-            const firstName = nameParts[0] || 'Invited';
-            const lastName = nameParts.length > 1 ? nameParts[1] : 'User';
+            // Generate Token
+            const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + 7);
 
-            userToAdd = await prisma.user.create({
-                data: {
-                    email,
-                    password: hashedPassword,
-                    firstName: firstName.charAt(0).toUpperCase() + firstName.slice(1),
-                    lastName: lastName.charAt(0).toUpperCase() + lastName.slice(1),
+            // Create Invitation
+            await prisma.invitation.upsert({
+                where: { token },
+                create: {
+                    token,
+                    email: email.toLowerCase(),
+                    type: 'PROJECT',
+                    projectId: id,
+                    roleId: roleId,
+                    invitedById: userId,
+                    expiresAt
+                },
+                update: {
+                    token,
+                    roleId: roleId,
+                    expiresAt
                 }
             });
-            console.log(`[ProjectService] Provisioned user ${email} with temp password: ${tempPassword}`);
+
+            // Send Email
+            const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+            const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite/${token}`;
+
+            try {
+                const role = await prisma.role.findUnique({ where: { id: roleId } });
+                const html = getProjectInvitationTemplate(
+                    project.name,
+                    currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'A Project Manager',
+                    role ? role.name : 'Member',
+                    inviteLink
+                );
+
+                await sendEmail({
+                    to: email,
+                    subject: `Invitation to join project: ${project.name}`,
+                    html
+                });
+            } catch (emailErr) {
+                console.error('Failed to send invite email:', emailErr);
+            }
+
+            res.status(200).json({
+                message: 'User not found. Project invitation sent successfully.',
+                token // Optional: Remove in prod if security concern, but useful for debug
+            });
+            return;
         }
 
         // 3. Check/Add to Organization
@@ -418,6 +734,28 @@ export const addMember = async (req: Request, res: Response) => {
                     roleId: roleId
                 }
             });
+
+            // Send Notification
+            try {
+                const inviter = await prisma.user.findUnique({ where: { id: userId } });
+                const link = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/projects/${id}`;
+
+                await NotificationService.notify({
+                    type: 'PROJECT_MEMBER_ADDED',
+                    recipientId: userToAdd.id,
+                    actorId: userId,
+                    projectId: id,
+                    title: 'Added to Project',
+                    message: `${inviter ? `${inviter.firstName} ${inviter.lastName}` : 'A team member'} added you to the project: ${project.name}`,
+                    link: link,
+                    metadata: {
+                        projectName: project.name,
+                        actorName: inviter ? `${inviter.firstName} ${inviter.lastName}` : 'A team member'
+                    }
+                });
+            } catch (notifErr) {
+                console.error('Failed to send project member notification:', notifErr);
+            }
 
             res.status(201).json({
                 message: 'Member added to project successfully',
@@ -489,6 +827,23 @@ export const removeMember = async (req: Request, res: Response) => {
         const { id, memberId } = req.params;
         const userId = (req as any).userId;
 
+        // Check Permissions: Actor must be PM or have 'manage_project_members'
+        const project = await prisma.project.findUnique({ where: { id } });
+        if (!project) return res.status(404).json({ error: 'Project not found' });
+
+        const actor = await prisma.projectMember.findFirst({
+            where: { projectId: id, organizationMember: { userId } },
+            include: { role: { include: { permissions: { include: { permission: true } } } } }
+        });
+
+        const workspaceMember = await prisma.organizationMember.findFirst({
+            where: { organizationId: project.organizationId, userId, role: { name: { in: ['Owner', 'Admin'] } } }
+        });
+
+        if (actor?.role.name !== 'Project Manager' && !actor?.role.permissions.some(p => p.permission.name === 'manage_project_members') && !workspaceMember) {
+            return res.status(403).json({ error: 'Access denied. You do not have permission to manage project members.' });
+        }
+
         // Find the member to be removed
         const memberToRemove = await prisma.projectMember.findFirst({
             where: { id: memberId, projectId: id },
@@ -528,6 +883,157 @@ export const removeMember = async (req: Request, res: Response) => {
 
     } catch (error) {
         console.error('Remove member error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+// Update Member Role
+export const updateMemberRole = async (req: Request, res: Response) => {
+    try {
+        const { id, memberId } = req.params;
+        const { roleId } = req.body;
+        const userId = (req as any).userId;
+
+        if (!roleId) {
+            res.status(400).json({ error: 'Role ID is required' });
+            return;
+        }
+
+        // Check Permissions: Actor must be PM or have 'manage_project_members'
+        const project = await prisma.project.findUnique({ where: { id } });
+        if (!project) return res.status(404).json({ error: 'Project not found' });
+
+        const actor = await prisma.projectMember.findFirst({
+            where: { projectId: id, organizationMember: { userId } },
+            include: { role: { include: { permissions: { include: { permission: true } } } } }
+        });
+
+        const workspaceMember = await prisma.organizationMember.findFirst({
+            where: { organizationId: project.organizationId, userId, role: { name: { in: ['Owner', 'Admin'] } } }
+        });
+
+        if (actor?.role.name !== 'Project Manager' && !actor?.role.permissions.some(p => p.permission.name === 'manage_project_members') && !workspaceMember) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const member = await prisma.projectMember.findFirst({
+            where: { id: memberId, projectId: id },
+            include: { role: true, organizationMember: { include: { user: true } } }
+        });
+
+        if (!member) {
+            res.status(404).json({ error: 'Member not found' });
+            return;
+        }
+
+        const newRole = await prisma.role.findUnique({ where: { id: roleId } });
+        if (!newRole) {
+            res.status(404).json({ error: 'New role not found' });
+            return;
+        }
+
+        // Since we already fetched project above, we can reuse organizationId if select was used or it was included.
+        // Let's just use the organizationId from the 'project' variable we already have at line 861.
+        if (project && newRole.organizationId !== project.organizationId) {
+            res.status(400).json({ error: 'Role does not belong to this organization' });
+            return;
+        }
+
+
+        // Safety Rule: Cannot downgrade/change own role via this endpoint
+        // (Prevents accidental self-lockout or privilege escalation)
+        const memberUserId = member.organizationMember.userId;
+        if (memberUserId === userId) {
+            res.status(403).json({ error: 'You cannot change your own role' });
+            return;
+        }
+
+        const updatedMember = await prisma.projectMember.update({
+            where: { id: memberId },
+            data: { roleId },
+            include: { role: true }
+        });
+
+        // Notify member about role change
+        try {
+            await NotificationService.notify({
+                type: 'PROJECT_ROLE_CHANGED',
+                recipientId: member.organizationMember.userId,
+                actorId: userId,
+                projectId: id,
+                title: 'Role Updated',
+                message: `Your role in project "${member.projectId}" has been changed to ${newRole.name}.`,
+                link: `/projects/${id}`,
+                metadata: {
+                    newRole: newRole.name,
+                    oldRole: member.role.name
+                }
+            });
+        } catch (notifErr) {
+            console.error('Failed to send role update notification:', notifErr);
+        }
+
+        res.json({ member: updatedMember });
+    } catch (error) {
+        console.error('Update member role error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const updateProject = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id } = req.params;
+        const validation = createProjectSchema.partial().safeParse(req.body);
+
+        if (!validation.success) {
+            res.status(400).json({ error: validation.error.issues[0].message });
+            return;
+        }
+
+        // Verify user is PM
+        const member = await prisma.projectMember.findFirst({
+            where: { projectId: id, organizationMember: { userId }, role: { name: 'Project Manager' } }
+        });
+
+        if (!member) {
+            res.status(403).json({ error: 'Only project managers can update project settings' });
+            return;
+        }
+
+        const updated = await prisma.project.update({
+            where: { id },
+            data: {
+                ...validation.data,
+                updatedById: userId
+            }
+        });
+
+        res.json(updated);
+    } catch (error) {
+        console.error('Update project error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const deleteProject = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const { id } = req.params;
+
+        // Verify user is PM
+        const member = await prisma.projectMember.findFirst({
+            where: { projectId: id, organizationMember: { userId }, role: { name: 'Project Manager' } }
+        });
+
+        if (!member) {
+            res.status(403).json({ error: 'Only project managers can delete projects' });
+            return;
+        }
+
+        await prisma.project.delete({ where: { id } });
+        res.json({ message: 'Project deleted successfully' });
+    } catch (error) {
+        console.error('Delete project error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };

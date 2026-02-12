@@ -5,7 +5,6 @@ import { FolderPlus, CheckSquare, Calendar, TrendingUp, Clock, Users, MoreHorizo
 import { useState, useEffect } from 'react';
 import { useToast } from '../components/ui/Toast';
 import { useRouter } from 'next/navigation';
-import DashboardLayout from '../components/dashboard/DashboardLayout';
 import CreateProjectModal from '../components/dashboard/CreateProjectModal';
 import WorkspaceCreationModal from '../components/dashboard/WorkspaceCreationModal';
 import ProjectCard from '../components/dashboard/ProjectCard';
@@ -60,11 +59,24 @@ export default function DashboardPage() {
             }
 
             // Check if user has workspace (Source of Truth check)
-            const workspaceResponse = await fetch('http://localhost:4000/workspaces/me', {
+            const selectedId = localStorage.getItem('selectedWorkspaceId');
+            const url = selectedId
+                ? `http://localhost:4000/workspaces/me?workspaceId=${selectedId}`
+                : 'http://localhost:4000/workspaces/me';
+
+            const workspaceResponse = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                 },
             });
+
+            if (workspaceResponse.status === 401) {
+                console.warn('[Dashboard] Session expired (401)');
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                router.push('/login');
+                return;
+            }
 
             if (workspaceResponse.ok) {
                 const workspaceData = await workspaceResponse.json();
@@ -163,16 +175,14 @@ export default function DashboardPage() {
 
     if (loading) {
         return (
-            <DashboardLayout>
-                <div className="flex items-center justify-center h-screen">
-                    <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                </div>
-            </DashboardLayout>
+            <div className="flex items-center justify-center h-screen">
+                <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            </div>
         );
     }
 
     return (
-        <DashboardLayout>
+        <>
             <CreateProjectModal
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
@@ -193,12 +203,12 @@ export default function DashboardPage() {
                     className="mb-8 flex items-start justify-between"
                 >
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
+                        <h1 className="text-2xl md:text-3xl font-bold text-text-primary mb-2">
                             {getTimeGreeting()}, {userName}
                         </h1>
                         {hasData ? (
                             <p className="text-text-secondary text-sm">
-                                You're working in <span className="text-white font-medium">{projects[0].name}</span>
+                                You're working in <span className="text-text-secondary font-medium">{projects[0].name}</span>
                             </p>
                         ) : (
                             <p className="text-text-secondary text-sm">
@@ -231,31 +241,31 @@ export default function DashboardPage() {
                                     <FolderPlus className="w-4 h-4 text-primary" />
                                     <span className="text-xs font-medium text-text-secondary">Projects</span>
                                 </div>
-                                <div className="text-2xl font-bold text-white">{stats.totalProjects}</div>
+                                <div className="text-2xl font-bold text-text-primary">{stats.totalProjects}</div>
                             </div>
 
-                            <div className="p-5 bg-surface/40 border border-white/5 rounded-xl">
+                            <div className="p-5 bg-surface-secondary/40 border border-border rounded-xl">
                                 <div className="flex items-center gap-3 mb-2">
                                     <CheckSquare className="w-4 h-4 text-success" />
                                     <span className="text-xs font-medium text-text-secondary">Active Tasks</span>
                                 </div>
-                                <div className="text-2xl font-bold text-white">{stats.totalTasks}</div>
+                                <div className="text-2xl font-bold text-text-primary">{stats.totalTasks}</div>
                             </div>
 
-                            <div className="p-5 bg-surface/40 border border-white/5 rounded-xl">
+                            <div className="p-5 bg-surface-secondary/40 border border-border rounded-xl">
                                 <div className="flex items-center gap-3 mb-2">
                                     <Calendar className="w-4 h-4 text-warning" />
                                     <span className="text-xs font-medium text-text-secondary">This Week</span>
                                 </div>
-                                <div className="text-2xl font-bold text-white">{stats.completedTasks}</div>
+                                <div className="text-2xl font-bold text-text-primary">{stats.completedTasks}</div>
                             </div>
 
-                            <div className="p-5 bg-surface/40 border border-white/5 rounded-xl">
+                            <div className="p-5 bg-surface-secondary/40 border border-border rounded-xl">
                                 <div className="flex items-center gap-3 mb-2">
                                     <Users className="w-4 h-4 text-accent" />
                                     <span className="text-xs font-medium text-text-secondary">Team</span>
                                 </div>
-                                <div className="text-2xl font-bold text-white">{stats.teamMembers}</div>
+                                <div className="text-2xl font-bold text-text-primary">{stats.teamMembers}</div>
                             </div>
                         </motion.div>
 
@@ -267,10 +277,10 @@ export default function DashboardPage() {
                             className="mb-8"
                         >
                             <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-lg font-semibold text-white">Your Projects</h2>
+                                <h2 className="text-lg font-semibold text-text-primary">Your Projects</h2>
                                 <button
                                     onClick={() => setIsCreateModalOpen(true)}
-                                    className="text-sm text-text-secondary hover:text-white transition-colors"
+                                    className="text-sm text-text-secondary hover:text-text-primary transition-colors"
                                 >
                                     View all
                                 </button>
@@ -296,7 +306,7 @@ export default function DashboardPage() {
                                 className="p-4 bg-primary/5 border border-primary/10 rounded-lg"
                             >
                                 <p className="text-sm text-text-secondary">
-                                    💡 <span className="text-white">Next step:</span> Add tasks to {projects[0].name} to start tracking progress
+                                    💡 <span className="text-text-primary font-medium">Next step:</span> Add tasks to {projects[0].name} to start tracking progress
                                 </p>
                             </motion.div>
                         )}
@@ -309,10 +319,10 @@ export default function DashboardPage() {
                         transition={{ duration: 0.6 }}
                         className="text-center py-16"
                     >
-                        <div className="w-20 h-20 mx-auto mb-6 bg-white/5 rounded-full flex items-center justify-center">
+                        <div className="w-20 h-20 mx-auto mb-6 bg-surface-secondary rounded-full flex items-center justify-center">
                             <FolderPlus className="w-10 h-10 text-text-secondary" />
                         </div>
-                        <h2 className="text-2xl font-bold text-white mb-3">
+                        <h2 className="text-2xl font-bold text-text-primary mb-3">
                             Create your first project
                         </h2>
                         <p className="text-text-secondary mb-8 max-w-md mx-auto">
@@ -327,6 +337,6 @@ export default function DashboardPage() {
                     </motion.div>
                 )}
             </div>
-        </DashboardLayout>
+        </>
     );
 }

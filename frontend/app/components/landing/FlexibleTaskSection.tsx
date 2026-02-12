@@ -32,7 +32,7 @@ const cards = [
 
 export default function FlexibleTaskSection() {
     return (
-        <section className="py-24 px-6 bg-surface/30">
+        <section id="workflow" className="py-24 px-6 bg-surface-secondary/30">
             <div className="max-w-7xl mx-auto">
                 <div className="text-center mb-16">
                     <h2 className="text-3xl md:text-5xl font-bold mb-4">Work the Way Your Team Works</h2>
@@ -49,18 +49,18 @@ export default function FlexibleTaskSection() {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ duration: 0.5, delay: card.delay }}
-                            className="group p-6 rounded-2xl bg-surface border border-white/5 hover:border-primary/50 transition-colors hover:shadow-xl hover:shadow-primary/5"
+                            className="group p-6 rounded-2xl bg-surface border border-border hover:border-primary/50 transition-colors hover:shadow-xl hover:shadow-primary/5"
                         >
-                            <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors">
-                                <card.icon className="w-6 h-6 text-white group-hover:text-primary transition-colors" />
+                            <div className="w-12 h-12 bg-surface-secondary rounded-xl flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors">
+                                <card.icon className="w-6 h-6 text-text-primary group-hover:text-primary transition-colors" />
                             </div>
                             <h3 className="text-xl font-bold mb-2">{card.title}</h3>
                             <p className="text-text-secondary text-sm">{card.desc}</p>
 
                             {/* Micro Interaction Visual */}
-                            <div className="mt-6 h-24 bg-background/50 rounded-lg overflow-hidden relative border border-white/5 group-hover:border-primary/20 transition-colors">
-                                <div className="absolute top-3 left-3 right-3 h-2 bg-white/10 rounded-full" />
-                                <div className="absolute top-8 left-3 w-1/2 h-2 bg-white/5 rounded-full" />
+                            <div className="mt-6 h-24 bg-background/50 rounded-lg overflow-hidden relative border border-border group-hover:border-primary/20 transition-colors">
+                                <div className="absolute top-3 left-3 right-3 h-2 bg-border rounded-full" />
+                                <div className="absolute top-8 left-3 w-1/2 h-2 bg-border/50 rounded-full" />
                                 <motion.div
                                     className="absolute bottom-3 right-3 w-6 h-6 bg-primary/20 rounded-full flex items-center justify-center"
                                     animate={{ scale: [1, 1.1, 1] }}

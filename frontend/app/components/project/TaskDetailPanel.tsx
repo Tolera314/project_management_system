@@ -20,23 +20,36 @@ import {
     Plus,
     Target,
     Link as LinkIcon,
-    Trash2
+    Trash2,
+    Eye,
+    Tag as TagIcon,
+    Archive,
+    BarChart3,
+    FileIcon,
+    Download,
+    Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import UserAvatar from '../shared/UserAvatar';
 import { useState, useEffect, Fragment, useRef } from 'react';
 import DependencyModal from '../shared/DependencyModal';
 import InlineAssigneeSelector from './InlineAssigneeSelector';
+import CommentComposer from './CommentComposer';
+import FileUploader from '../files/FileUploader';
+import { FileService } from '../../services/file.service';
+import { useToast } from '../ui/Toast';
 
 interface TaskDetailPanelProps {
     task: any;
+    project: any;
     onClose: () => void;
     onUpdate: () => void;
+    isTemplate?: boolean;
 }
 
-export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }: TaskDetailPanelProps) {
+export default function TaskDetailPanel({ task: initialTask, project: initialProject, onClose, onUpdate, isTemplate = false }: TaskDetailPanelProps) {
     const [task, setTask] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [comment, setComment] = useState('');
     const [isDependencyModalOpen, setIsDependencyModalOpen] = useState(false);
     const [dependencies, setDependencies] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'comments' | 'activity'>('comments');
@@ -46,7 +59,14 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
     const [projectMembers, setProjectMembers] = useState<any[]>([]);
     const [organizationMembers, setOrganizationMembers] = useState<any[]>([]);
     const [project, setProject] = useState<any>(null);
+    const [allTags, setAllTags] = useState<any[]>([]);
+    const [showTagPicker, setShowTagPicker] = useState(false);
+    const [showMoreMenu, setShowMoreMenu] = useState(false);
+    const [tagSearch, setTagSearch] = useState('');
+    const [newTagColor, setNewTagColor] = useState('#3B82F6');
+    const [isCreatingTag, setIsCreatingTag] = useState(false);
     const subtaskInputRef = useRef<HTMLInputElement>(null);
+    const { showToast } = useToast();
 
     const [currentMemberRole, setCurrentMemberRole] = useState<any>(null);
 
@@ -93,12 +113,133 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                 setProject(projectData.project);
                 setProjectMembers(projectData.project.members || []);
                 setOrganizationMembers(projectData.project.organization?.members || []);
+
+                // Fetch organization tags
+                if (projectData.project.organizationId) {
+                    const tagsRes = await fetch(`http://localhost:4000/tags/org/${projectData.project.organizationId}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const tagsData = await tagsRes.json();
+                    setAllTags(tagsData);
+                }
             }
             if (projectData.currentMemberRole) setCurrentMemberRole(projectData.currentMemberRole);
         } catch (error) {
             console.error('Fetch task details error:', error);
+            if (error instanceof TypeError && error.message === 'Failed to fetch') {
+                showToast('error', 'Connection Error', 'Connection to server failed. Please ensure the backend is running on port 4000.');
+            }
         } finally {
             setLoading(false);
+        }
+    };
+
+    const canEdit = () => {
+        if (!task || task.isArchived) return false;
+        if (!currentMemberRole) return true; // Default to allow if not loaded or system admin (need to check systemRole too though)
+        return !['Viewer', 'Guest'].includes(currentMemberRole.name);
+    };
+
+    const canComment = () => {
+        if (!task || task.isArchived) return false;
+        return true; // Everyone can comment on active tasks for now
+    };
+
+    const isWatching = (userId: string) => {
+        return task?.watchers?.some((w: any) => w.userId === userId);
+    };
+
+    const handleToggleWatch = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+            const currentlyWatching = isWatching(currentUser.id);
+
+            const method = currentlyWatching ? 'DELETE' : 'POST';
+            const res = await fetch(`http://localhost:4000/tasks/${task?.id}/watch`, {
+                method,
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                fetchTaskDetails();
+            }
+        } catch (error) {
+            console.error('Toggle watch error:', error);
+        }
+    };
+
+    const handleAttachTag = async (tagId: string) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:4000/tags/attach`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ taskId: task?.id, tagId })
+            });
+
+            if (res.ok) {
+                fetchTaskDetails();
+                setShowTagPicker(false);
+            }
+        } catch (error) {
+            console.error('Attach tag error:', error);
+        }
+    };
+
+    const handleCreateTag = async () => {
+        if (!tagSearch.trim()) return;
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('http://localhost:4000/tags', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    name: tagSearch.trim(),
+                    color: newTagColor,
+                    organizationId: project?.organizationId
+                })
+            });
+
+            if (res.ok) {
+                const newTag = await res.json();
+                // Refresh all tags and attach
+                const tagsRes = await fetch(`http://localhost:4000/tags/org/${project?.organizationId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const tagsData = await tagsRes.json();
+                setAllTags(tagsData);
+
+                await handleAttachTag(newTag.id);
+                setTagSearch('');
+                setIsCreatingTag(false);
+            }
+        } catch (error) {
+            console.error('Create tag error:', error);
+        }
+    };
+
+    const COLORS = ['#EF4444', '#F97316', '#F59E0B', '#10B981', '#06B6D4', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#64748B'];
+
+    const handleDetachTag = async (tagId: string) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:4000/tags/detach/${task?.id}/${tagId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                fetchTaskDetails();
+            }
+        } catch (error) {
+            console.error('Detach tag error:', error);
         }
     };
 
@@ -109,13 +250,14 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
     };
 
     const handleUpdateStatus = async (newStatus: string) => {
+        if (!task?.id) return;
         try {
             const token = localStorage.getItem('token');
             // Optimistic update
             setTask((prev: any) => ({ ...prev, status: newStatus }));
             onUpdate();
 
-            await fetch(`http://localhost:4000/tasks/${task.id}`, {
+            await fetch(`http://localhost:4000/tasks/${task?.id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -130,13 +272,14 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
     };
 
     const handleUpdateTask = async (updates: any) => {
+        if (!task?.id) return;
         try {
             const token = localStorage.getItem('token');
             // Optimistic update
             setTask((prev: any) => ({ ...prev, ...updates }));
             onUpdate();
 
-            await fetch(`http://localhost:4000/tasks/${task.id}`, {
+            await fetch(`http://localhost:4000/tasks/${task?.id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -169,25 +312,25 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
         }
     };
 
-    const handlePostComment = async () => {
-        if (!comment.trim()) return;
+    const handleDuplicateTask = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/tasks/${task.id}/comments`, {
+            const res = await fetch(`http://localhost:4000/tasks/${task.id}/duplicate`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ content: comment })
+                headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (res.ok) {
-                setComment('');
-                fetchTaskDetails();
+                const data = await res.json();
+                setShowMoreMenu(false);
+                onUpdate();
+                // Optionally select the new task? For now just refresh
+                if (data.task) {
+                    setTask(data.task);
+                }
             }
         } catch (error) {
-            console.error('Post comment error:', error);
+            console.error('Duplicate task error:', error);
         }
     };
 
@@ -252,6 +395,14 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
             const token = localStorage.getItem('token');
             let targetMemberId = memberIdOrString;
             if (!targetMemberId) return;
+
+            // 0. Duplicate assignment validation
+            const isAlreadyAssigned = task?.assignees?.some((a: any) =>
+                a.projectMemberId === targetMemberId ||
+                (targetMemberId.startsWith('org_') && a.projectMember?.organizationMemberId === targetMemberId.split('_')[1])
+            );
+
+            if (isAlreadyAssigned) return;
 
             // 1. Optimistic update (Move this to the top for speed)
             const memberData = projectMembers?.find((m: any) => m.id === targetMemberId) ||
@@ -391,7 +542,7 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
 
             if (!inviteRes.ok) {
                 const errorArr = await inviteRes.json();
-                alert(errorArr.error || 'Failed to invite user');
+                showToast('error', 'Invite Failed', errorArr.error || 'Failed to invite user');
                 return;
             }
 
@@ -402,21 +553,59 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
         }
     };
 
+    const handleCommentPost = async (content: string) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:4000/tasks/${task.id}/comments`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ content })
+            });
+
+            if (res.ok) {
+                fetchTaskDetails();
+            }
+        } catch (error) {
+            console.error('Post comment error:', error);
+        }
+    };
+
+    const renderCommentContent = (content: string) => {
+        // Regex to match @[Name](userId)
+        const parts = content.split(/(@\[[^\]]+\]\([a-zA-Z0-9-]+\))/g);
+        return parts.map((part, index) => {
+            // Check if this part is a mention
+            const strictMatch = part.match(/^@\[(.*?)\]\((.*?)\)$/);
+
+            if (strictMatch) {
+                return (
+                    <span key={index} className="text-primary font-bold hover:underline cursor-pointer">
+                        @{strictMatch[1]}
+                    </span>
+                );
+            }
+            return <span key={index}>{part}</span>;
+        });
+    };
+
     if (loading && !task) {
         return (
             <motion.div
                 initial={{ x: '100%' }}
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
-                className="fixed right-0 top-0 bottom-0 w-full md:w-[600px] bg-surface border-l border-white/10 z-50 p-6 flex flex-col gap-6 font-sans"
+                className="fixed right-0 top-0 bottom-0 w-full md:w-[600px] bg-surface border-l border-border z-50 p-6 flex flex-col gap-6 font-sans"
             >
                 <div className="animate-pulse flex flex-col gap-6">
-                    <div className="h-8 bg-white/5 rounded w-3/4" />
-                    <div className="h-4 bg-white/5 rounded w-full" />
-                    <div className="h-4 bg-white/5 rounded w-full" />
+                    <div className="h-8 bg-foreground/5 rounded w-3/4" />
+                    <div className="h-4 bg-foreground/5 rounded w-full" />
+                    <div className="h-4 bg-foreground/5 rounded w-full" />
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="h-10 bg-white/5 rounded" />
-                        <div className="h-10 bg-white/5 rounded" />
+                        <div className="h-10 bg-foreground/5 rounded" />
+                        <div className="h-10 bg-foreground/5 rounded" />
                     </div>
                 </div>
             </motion.div>
@@ -429,28 +618,90 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed right-0 top-0 bottom-0 w-full md:w-[600px] bg-surface border-l border-white/10 z-50 shadow-2xl flex flex-col font-sans"
+            className="fixed right-0 top-0 bottom-0 w-full md:w-[600px] bg-surface border-l border-border z-50 shadow-2xl flex flex-col font-sans"
         >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-white/5">
+            <div className="flex items-center justify-between p-6 border-b border-border">
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => handleUpdateStatus(task.status === 'DONE' ? 'TODO' : 'DONE')}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[10px] font-bold uppercase tracking-wider ${task.status === 'DONE'
-                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
-                            : 'bg-white/5 border-white/10 text-text-secondary hover:text-white'
-                            }`}
-                    >
-                        {task.status === 'DONE' ? <CheckCircle2 size={14} /> : <Circle size={14} />}
-                        {task.status === 'DONE' ? 'Completed' : 'Mark Complete'}
-                    </button>
-                    <div className="h-4 w-[1px] bg-white/10" />
-                    <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-[10px] font-bold uppercase tracking-wider group hover:bg-indigo-500 hover:text-white transition-all">
-                        <Play size={12} className="group-hover:fill-current" />
-                        Track Time
-                    </button>
+                    {!isTemplate && (
+                        <>
+                            <button
+                                onClick={() => canEdit() && task && handleUpdateStatus(task.status === 'DONE' ? 'TODO' : 'DONE')}
+                                disabled={!canEdit() || !task}
+                                className={`flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-lg border transition-all text-[10px] font-bold uppercase tracking-wider ${task?.status === 'DONE'
+                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+                                    : 'bg-foreground/5 border-border text-text-secondary hover:text-text-primary'
+                                    } ${!canEdit() || !task ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                {task?.status === 'DONE' ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+                                <span className="hidden sm:inline">{task?.status === 'DONE' ? 'Completed' : 'Mark Complete'}</span>
+                            </button>
+                            <div className="h-4 w-[1px] bg-border hidden sm:block" />
+                            {!task?.isArchived && canEdit() && (
+                                <button className="flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-[10px] font-bold uppercase tracking-wider group hover:bg-indigo-500 hover:text-white transition-all">
+                                    <Play size={12} className="group-hover:fill-current" />
+                                    <span className="hidden sm:inline">Track Time</span>
+                                </button>
+                            )}
+                            {(!canEdit() || task?.isArchived) && (
+                                <div className="px-2 md:px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] font-bold uppercase tracking-wider">
+                                    {task?.isArchived ? 'Archived' : 'View Only'}
+                                </div>
+                            )}
+                        </>
+                    )}
+                    {isTemplate && (
+                        <div className="px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-bold uppercase tracking-wider">
+                            Blueprint Mode
+                        </div>
+                    )}
+
                 </div>
                 <div className="flex items-center gap-2">
+                    {task?.isArchived ? (
+                        <button
+                            onClick={async () => {
+                                const token = localStorage.getItem('token');
+                                const res = await fetch(`http://localhost:4000/tasks/${task?.id}/restore`, {
+                                    method: 'POST',
+                                    headers: { 'Authorization': `Bearer ${token}` }
+                                });
+                                if (res.ok) fetchTaskDetails();
+                            }}
+                            className="flex items-center gap-2 px-2 md:px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-lg text-[10px] font-bold text-amber-500 transition-all uppercase"
+                        >
+                            <Archive size={14} /> <span className="hidden sm:inline">Restore</span>
+                        </button>
+                    ) : (
+                        <button
+                            onClick={async () => {
+                                const token = localStorage.getItem('token');
+                                const res = await fetch(`http://localhost:4000/tasks/${task?.id}/archive`, {
+                                    method: 'POST',
+                                    headers: { 'Authorization': `Bearer ${token}` }
+                                });
+                                if (res.ok) fetchTaskDetails();
+                            }}
+                            className="p-2 hover:bg-foreground/5 rounded-lg text-text-secondary hover:text-text-primary transition-colors"
+                            title="Archive task"
+                        >
+                            <Archive size={18} />
+                        </button>
+                    )}
+                    <button
+                        onClick={handleToggleWatch}
+                        className={`p-2 rounded-lg transition-all flex items-center gap-2 group ${isWatching(JSON.parse(localStorage.getItem('user') || '{}').id)
+                            ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                            : 'hover:bg-foreground/5 text-text-secondary hover:text-text-primary'
+                            }`}
+                        title={isWatching(JSON.parse(localStorage.getItem('user') || '{}').id) ? 'Unwatch task' : 'Watch task'}
+                    >
+                        <Eye size={18} className={isWatching(JSON.parse(localStorage.getItem('user') || '{}').id) ? 'fill-current' : ''} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider hidden md:block">
+                            {isWatching(JSON.parse(localStorage.getItem('user') || '{}').id) ? 'Watching' : 'Watch'}
+                        </span>
+                    </button>
+                    <div className="h-6 w-[1px] bg-border mx-1" />
                     <button
                         onClick={handleDeleteTask}
                         className="p-2 hover:bg-rose-500/10 rounded-lg text-text-secondary hover:text-rose-500 transition-colors"
@@ -458,21 +709,63 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                     >
                         <Trash2 size={18} />
                     </button>
-                    <button className="p-2 hover:bg-white/5 rounded-lg text-text-secondary transition-colors">
-                        <MoreHorizontal size={18} />
-                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowMoreMenu(!showMoreMenu)}
+                            className="p-2 hover:bg-foreground/5 rounded-lg text-text-secondary transition-colors"
+                        >
+                            <MoreHorizontal size={18} />
+                        </button>
+                        <AnimatePresence>
+                            {showMoreMenu && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                    className="absolute right-0 top-full mt-1 w-48 bg-surface dark:bg-surface-lighter border border-border rounded-xl shadow-xl z-50 overflow-hidden"
+                                >
+                                    <button
+                                        onClick={handleDuplicateTask}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-text-secondary hover:text-primary hover:bg-foreground/5 transition-colors"
+                                    >
+                                        <Copy size={14} />
+                                        Duplicate Task
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(`${window.location.origin}/projects/${task?.projectId}?task=${task?.id}`);
+                                            setShowMoreMenu(false);
+                                        }}
+                                        className="w-full px-4 py-2.5 text-left text-xs font-medium text-text-primary hover:bg-foreground/5 transition-colors flex items-center gap-2"
+                                    >
+                                        <LinkIcon size={14} /> Copy Task Link
+                                    </button>
+                                    <div className="border-t border-border" />
+                                    <button
+                                        onClick={() => {
+                                            window.print();
+                                            setShowMoreMenu(false);
+                                        }}
+                                        className="w-full px-4 py-2.5 text-left text-xs font-medium text-text-primary hover:bg-foreground/5 transition-colors flex items-center gap-2"
+                                    >
+                                        <FileIcon size={14} /> Print Task
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-white/5 rounded-lg text-text-secondary hover:text-rose-500 transition-colors"
+                        className="p-2 hover:bg-foreground/5 rounded-lg text-text-secondary hover:text-rose-500 transition-colors"
                         title="Close"
                     >
                         <X size={18} />
                     </button>
                 </div>
-            </div>
+            </div >
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-auto custom-scrollbar p-8">
+            < div className="flex-1 overflow-auto custom-scrollbar p-8" >
                 <div className="space-y-8">
                     {/* Title & Description */}
                     <div className="space-y-4">
@@ -480,26 +773,26 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                             {isEditingTitle ? (
                                 <input
                                     autoFocus
-                                    className="w-full bg-transparent text-2xl font-bold text-white border-none focus:outline-none focus:ring-0 p-0"
-                                    value={task.title}
+                                    className="w-full bg-transparent text-2xl font-bold text-text-primary border-none focus:outline-none focus:ring-0 p-0"
+                                    value={task?.title || ''}
                                     onChange={(e) => setTask({ ...task, title: e.target.value })}
                                     onBlur={() => {
                                         setIsEditingTitle(false);
-                                        handleUpdateTask({ title: task.title });
+                                        handleUpdateTask({ title: task?.title });
                                     }}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
                                             setIsEditingTitle(false);
-                                            handleUpdateTask({ title: task.title });
+                                            handleUpdateTask({ title: task?.title });
                                         }
                                     }}
                                 />
                             ) : (
                                 <h2
                                     onClick={() => setIsEditingTitle(true)}
-                                    className="text-2xl font-bold text-white leading-tight cursor-text hover:bg-white/5 rounded-lg px-2 -ml-2 transition-all"
+                                    className="text-2xl font-bold text-text-primary leading-tight cursor-text hover:bg-foreground/5 rounded-lg px-2 -ml-2 transition-all"
                                 >
-                                    {task.title}
+                                    {task?.title}
                                 </h2>
                             )}
                         </div>
@@ -511,41 +804,41 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                             {isEditingDescription ? (
                                 <textarea
                                     autoFocus
-                                    className="w-full bg-background border border-primary/50 rounded-xl p-4 text-sm text-white focus:outline-none transition-all min-h-[120px]"
-                                    value={task.description || ''}
+                                    className="w-full bg-background border border-border rounded-xl p-4 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all min-h-[120px]"
+                                    value={task?.description || ''}
                                     onChange={(e) => setTask({ ...task, description: e.target.value })}
                                     onBlur={() => {
                                         setIsEditingDescription(false);
-                                        handleUpdateTask({ description: task.description });
+                                        handleUpdateTask({ description: task?.description });
                                     }}
                                 />
                             ) : (
                                 <p
                                     onClick={() => setIsEditingDescription(true)}
-                                    className="text-sm text-text-secondary leading-relaxed bg-white/[0.02] p-4 rounded-xl border border-white/5 min-h-[100px] hover:border-white/10 transition-all cursor-text"
+                                    className="text-sm text-text-secondary leading-relaxed bg-foreground/[0.02] p-4 rounded-xl border border-border min-h-[100px] hover:border-primary/30 transition-all cursor-text"
                                 >
-                                    {task.description || 'Add a description...'}
+                                    {task?.description || 'Add a description...'}
                                 </p>
                             )}
                         </div>
                     </div>
 
                     {/* Meta Grid */}
-                    <div className="grid grid-cols-2 gap-6 bg-white/[0.02] p-6 rounded-2xl border border-white/5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-foreground/[0.02] p-6 rounded-2xl border border-border">
                         <div className="space-y-1.5 relative">
                             <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center justify-between">
                                 <span className="flex items-center gap-2"><UserIcon size={12} /> Assignees</span>
                             </label>
 
                             <InlineAssigneeSelector
-                                currentAssignees={task.assignees || []}
+                                currentAssignees={task?.assignees || []}
                                 projectMembers={projectMembers}
                                 organizationMembers={organizationMembers}
                                 invitations={project?.invitations || []}
                                 onAssign={handleAddAssignee}
                                 onUnassign={handleRemoveAssignee}
                                 onInvite={handleInviteAndAssign}
-                                readOnly={!hasPermission('assign_task')}
+                                readOnly={!canEdit() || !hasPermission('assign_task')}
                             />
                         </div>
 
@@ -555,8 +848,8 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                             </label>
                             <input
                                 type="date"
-                                className="w-full bg-transparent text-sm text-white font-medium p-1 hover:bg-white/5 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary/50 [color-scheme:dark]"
-                                value={task.startDate ? new Date(task.startDate).toISOString().split('T')[0] : ''}
+                                className="w-full bg-transparent text-sm text-text-primary font-medium p-1.5 hover:bg-foreground/5 rounded-lg border border-border transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                value={task?.startDate ? new Date(task.startDate).toISOString().split('T')[0] : ''}
                                 onChange={(e) => handleUpdateTask({ startDate: e.target.value })}
                             />
                         </div>
@@ -567,8 +860,8 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                             </label>
                             <input
                                 type="date"
-                                className="w-full bg-transparent text-sm text-white font-medium p-1 hover:bg-white/5 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary/50 [color-scheme:dark]"
-                                value={task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
+                                className="w-full bg-transparent text-sm text-text-primary font-medium p-1.5 hover:bg-foreground/5 rounded-lg border border-border transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                value={task?.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
                                 onChange={(e) => handleUpdateTask({ dueDate: e.target.value })}
                             />
                         </div>
@@ -578,14 +871,15 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                                 <Flag size={12} /> Priority
                             </label>
                             <select
-                                className="w-full bg-white/5 border border-white/10 text-xs font-bold text-white rounded-full px-3 py-1 outline-none hover:bg-white/10 transition-all appearance-none cursor-pointer"
-                                value={task.priority}
+                                disabled={!canEdit()}
+                                className={`w-full bg-background border border-border text-xs font-bold text-text-primary rounded-lg px-3 py-1.5 outline-none transition-all ${!canEdit() ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/50 cursor-pointer'}`}
+                                value={task?.priority}
                                 onChange={(e) => handleUpdateTask({ priority: e.target.value })}
                             >
-                                <option value="LOW" className="bg-surface text-white">LOW</option>
-                                <option value="MEDIUM" className="bg-surface text-white">MEDIUM</option>
-                                <option value="HIGH" className="bg-surface text-white">HIGH</option>
-                                <option value="URGENT" className="bg-surface text-white">URGENT</option>
+                                <option value="LOW" className="bg-background text-text-primary">LOW</option>
+                                <option value="MEDIUM" className="bg-background text-text-primary">MEDIUM</option>
+                                <option value="HIGH" className="bg-background text-text-primary">HIGH</option>
+                                <option value="URGENT" className="bg-background text-text-primary">URGENT</option>
                             </select>
                         </div>
 
@@ -594,59 +888,166 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                                 <Clock size={12} /> Status
                             </label>
                             <select
-                                className="w-full bg-primary/10 border border-primary/20 text-xs font-bold text-primary rounded-full px-3 py-1 outline-none hover:bg-primary/20 transition-all appearance-none cursor-pointer uppercase tracking-tighter"
-                                value={task.status}
+                                disabled={isTemplate || !canEdit()}
+                                className={`w-full ${isTemplate || !canEdit() ? 'bg-foreground/5 opacity-50 cursor-not-allowed' : 'bg-primary/10 hover:bg-primary/20 cursor-pointer'} border border-primary/20 text-xs font-bold text-primary rounded-lg px-3 py-1.5 outline-none transition-all uppercase tracking-tighter`}
+                                value={task?.status}
                                 onChange={(e) => handleUpdateTask({ status: e.target.value })}
                             >
-                                <option value="TODO" className="bg-surface text-white">TODO</option>
-                                <option value="IN_PROGRESS" className="bg-surface text-white">IN PROGRESS</option>
-                                <option value="IN_REVIEW" className="bg-surface text-white">IN REVIEW</option>
-                                <option value="DONE" className="bg-surface text-white">DONE</option>
-                                <option value="BLOCKED" className="bg-surface text-white">BLOCKED</option>
+                                <option value="TODO" className="bg-background text-text-primary">TODO</option>
+                                <option value="IN_PROGRESS" className="bg-background text-text-primary">IN PROGRESS</option>
+                                <option value="IN_REVIEW" className="bg-background text-text-primary">IN REVIEW</option>
+                                <option value="DONE" className="bg-background text-text-primary">DONE</option>
+                                <option value="BLOCKED" className="bg-background text-text-primary">BLOCKED</option>
                             </select>
                         </div>
 
-                        {task.milestone && (
-                            <div className="col-span-2 mt-2 pt-4 border-t border-white/5 space-y-1.5">
+                        {task?.milestone && (
+                            <div className="col-span-2 mt-2 pt-4 border-t border-border space-y-1.5">
                                 <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2">
                                     <Target size={12} /> Linked Milestone
                                 </label>
-                                <div className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/5 rounded-xl hover:border-primary/30 transition-all cursor-default">
+                                <div className="flex items-center gap-3 p-3 bg-foreground/[0.03] border border-border rounded-xl hover:border-primary/30 transition-all cursor-default">
                                     <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center text-primary">
                                         <Target size={14} />
                                     </div>
-                                    <span className="text-sm text-white font-medium">{task.milestone.name}</span>
+                                    <span className="text-sm text-text-primary font-medium">{task?.milestone?.name}</span>
                                     <div className="ml-auto text-[10px] font-bold text-text-secondary uppercase tracking-widest">
-                                        Due {new Date(task.milestone.dueDate).toLocaleDateString()}
+                                        Due {new Date(task?.milestone?.dueDate).toLocaleDateString()}
                                     </div>
                                 </div>
                             </div>
                         )}
+
+                        <div className="col-span-2 mt-2 pt-4 border-t border-border space-y-3">
+                            <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center justify-between">
+                                <span className="flex items-center gap-2"><TagIcon size={12} /> Tags</span>
+                                {canEdit() && (
+                                    <button
+                                        onClick={() => setShowTagPicker(!showTagPicker)}
+                                        className="text-primary hover:underline"
+                                    >
+                                        Manage
+                                    </button>
+                                )}
+                            </label>
+
+                            <div className="flex flex-wrap gap-2 min-h-[32px]">
+                                {task?.tags?.map(({ tag }: any) => (
+                                    <div
+                                        key={tag.id}
+                                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border"
+                                        style={{
+                                            backgroundColor: `${tag.color}10`,
+                                            borderColor: `${tag.color}30`,
+                                            color: tag.color
+                                        }}
+                                    >
+                                        {tag.name}
+                                        {canEdit() && (
+                                            <button
+                                                onClick={() => handleDetachTag(tag.id)}
+                                                className="hover:scale-110 transition-transform opacity-60 hover:opacity-100"
+                                            >
+                                                <X size={10} />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                                {(!task?.tags || task?.tags.length === 0) && (
+                                    <span className="text-[10px] text-text-secondary italic">No tags added</span>
+                                )}
+                            </div>
+
+                            <AnimatePresence>
+                                {showTagPicker && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                        className="bg-surface-lighter border border-border rounded-xl p-3 shadow-xl space-y-3 w-64 absolute z-50"
+                                    >
+                                        <div className="space-y-2">
+                                            <input
+                                                type="text"
+                                                autoFocus
+                                                placeholder="Search or create tag..."
+                                                className="w-full bg-foreground/5 border border-border rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-primary/50"
+                                                value={tagSearch}
+                                                onChange={(e) => setTagSearch(e.target.value)}
+                                            />
+
+                                            <div className="max-h-48 overflow-y-auto space-y-1 custom-scrollbar">
+                                                {allTags.filter(t =>
+                                                    !task?.tags?.some((tt: any) => tt.tagId === t.id) &&
+                                                    t.name.toLowerCase().includes(tagSearch.toLowerCase())
+                                                ).map(tag => (
+                                                    <button
+                                                        key={tag.id}
+                                                        onClick={() => handleAttachTag(tag.id)}
+                                                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-foreground/5 text-[10px] font-bold text-left transition-all"
+                                                    >
+                                                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
+                                                        <span className="truncate text-text-primary">{tag.name}</span>
+                                                    </button>
+                                                ))}
+
+                                                {tagSearch && !allTags.some(t => t.name.toLowerCase() === tagSearch.toLowerCase()) && (
+                                                    <div className="pt-2 border-t border-border mt-2">
+                                                        <p className="text-[10px] text-text-secondary mb-2">Create "{tagSearch}"</p>
+                                                        <div className="flex flex-wrap gap-1 mb-2">
+                                                            {COLORS.map(color => (
+                                                                <button
+                                                                    key={color}
+                                                                    onClick={() => setNewTagColor(color)}
+                                                                    className={`w-4 h-4 rounded-full transition-transform hover:scale-110 ${newTagColor === color ? 'ring-2 ring-white ring-offset-1 ring-offset-surface' : ''}`}
+                                                                    style={{ backgroundColor: color }}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                        <button
+                                                            onClick={handleCreateTag}
+                                                            className="w-full py-1.5 bg-primary hover:bg-primary/90 rounded-lg text-[10px] font-bold text-white uppercase tracking-wider"
+                                                        >
+                                                            Create Tag
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {allTags.length === 0 && !tagSearch && (
+                                                    <p className="text-[10px] text-text-secondary text-center py-2">Start typing to create a tag</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
                     </div>
 
                     {/* Subtasks Section */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
                                 <LayoutGrid size={16} className="text-primary" />
                                 Subtasks
                             </h3>
-                            <span className="text-[10px] font-bold text-text-secondary">{task.children?.length || 0} tasks</span>
+                            <span className="text-[10px] font-bold text-text-secondary">{task?.children?.length || 0} tasks</span>
                         </div>
                         <div className="space-y-2">
-                            {task.children?.map((subtask: any) => (
-                                <div key={subtask.id} className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/5 rounded-xl hover:border-primary/30 transition-all group">
+                            {task?.children?.map((subtask: any) => (
+                                <div key={subtask.id} className="flex items-center gap-3 p-3 bg-foreground/[0.03] border border-border rounded-xl hover:border-primary/30 transition-all group">
                                     <button
-                                        onClick={() => handleToggleSubtask(subtask)}
-                                        className="transition-colors"
+                                        onClick={() => canEdit() && handleToggleSubtask(subtask)}
+                                        disabled={!canEdit()}
+                                        className={`transition-colors \${!canEdit() ? 'cursor-not-allowed opacity-50' : ''}`}
                                     >
                                         {subtask.status === 'DONE' ? (
                                             <CheckCircle2 size={16} className="text-emerald-500" />
                                         ) : (
-                                            <Circle size={16} className="text-white/20 group-hover:text-primary" />
+                                            <Circle size={16} className="text-foreground/20 group-hover:text-primary" />
                                         )}
                                     </button>
-                                    <span className={`text-sm flex-1 transition-all ${subtask.status === 'DONE' ? 'text-text-secondary line-through' : 'text-text-primary'}`}>
+                                    <span className={`text-sm flex-1 transition-all ${subtask.status === 'DONE' ? 'text-text-secondary' : 'text-text-primary'}`}>
                                         {subtask.title}
                                     </span>
                                 </div>
@@ -656,20 +1057,23 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                                     <Plus size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
                                     <input
                                         ref={subtaskInputRef}
+                                        disabled={!canEdit()}
                                         type="text"
-                                        className="w-full bg-white/[0.03] border border-dashed border-white/10 rounded-xl px-9 py-2.5 text-xs text-white placeholder:text-text-secondary/50 focus:border-primary/50 focus:outline-none transition-all"
-                                        placeholder="Add a subtask..."
+                                        className={`w-full ${!canEdit() ? 'bg-foreground/5 cursor-not-allowed opacity-50' : 'bg-foreground/[0.03]'} border border-dashed border-border rounded-xl px-9 py-2.5 text-xs text-text-primary placeholder:text-text-secondary/50 focus:border-primary/50 focus:outline-none transition-all`}
+                                        placeholder={canEdit() ? "Add a subtask..." : "Cannot add subtasks"}
                                         value={newSubtaskTitle}
                                         onChange={(e) => setNewSubtaskTitle(e.target.value)}
                                         onKeyDown={handleCreateSubtask}
                                     />
                                 </div>
-                                <button
-                                    onClick={() => handleCreateSubtask()}
-                                    className="px-4 py-2.5 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-xl text-[10px] font-bold text-primary uppercase tracking-widest transition-all"
-                                >
-                                    Create
-                                </button>
+                                {canEdit() && (
+                                    <button
+                                        onClick={() => handleCreateSubtask()}
+                                        className="px-4 py-2.5 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-xl text-[10px] font-bold text-primary uppercase tracking-widest transition-all"
+                                    >
+                                        Create
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -677,54 +1081,57 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                     {/* Dependencies Section */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
                                 <LinkIcon size={16} className="text-amber-500" />
                                 Dependencies
                             </h3>
-                            <button
-                                onClick={() => setIsDependencyModalOpen(true)}
-                                className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-widest hover:underline"
-                            >
-                                <Plus size={12} /> Add Dependency
-                            </button>
+                            {canEdit() && (
+                                <button
+                                    onClick={() => setIsDependencyModalOpen(true)}
+                                    className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-widest hover:underline"
+                                >
+                                    <Plus size={12} /> Add Dependency
+                                </button>
+                            )}
                         </div>
                         <div className="space-y-2">
                             {dependencies.map((dep: any) => (
-                                <div key={dep.id} className="flex items-center justify-between p-3 bg-white/[0.03] border border-white/5 rounded-xl hover:border-amber-500/30 transition-all group">
+                                <div key={dep.id} className="flex items-center justify-between p-3 bg-foreground/[0.03] border border-border rounded-xl hover:border-amber-500/30 transition-all group">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
                                             <LinkIcon size={14} />
                                         </div>
                                         <div>
-                                            <div className="text-sm text-white font-medium">{dep.source.title}</div>
+                                            <div className="text-sm text-text-primary font-medium">{dep.source.title}</div>
                                             <div className="text-[10px] text-text-secondary uppercase">{dep.type}</div>
                                         </div>
                                     </div>
-                                    <span className="text-[10px] font-bold text-text-secondary uppercase bg-white/5 px-2 py-0.5 rounded">
-                                        {dep.source.status}
+                                    <span className="text-[10px] font-bold text-text-secondary uppercase bg-foreground/10 px-2 py-0.5 rounded">
+                                        {dep.target?.status || 'TODO'}
                                     </span>
                                 </div>
                             ))}
                             {dependencies.length === 0 && (
-                                <div className="text-center p-6 border border-dashed border-white/5 rounded-2xl bg-white/[0.01]">
+                                <div className="text-center p-6 border border-dashed border-border rounded-2xl bg-foreground/[0.01]">
                                     <p className="text-[10px] text-text-secondary uppercase tracking-widest font-bold">No dependencies linked</p>
                                 </div>
                             )}
                         </div>
                     </div>
 
+
                     {/* Activity & Comments Tabs */}
-                    <div className="space-y-6 pt-4 border-t border-white/5">
-                        <div className="flex items-center gap-6 border-b border-white/5">
+                    <div className="space-y-6 pt-4 border-t border-border">
+                        <div className="flex items-center gap-6 border-b border-border">
                             <button
                                 onClick={() => setActiveTab('comments')}
-                                className={`pb-4 text-xs font-bold tracking-wider transition-all ${activeTab === 'comments' ? 'text-white border-b-2 border-primary' : 'text-text-secondary hover:text-white'}`}
+                                className={`pb-4 text-xs font-bold tracking-wider transition-all ${activeTab === 'comments' ? 'text-text-primary border-b-2 border-primary' : 'text-text-secondary hover:text-text-primary'}`}
                             >
                                 Comments
                             </button>
                             <button
                                 onClick={() => setActiveTab('activity')}
-                                className={`pb-4 text-xs font-bold tracking-wider transition-all ${activeTab === 'activity' ? 'text-white border-b-2 border-primary' : 'text-text-secondary hover:text-white'}`}
+                                className={`pb-4 text-xs font-bold tracking-wider transition-all ${activeTab === 'activity' ? 'text-text-primary border-b-2 border-primary' : 'text-text-secondary hover:text-text-primary'}`}
                             >
                                 Activity
                             </button>
@@ -734,47 +1141,49 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                         {activeTab === 'comments' && (
                             <>
                                 {/* Comment Input */}
-                                <div className="flex gap-4">
-                                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                                        <UserIcon size={14} className="text-primary" />
+                                {canComment() ? (
+                                    <CommentComposer
+                                        onPost={handleCommentPost}
+                                        members={projectMembers}
+                                        onFileAttach={async (file) => {
+                                            try {
+                                                await FileService.uploadFile(file, task?.projectId, task?.id);
+                                                fetchTaskDetails();
+                                            } catch (e) { console.error('File upload error:', e); }
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="bg-foreground/5 border border-border p-4 rounded-xl text-center">
+                                        <p className="text-xs text-text-secondary italic">
+                                            {task?.isArchived ? 'Comments are disabled for archived tasks' : 'You do not have permission to comment'}
+                                        </p>
                                     </div>
-                                    <div className="flex-1 space-y-3">
-                                        <textarea
-                                            className="w-full bg-background border border-white/10 rounded-xl p-4 text-sm text-white placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all min-h-[80px]"
-                                            placeholder="Write a comment..."
-                                            value={comment}
-                                            onChange={(e) => setComment(e.target.value)}
-                                        />
-                                        <div className="flex justify-end">
-                                            <button
-                                                onClick={handlePostComment}
-                                                className="px-5 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all font-sans"
-                                            >
-                                                Post Comment
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+                                )}
 
                                 {/* Recent Comments */}
                                 <div className="space-y-6">
-                                    {task.comments?.map((c: any) => (
+                                    {task?.comments?.map((c: any) => (
                                         <div key={c.id} className="flex gap-4 group">
-                                            <div className="w-8 h-8 rounded-full bg-surface-lighter flex items-center justify-center shrink-0 border border-white/5">
-                                                {c.createdBy?.firstName?.charAt(0)}
-                                            </div>
+                                            <UserAvatar
+                                                userId={c.createdBy?.id}
+                                                firstName={c.createdBy?.firstName}
+                                                lastName={c.createdBy?.lastName}
+                                                avatarUrl={c.createdBy?.avatarUrl}
+                                                size="md"
+                                                className="shrink-0 ring-1 ring-white/10"
+                                            />
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <span className="text-xs font-bold text-white">{c.createdBy?.firstName} {c.createdBy?.lastName}</span>
+                                                    <span className="text-xs font-bold text-text-primary">{c.createdBy?.firstName} {c.createdBy?.lastName}</span>
                                                     <span className="text-[10px] text-text-secondary">{new Date(c.createdAt).toLocaleDateString()}</span>
                                                 </div>
-                                                <p className="text-sm text-text-secondary leading-relaxed bg-white/[0.01] p-3 rounded-lg border border-white/5">
-                                                    {c.content}
+                                                <p className="text-sm text-text-secondary leading-relaxed bg-foreground/[0.01] p-3 rounded-lg border border-border whitespace-pre-wrap">
+                                                    {renderCommentContent(c.content)}
                                                 </p>
                                             </div>
                                         </div>
                                     ))}
-                                    {(!task.comments || task.comments.length === 0) && (
+                                    {(!task?.comments || task?.comments.length === 0) && (
                                         <div className="text-center py-8 opacity-50">
                                             <p className="text-xs text-text-secondary italic">No comments yet</p>
                                         </div>
@@ -786,20 +1195,20 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                         {/* Activity Tab Content */}
                         {activeTab === 'activity' && (
                             <div className="space-y-4">
-                                {task.activityLogs?.map((log: any) => (
+                                {task?.activityLogs?.map((log: any) => (
                                     <div key={log.id} className="flex gap-3 text-xs">
-                                        <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center shrink-0">
+                                        <div className="w-6 h-6 rounded-full bg-foreground/5 flex items-center justify-center shrink-0">
                                             <History size={12} className="text-text-secondary" />
                                         </div>
                                         <div className="flex-1 space-y-1">
-                                            <p className="text-white">
-                                                <span className="font-bold">{log.user.firstName}</span> {log.action.toLowerCase().replace('_', ' ')}
+                                            <p className="text-text-primary">
+                                                <span className="font-bold">{log.user?.firstName || 'User'}</span> {log.action.toLowerCase().replace(/_/g, ' ')}
                                             </p>
                                             <span className="text-[10px] text-text-secondary">{new Date(log.createdAt).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 ))}
-                                {(!task.activityLogs || task.activityLogs.length === 0) && (
+                                {(!task?.activityLogs || task?.activityLogs.length === 0) && (
                                     <div className="text-center py-8 opacity-50">
                                         <p className="text-xs text-text-secondary italic">No recent activity</p>
                                     </div>
@@ -808,24 +1217,24 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                         )}
                     </div>
                 </div>
-            </div>
+            </div >
 
             {/* Bottom Sticky Action */}
-            <div className="p-4 border-t border-white/5 bg-surface/50">
+            < div className="p-4 border-t border-border bg-surface/50" >
                 <div className="flex items-center gap-4 text-[10px] font-bold text-text-secondary uppercase tracking-widest px-4">
                     <History size={12} />
-                    Last updated {new Date(task.updatedAt).toLocaleString()}
+                    Last updated {new Date(task?.updatedAt).toLocaleString()}
                 </div>
-            </div>
+            </div >
 
             <DependencyModal
                 isOpen={isDependencyModalOpen}
                 onClose={() => setIsDependencyModalOpen(false)}
-                targetId={task.id}
+                targetId={task?.id}
                 type="TASK"
-                projectId={task.projectId}
+                projectId={task?.projectId}
                 onSuccess={fetchTaskDetails}
             />
-        </motion.div>
+        </motion.div >
     );
 }

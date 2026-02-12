@@ -77,19 +77,19 @@ export default function CreateMilestoneModal({ isOpen, onClose, projectId, onSuc
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="relative w-full max-w-xl bg-surface border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
+                    className="relative w-full max-w-xl bg-surface border border-border rounded-3xl shadow-2xl overflow-hidden"
                 >
-                    <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                    <div className="p-6 border-b border-border flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                                 <Target size={20} />
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-white">Create Milestone</h2>
+                                <h2 className="text-xl font-bold text-text-secondary">Create Milestone</h2>
                                 <p className="text-xs text-text-secondary">Define a major project checkpoint</p>
                             </div>
                         </div>
-                        <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-text-secondary transition-colors">
+                        <button onClick={onClose} className="p-2 hover:bg-foreground/5 rounded-full text-text-secondary transition-colors">
                             <X size={20} />
                         </button>
                     </div>
@@ -102,7 +102,7 @@ export default function CreateMilestoneModal({ isOpen, onClose, projectId, onSuc
                                 </label>
                                 <input
                                     required
-                                    className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                                    className="w-full bg-surface-secondary border border-border rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                                     placeholder="e.g., Alpha Version Release"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
@@ -117,7 +117,7 @@ export default function CreateMilestoneModal({ isOpen, onClose, projectId, onSuc
                                     <input
                                         required
                                         type="date"
-                                        className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all [color-scheme:dark]"
+                                        className="w-full bg-surface-secondary border border-border rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all [color-scheme:light] dark:[color-scheme:dark]"
                                         value={dueDate}
                                         onChange={(e) => setDueDate(e.target.value)}
                                     />
@@ -126,7 +126,7 @@ export default function CreateMilestoneModal({ isOpen, onClose, projectId, onSuc
                                     <label className="text-xs font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2">
                                         <Users size={14} /> Owner
                                     </label>
-                                    <div className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-sm text-text-secondary cursor-not-allowed">
+                                    <div className="w-full bg-surface-secondary border border-border rounded-xl px-4 py-3 text-sm text-text-secondary cursor-not-allowed">
                                         Project Manager
                                     </div>
                                 </div>
@@ -137,7 +137,7 @@ export default function CreateMilestoneModal({ isOpen, onClose, projectId, onSuc
                                     <AlignLeft size={14} /> Description
                                 </label>
                                 <textarea
-                                    className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all min-h-[100px]"
+                                    className="w-full bg-surface-secondary border border-border rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all min-h-[100px]"
                                     placeholder="What does this milestone represent?"
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
@@ -148,7 +148,7 @@ export default function CreateMilestoneModal({ isOpen, onClose, projectId, onSuc
                                 <label className="text-xs font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2">
                                     <Plus size={14} /> Linked Tasks
                                 </label>
-                                <div className="max-h-[200px] overflow-auto custom-scrollbar border border-white/10 rounded-xl bg-white/[0.02] divide-y divide-white/5">
+                                <div className="max-h-[200px] overflow-auto custom-scrollbar border border-border rounded-xl bg-surface-secondary divide-y divide-border">
                                     {projectTasks.length === 0 ? (
                                         <div className="p-4 text-center text-xs text-text-secondary italic">
                                             No tasks available to link
@@ -158,15 +158,15 @@ export default function CreateMilestoneModal({ isOpen, onClose, projectId, onSuc
                                             <div
                                                 key={task.id}
                                                 onClick={() => toggleTaskSelection(task.id)}
-                                                className="flex items-center justify-between p-3 hover:bg-white/5 cursor-pointer transition-colors"
+                                                className="flex items-center justify-between p-3 hover:bg-foreground/5 cursor-pointer transition-colors"
                                             >
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${selectedTaskIds.includes(task.id) ? 'bg-primary border-primary' : 'border-white/20'}`}>
+                                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${selectedTaskIds.includes(task.id) ? 'bg-primary border-primary' : 'border-text-secondary/20'}`}>
                                                         {selectedTaskIds.includes(task.id) && <Check size={12} className="text-white" />}
                                                     </div>
-                                                    <span className="text-xs text-white truncate">{task.title}</span>
+                                                    <span className="text-xs text-text-primary truncate">{task.title}</span>
                                                 </div>
-                                                <span className="text-[10px] text-text-secondary uppercase font-bold px-1.5 py-0.5 rounded bg-white/5">
+                                                <span className="text-[10px] text-text-secondary uppercase font-bold px-1.5 py-0.5 rounded bg-foreground/5">
                                                     {task.status}
                                                 </span>
                                             </div>
@@ -180,7 +180,7 @@ export default function CreateMilestoneModal({ isOpen, onClose, projectId, onSuc
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="flex-1 px-6 py-3 bg-white/5 text-white font-bold rounded-xl hover:bg-white/10 transition-all border border-white/5"
+                                className="flex-1 px-6 py-3 bg-surface-secondary text-text-secondary font-bold rounded-xl hover:bg-border transition-all border border-border"
                             >
                                 Cancel
                             </button>

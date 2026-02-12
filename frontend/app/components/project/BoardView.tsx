@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import {
     AlertTriangle,
@@ -13,12 +13,17 @@ import {
     User as UserIcon
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import UserAvatar from '../shared/UserAvatar';
+import { useToast } from '../ui/Toast';
 
 interface BoardViewProps {
     tasks: any[];
     projectId: string;
+    project?: any;
     onTaskClick: (task: any) => void;
     onRefresh: () => void;
+    onAddTask?: (status: string) => void;
+    isTemplate?: boolean;
 }
 
 const COLUMNS: { [key: string]: string } = {
@@ -35,18 +40,16 @@ const COLUMN_COLORS: { [key: string]: string } = {
     DONE: 'bg-emerald-500/10 border-emerald-500/20'
 };
 
-const STATUS_Map: { [key: string]: string } = {
-    'To Do': 'TODO',
-    'In Progress': 'IN_PROGRESS',
-    'Review': 'IN_REVIEW',
-    'Done': 'DONE'
-};
 
-export default function BoardView({ tasks, projectId, onTaskClick, onRefresh }: BoardViewProps) {
-    // Filter out tasks that belong to lists without status or ensure flat list
-    // The prompt says "Lists are abstracted away". So we take all tasks.
+export default function BoardView({ tasks, projectId, project, onTaskClick, onRefresh, onAddTask, isTemplate = false }: BoardViewProps) {
+    const [localTasks, setLocalTasks] = useState(tasks);
+    const { showToast } = useToast();
 
-    // Group tasks by status
+    // Keep localTasks in sync with props when they change (but not during a drag)
+    useEffect(() => {
+        setLocalTasks(tasks);
+    }, [tasks]);
+
     const tasksByStatus = useMemo(() => {
         const grouped: { [key: string]: any[] } = {
             TODO: [],
@@ -55,38 +58,82 @@ export default function BoardView({ tasks, projectId, onTaskClick, onRefresh }: 
             DONE: []
         };
 
-        tasks.forEach(task => {
-            if (grouped[task.status]) {
-                grouped[task.status].push(task);
-            } else if (task.status === 'BLOCKED') {
-                // For now, maybe map blocked to TODO or separate? 
-                // User didn't specify Blocked column. Let's put in TODO or ignore.
-                // Let's add them to TODO for now to avoid data loss in view
-                grouped['TODO'].push(task);
-            }
+        const mapStatus = (status: string) => {
+            const s = (status || '').toUpperCase().replace(/\s+/g, '_');
+            if (grouped[s]) return s;
+            if (s === 'TO_DO') return 'TODO';
+            if (s === 'REVIEW') return 'IN_REVIEW';
+            return 'TODO';
+        };
+
+        localTasks.forEach(task => {
+            const s = mapStatus(task.status);
+            grouped[s].push(task);
+        });
+
+        // Sort by position
+        Object.keys(grouped).forEach(status => {
+            grouped[status].sort((a, b) => (a.position || 0) - (b.position || 0));
         });
 
         return grouped;
-    }, [tasks]);
+    }, [localTasks]);
 
     const onDragEnd = async (result: DropResult) => {
+        if (isTemplate) return;
         const { destination, source, draggableId } = result;
 
         if (!destination) return;
+        if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
-        if (
-            destination.droppableId === source.droppableId &&
-            destination.index === source.index
-        ) {
-            return;
-        }
-
-        const newStatus = destination.droppableId;
-        const task = tasks.find(t => t.id === draggableId);
-
+        const task = localTasks.find(t => t.id === draggableId);
         if (!task) return;
 
-        // Optimistic update could happen here, but for now let's just call API
+        const newStatus = destination.droppableId;
+
+        // Optimistic Update: Calculate new position
+        const updatedTasks = localTasks.map(t => t.id === draggableId ? { ...t, status: newStatus as any } : t);
+
+        // Function to map status for consistent column matching
+        const mapStatus = (status: string) => {
+            const s = (status || '').toUpperCase().replace(/\s+/g, '_');
+            if (s === 'TODO' || s === 'TO_DO') return 'TODO';
+            if (s === 'IN_PROGRESS') return 'IN_PROGRESS';
+            if (s === 'IN_REVIEW' || s === 'REVIEW') return 'IN_REVIEW';
+            if (s === 'DONE') return 'DONE';
+            return 'TODO';
+        };
+
+        // Get sorted tasks in target column to find neighbors
+        const targetTasks = updatedTasks
+            .filter(t => mapStatus(t.status) === newStatus)
+            .sort((a, b) => (a.position || 0) - (b.position || 0));
+
+        // Find current task in updated list (after movement)
+        const currentTask = targetTasks.find(t => t.id === draggableId);
+        const otherTasks = targetTasks.filter(t => t.id !== draggableId);
+
+        let newPosition = 0;
+        if (otherTasks.length === 0) {
+            newPosition = 1000;
+        } else if (destination.index === 0) {
+            // Drop at top
+            newPosition = Math.round((otherTasks[0].position || 1000) / 2);
+        } else if (destination.index >= otherTasks.length) {
+            // Drop at bottom
+            newPosition = (otherTasks[otherTasks.length - 1].position || 0) + 1000;
+        } else {
+            // Drop in between
+            const before = otherTasks[destination.index - 1].position || 0;
+            const after = otherTasks[destination.index].position || 0;
+            newPosition = Math.round((before + after) / 2);
+        }
+
+        // Apply new position to local state
+        setLocalTasks(prev => prev.map(t =>
+            t.id === draggableId ? { ...t, status: newStatus as any, position: newPosition } : t
+        ));
+
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`http://localhost:4000/tasks/${draggableId}`, {
@@ -95,13 +142,22 @@ export default function BoardView({ tasks, projectId, onTaskClick, onRefresh }: 
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ status: newStatus })
+                body: JSON.stringify({
+                    status: newStatus,
+                    position: newPosition
+                })
             });
-            if (res.ok) {
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                setLocalTasks(tasks);
+                showToast('error', 'Move Failed', `Failed to move task: ${errorData.error || 'Server error'}`);
+            } else {
                 onRefresh();
             }
         } catch (error) {
-            console.error('Update task status error:', error);
+            setLocalTasks(tasks);
+            showToast('error', 'Connection Error', 'Connection to server failed. Please ensure the backend is running on port 4000.');
         }
     };
 
@@ -134,7 +190,10 @@ export default function BoardView({ tasks, projectId, onTaskClick, onRefresh }: 
                                     </span>
                                 </div>
                                 <div className="flex items-center">
-                                    <button className="p-1 hover:bg-white/5 rounded text-text-secondary hover:text-white transition-colors">
+                                    <button
+                                        onClick={() => onAddTask?.(statusKey)}
+                                        className="p-1 hover:bg-foreground/5 rounded text-text-secondary hover:text-primary transition-colors"
+                                    >
                                         <Plus size={16} />
                                     </button>
                                 </div>
@@ -156,12 +215,14 @@ export default function BoardView({ tasks, projectId, onTaskClick, onRefresh }: 
                                                         <div
                                                             ref={provided.innerRef}
                                                             {...provided.draggableProps}
-                                                            {...provided.dragHandleProps}
+                                                            {...(isTemplate ? {} : provided.dragHandleProps)}
                                                             onClick={() => onTaskClick(task)}
                                                             style={{
                                                                 ...provided.draggableProps.style,
                                                             }}
-                                                            className={`bg-[#0A0A0A] p-3 rounded-lg border border-white/5 hover:border-primary/50 group cursor-pointer shadow-sm transition-all ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/50 rotate-2' : 'hover:-translate-y-1'
+                                                            className={`bg-surface p-4 rounded-xl border border-border/50 hover:border-primary/50 group cursor-pointer shadow-sm transition-all ${snapshot.isDragging
+                                                                ? 'shadow-2xl ring-2 ring-primary/50 rotate-3 scale-105 z-50 bg-surface-lighter'
+                                                                : 'hover:-translate-y-1 hover:shadow-md'
                                                                 }`}
                                                         >
                                                             {/* Card Content */}
@@ -176,22 +237,33 @@ export default function BoardView({ tasks, projectId, onTaskClick, onRefresh }: 
                                                                 </div>
                                                             </div>
 
-                                                            <h4 className="text-sm font-medium text-white mb-3 line-clamp-2">
+                                                            <h4 className="text-sm font-medium text-text-primary mb-3 line-clamp-2">
                                                                 {task.title}
                                                             </h4>
 
                                                             <div className="flex items-center justify-between">
                                                                 <div className="flex items-center gap-2">
                                                                     {/* Assignee Avatar */}
-                                                                    <div className="w-6 h-6 rounded-full bg-surface-lighter flex items-center justify-center ring-1 ring-white/10" title={task.assignees?.[0]?.projectMember?.organizationMember?.user?.firstName || 'Unassigned'}>
-                                                                        {task.assignees?.[0]?.projectMember?.organizationMember?.user?.firstName ? (
-                                                                            <span className="text-[10px] font-bold text-text-secondary">
-                                                                                {task.assignees[0].projectMember.organizationMember.user.firstName[0]}
-                                                                            </span>
+                                                                    {!isTemplate ? (
+                                                                        task.assignees?.[0]?.projectMember?.organizationMember?.user ? (
+                                                                            <UserAvatar
+                                                                                userId={task.assignees[0].projectMember.organizationMember.userId} // Assuming this field exists or we might need to adjust based on schema
+                                                                                firstName={task.assignees[0].projectMember.organizationMember.user.firstName}
+                                                                                lastName={task.assignees[0].projectMember.organizationMember.user.lastName}
+                                                                                avatarUrl={task.assignees[0].projectMember.organizationMember.user.avatarUrl}
+                                                                                size="sm"
+                                                                                className="ring-1 ring-white/10"
+                                                                            />
                                                                         ) : (
-                                                                            <UserIcon size={12} className="text-text-secondary" />
-                                                                        )}
-                                                                    </div>
+                                                                            <div className="w-6 h-6 rounded-full bg-surface-lighter flex items-center justify-center ring-1 ring-white/10" title="Unassigned">
+                                                                                <UserIcon size={12} className="text-text-secondary" />
+                                                                            </div>
+                                                                        )
+                                                                    ) : (
+                                                                        <div className="w-6 h-6 rounded-full bg-foreground/5 flex items-center justify-center border border-dashed border-foreground/10" title="Template Blueprint">
+                                                                            <UserIcon size={10} className="text-text-secondary/50" />
+                                                                        </div>
+                                                                    )}
 
                                                                     {/* Due Date */}
                                                                     {task.dueDate && (

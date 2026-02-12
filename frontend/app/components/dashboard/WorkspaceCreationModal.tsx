@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Building2, User, Check, Building } from 'lucide-react';
 import { useState } from 'react';
+import { useToast } from '../ui/Toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -34,6 +35,7 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
     const [selectedType, setSelectedType] = useState<'personal' | 'team' | 'company'>('personal');
     const [selectedColor, setSelectedColor] = useState(workspaceColors[0]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { showToast } = useToast();
 
     const {
         register,
@@ -72,16 +74,22 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
                 throw new Error(result.error || 'Failed to create workspace');
             }
 
+            // Update selected workspace id
+            localStorage.setItem('selectedWorkspaceId', result.workspace.id);
+
             // Update local user data
             const userStr = localStorage.getItem('user');
             if (userStr) {
                 const user = JSON.parse(userStr);
-                user.organizations = [{
+                // Just add this to the list of organizations if we were tracking them, 
+                // but since we rely on selectedWorkspaceId + refresh, this is safer.
+                if (!user.organizations) user.organizations = [];
+                user.organizations.push({
                     id: result.workspace.id,
                     name: result.workspace.name,
                     color: result.workspace.color,
                     role: 'Admin'
-                }];
+                });
                 localStorage.setItem('user', JSON.stringify(user));
             }
 
@@ -89,7 +97,7 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
 
         } catch (error: any) {
             console.error('Create workspace error:', error);
-            alert(error.message || 'Failed to create workspace');
+            showToast('error', 'Creation Failed', error.message || 'Failed to create workspace');
         } finally {
             setIsSubmitting(false);
         }
@@ -115,13 +123,13 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
                     className="relative w-full max-w-2xl bg-surface border border-white/10 rounded-[32px] overflow-hidden shadow-2xl"
                 >
-                    <div className="p-8 md:p-10">
+                    <div className="p-6 md:p-10">
                         <div className="flex items-center gap-4 mb-8">
                             <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center">
                                 <Building className="w-6 h-6 text-primary" />
                             </div>
                             <div>
-                                <h2 className="text-2xl font-bold text-white leading-tight">Create your workspace</h2>
+                                <h2 className="text-2xl font-bold text-foreground leading-tight">Create your workspace</h2>
                                 <p className="text-text-secondary text-sm">Every project lives inside a workspace.</p>
                             </div>
                         </div>
@@ -132,14 +140,14 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
                                 <input
                                     {...register('name')}
                                     placeholder="e.g. Acme Studio, Marketing Team"
-                                    className={`w-full bg-background/50 border ${errors.name ? 'border-danger' : 'border-white/10'} rounded-xl px-4 py-3.5 text-white placeholder:text-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
+                                    className={`w-full bg-surface border \${errors.name ? 'border-danger' : 'border-white/10'} rounded-xl px-4 py-3.5 text-foreground placeholder:text-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all`}
                                 />
                                 {errors.name && <p className="text-xs text-danger">{errors.name.message}</p>}
                             </div>
 
                             <div className="space-y-3">
                                 <label className="text-sm font-medium text-text-primary">Workspace Type</label>
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                     {workspaceTypes.map((type) => (
                                         <button
                                             key={type.value}
@@ -151,7 +159,7 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
                                                 }`}
                                         >
                                             <type.icon size={20} className={selectedType === type.value ? 'text-primary' : 'text-text-secondary'} />
-                                            <span className="text-xs font-medium text-white">{type.label}</span>
+                                            <span className="text-xs font-medium text-foreground">{type.label}</span>
                                         </button>
                                     ))}
                                 </div>
