@@ -47,7 +47,7 @@ export const getAllPermissions = async (req: Request, res: Response) => {
         });
 
         // Group by category
-        const grouped = permissions.reduce((acc: any, p) => {
+        const grouped = permissions.reduce((acc: any, p: any) => {
             if (!acc[p.category]) acc[p.category] = [];
             acc[p.category].push(p);
             return acc;
@@ -84,7 +84,7 @@ export const updateRolePermissions = async (req: Request, res: Response) => {
         }
 
         // Transaction to sync permissions
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx: any) => {
             // Delete existing
             await tx.rolePermission.deleteMany({
                 where: { roleId }

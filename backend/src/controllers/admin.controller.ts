@@ -46,7 +46,7 @@ export const getOverviewStats = async (req: Request, res: Response) => {
             workspaces: { total: totalWorkspaces, growth: 5 },
             projects: { total: totalProjects, active: totalProjects }, // Approximation
             revenue: { total: 0, growth: 0 }, // No billing yet
-            recentActivity: recentLogs.map(log => ({
+            recentActivity: recentLogs.map((log: any) => ({
                 action: log.action.replace(/_/g, ' '),
                 target: `${log.entityType} ${(log.entityId || '').substring(0, 8)}...`,
                 user: log.performedBy ? `${log.performedBy.firstName} ${log.performedBy.lastName}` : 'System',
@@ -102,7 +102,7 @@ export const getWorkspaces = async (req: Request, res: Response) => {
         const total = await prisma.organization.count({ where });
 
         // Map to UI friendly format
-        const formattedWorkspaces = workspaces.map(w => {
+        const formattedWorkspaces = workspaces.map((w: any) => {
             const ownerMember = w.members[0];
             const ownerName = ownerMember?.user ? `${ownerMember.user.firstName} ${ownerMember.user.lastName}` : 'Unknown';
             const ownerEmail = ownerMember?.user?.email || 'N/A';
@@ -198,10 +198,10 @@ export const getUsers = async (req: Request, res: Response) => {
         const total = await prisma.user.count({ where });
 
         res.json({
-            users: users.map(u => ({
+            users: users.map((u: any) => ({
                 ...u,
                 workspaceCount: u._count.organizationMembers,
-                workspaces: u.organizationMembers.map(m => m.organization.name)
+                workspaces: u.organizationMembers.map((m: any) => m.organization.name)
             })),
             metadata: {
                 total,

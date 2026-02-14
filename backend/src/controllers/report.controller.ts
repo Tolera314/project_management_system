@@ -53,28 +53,28 @@ export const getProjectReport = async (req: Request, res: Response) => {
         });
 
         const totalTasks = tasks.length;
-        const completedTasksCount = tasks.filter(t => t.status === 'DONE').length;
-        const inProgressTasksCount = tasks.filter(t => t.status === 'IN_PROGRESS').length;
+        const completedTasksCount = tasks.filter((t: any) => t.status === 'DONE').length;
+        const inProgressTasksCount = tasks.filter((t: any) => t.status === 'IN_PROGRESS').length;
 
-        const blockedTasksList = tasks.filter(t => t.status === 'BLOCKED');
+        const blockedTasksList = tasks.filter((t: any) => t.status === 'BLOCKED');
         const blockedTasksCount = blockedTasksList.length;
 
-        const overdueTasks = tasks.filter(t => t.status !== 'DONE' && t.dueDate && new Date(t.dueDate) < now);
+        const overdueTasks = tasks.filter((t: any) => t.status !== 'DONE' && t.dueDate && new Date(t.dueDate) < now);
 
         // 2. Risks (Delayed/Blocked)
         const risks = [
-            ...blockedTasksList.map(t => ({ id: t.id, title: t.title, type: 'BLOCKED', severity: 'HIGH' })),
-            ...overdueTasks.map(t => ({ id: t.id, title: t.title, type: 'OVERDUE', severity: 'MEDIUM' }))
+            ...blockedTasksList.map((t: any) => ({ id: t.id, title: t.title, type: 'BLOCKED', severity: 'HIGH' })),
+            ...overdueTasks.map((t: any) => ({ id: t.id, title: t.title, type: 'OVERDUE', severity: 'MEDIUM' }))
         ];
 
         // 3. Weekly Velocity (Approximation)
         const startOfCurrentWeek = startOfWeek(now);
-        const doneThisWeek = tasks.filter(t => t.status === 'DONE' && t.completedAt && new Date(t.completedAt) >= startOfCurrentWeek).length;
+        const doneThisWeek = tasks.filter((t: any) => t.status === 'DONE' && t.completedAt && new Date(t.completedAt) >= startOfCurrentWeek).length;
 
         // 4. Team Workload (Simple)
         const memberWorkload = (project as any).members.map((m: any) => {
-            const assigned = tasks.filter(t => t.assignees.some(a => a.projectMemberId === m.id));
-            const completed = assigned.filter(t => t.status === 'DONE').length;
+            const assigned = tasks.filter((t: any) => t.assignees.some((a: any) => a.projectMemberId === m.id));
+            const completed = assigned.filter((t: any) => t.status === 'DONE').length;
             return {
                 name: m.organizationMember?.user ? `${m.organizationMember.user.firstName} ${m.organizationMember.user.lastName}` : 'Unknown',
                 total: assigned.length,
@@ -105,13 +105,13 @@ export const getProjectReport = async (req: Request, res: Response) => {
             },
             risks,
             teamLoad: memberWorkload,
-            tasks: tasks.map(t => ({
+            tasks: tasks.map((t: any) => ({
                 id: t.id,
                 title: t.title,
                 status: t.status,
                 priority: t.priority,
                 dueDate: t.dueDate,
-                assignees: t.assignees.map(a => {
+                assignees: t.assignees.map((a: any) => {
                     const user = (a.projectMember as any).organizationMember?.user;
                     return user ? user.firstName : 'Unknown';
                 })
@@ -127,7 +127,7 @@ export const getProjectReport = async (req: Request, res: Response) => {
                 ['Health', report.status.health],
                 [],
                 ['Task ID', 'Title', 'Status', 'Priority', 'Due Date', 'Assignees'],
-                ...report.tasks.map(t => [
+                ...report.tasks.map((t: any) => [
                     t.id,
                     `"${t.title.replace(/"/g, '""')}"`, // Escape quotes
                     t.status,

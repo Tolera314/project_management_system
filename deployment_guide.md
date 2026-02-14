@@ -20,8 +20,12 @@ Add these variables to your Render Web Service configuration:
 | `FRONTEND_URL` | The production URL of your Vercel app | `https://your-app.vercel.app` |
 | `BACKEND_URL` | The production URL of your Render API | `https://your-api.onrender.com` |
 | `PORT` | Port for the backend service | `4000` (Render handles this automatically) |
-| `BREVO_API_KEY` | API Key for email delivery | `xkeysib-xxxxxxxxxxxxxx` |
+| `SMTP_SERVER` | SMTP host | `smtp-relay.brevo.com` |
+| `SMTP_PORT` | SMTP port | `587` |
+| `SMTP_USER` | SMTP username | `your-brevo-user` |
+| `SMTP_PASS` | SMTP password/API key | `xsmtpsib-xxxxxxxxxxx` |
 | `SENDER_EMAIL` | Email address to send from | `notifications@yourdomain.com` |
+| `SENDER_NAME` | Name shown in email "From" | `Project Management System` |
 | `GOOGLE_CLIENT_ID` | OAuth Client ID (if enabled) | `xxxxx-xxxxx.apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET`| OAuth Client Secret | `xxxxxxxxxxxxxx` |
 

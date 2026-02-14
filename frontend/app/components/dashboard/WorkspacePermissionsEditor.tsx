@@ -86,7 +86,7 @@ export default function WorkspacePermissionsEditor({
         setSaving(true);
         try {
             const token = localStorage.getItem('token');
-            let url = `http://localhost:4000/workspaces/${workspaceId}/roles`;
+            let url = `${API_BASE_URL}/workspaces/${workspaceId}/roles`;
             let method = 'POST';
 
             // 1. Create or Update Role Basic Info

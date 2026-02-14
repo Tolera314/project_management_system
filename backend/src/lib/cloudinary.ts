@@ -41,7 +41,7 @@ export const uploadToCloudinary = async (
                 resource_type: options.resourceType || 'auto',
                 public_id: options.publicId,
             },
-            (error, result) => {
+            (error: any, result: any) => {
                 if (error) return reject(error);
                 if (!result) return reject(new Error('Upload failed - no result'));
 

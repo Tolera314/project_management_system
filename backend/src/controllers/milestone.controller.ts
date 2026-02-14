@@ -6,7 +6,7 @@ import { NotificationService } from '../services/notification.service';
 const createMilestoneSchema = z.object({
     name: z.string().min(1, 'Milestone name is required').max(100),
     description: z.string().optional(),
-    dueDate: z.string().transform(v => new Date(v)),
+    dueDate: z.string().transform((v: any) => new Date(v)),
     projectId: z.string().cuid(),
     ownerId: z.string().cuid().optional(),
     taskIds: z.array(z.string().cuid()).optional(),
@@ -15,7 +15,7 @@ const createMilestoneSchema = z.object({
 const updateMilestoneSchema = z.object({
     name: z.string().min(1).max(100).optional(),
     description: z.string().optional(),
-    dueDate: z.string().optional().transform(v => v ? new Date(v) : undefined),
+    dueDate: z.string().optional().transform((v: any) => v ? new Date(v) : undefined),
     ownerId: z.string().cuid().optional(),
     taskIds: z.array(z.string().cuid()).optional(),
 });
@@ -67,7 +67,7 @@ export const createMilestone = async (req: Request, res: Response) => {
                 createdById: userId,
                 ownerId,
                 tasks: taskIds ? {
-                    connect: taskIds.map(id => ({ id }))
+                    connect: taskIds.map((id: any) => ({ id }))
                 } : undefined
             },
             include: {
@@ -134,9 +134,9 @@ export const getMilestones = async (req: Request, res: Response) => {
 
         // Calculate Derived Status and Progress for each milestone
         const today = new Date();
-        const enrichedMilestones = milestones.map(m => {
+        const enrichedMilestones = milestones.map((m: any) => {
             const totalTasks = m.tasks.length;
-            const completedTasks = m.tasks.filter(t => t.status === 'DONE').length;
+            const completedTasks = m.tasks.filter((t: any) => t.status === 'DONE').length;
             const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
             let status = 'ON_TRACK';
@@ -147,7 +147,7 @@ export const getMilestones = async (req: Request, res: Response) => {
                 status = 'OVERDUE';
             } else {
                 // At Risk if some tasks are overdue OR if due date is near and many tasks are left
-                const delayedTasks = m.tasks.filter(t => t.status !== 'DONE' && t.dueDate && t.dueDate < today).length;
+                const delayedTasks = m.tasks.filter((t: any) => t.status !== 'DONE' && t.dueDate && t.dueDate < today).length;
                 const daysToDue = (m.dueDate.getTime() - today.getTime()) / (1000 * 3600 * 24);
 
                 if (delayedTasks > 0 || (daysToDue < 3 && progress < 80)) {

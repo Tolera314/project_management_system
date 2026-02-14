@@ -10,7 +10,7 @@ const getTransporter = async () => {
         });
 
         const config: Record<string, string> = {};
-        settings.forEach(s => config[s.key] = s.value as string);
+        settings.forEach((s: any) => config[s.key] = s.value as string);
 
         if (config['SMTP_SERVER'] && config['SMTP_USER']) {
             return nodemailer.createTransport({
@@ -139,7 +139,7 @@ export const getPlatformWelcomeTemplate = (userName: string) => {
             <p>We're thrilled to have you join our platform. ProjectOS is designed to help you manage your tasks, collaborate with your team, and achieve your goals more efficiently.</p>
             <p>Ready to get started? Create your first workspace and invite your team members.</p>
             <div style="text-align: center;">
-                <a href="http://localhost:3000/dashboard" class="btn">Go to Dashboard</a>
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard" class="btn">Go to Dashboard</a>
             </div>
         </div>
         <div class="footer">

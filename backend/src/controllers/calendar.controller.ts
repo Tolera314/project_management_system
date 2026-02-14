@@ -63,7 +63,7 @@ export const generateCalendarSyncUrl = async (req: Request, res: Response) => {
 
         // In a real app, generate a unique token for the user
         const token = Buffer.from(`${userId}:${organizationId}`).toString('base64');
-        const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+        const baseUrl = process.env.BACKEND_URL || 'http://localhost:4000';
         const syncUrl = `${baseUrl}/api/calendar/feed/${token}.ics`;
 
         res.json({ syncUrl });
