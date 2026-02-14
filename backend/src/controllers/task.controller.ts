@@ -562,12 +562,12 @@ export const addComment = async (req: Request, res: Response) => {
             where: { id: { in: Array.from(mentionedUserIds) } }
         });
 
-        const validMentionedIds = mentionedUsers.map(u => u.id);
+        const validMentionedIds = mentionedUsers.map((u: any) => u.id);
 
         if (validMentionedIds.length > 0) {
             // Create Mention records
             await prisma.mention.createMany({
-                data: validMentionedIds.map(mId => ({
+                data: validMentionedIds.map((mId: any) => ({
                     commentId: comment.id,
                     userId: mId,
                     mentionedById: userId
@@ -716,7 +716,7 @@ export const addAssignee = async (req: Request, res: Response) => {
                     where: { id: task.project.organizationId },
                     include: { roles: true }
                 });
-                const projectMemberRole = workspace?.roles.find(r => r.name === 'Project Member') || workspace?.roles[0];
+                const projectMemberRole = workspace?.roles.find((r: any) => r.name === 'Project Member') || workspace?.roles[0];
 
                 if (!projectMemberRole) {
                     res.status(400).json({ error: 'Default project member role not found' });

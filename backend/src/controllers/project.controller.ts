@@ -623,7 +623,7 @@ export const addMember = async (req: Request, res: Response) => {
         });
 
         const isProjectManager = actor?.role.name === 'Project Manager';
-        const hasMemberPermission = actor?.role.permissions.some(p => p.permission.name === 'manage_project_members');
+        const hasMemberPermission = actor?.role.permissions.some((p: any) => p.permission.name === 'manage_project_members');
 
         // Also allow Workspace Admins/Owners
         const workspaceMember = await prisma.organizationMember.findFirst({
