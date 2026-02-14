@@ -21,7 +21,7 @@ export class SocketService {
         });
 
         // Authentication Middleware
-        this.io.use((socket, next) => {
+        this.io.use((socket: any, next: (err?: Error) => void) => {
             const token = socket.handshake.auth.token;
             if (token) {
                 jwt.verify(token, process.env.JWT_SECRET!, (err: any, decoded: any) => {
@@ -34,7 +34,7 @@ export class SocketService {
             }
         });
 
-        this.io.on('connection', (socket) => {
+        this.io.on('connection', (socket: any) => {
             const userId = socket.data.userId;
             console.log(`🔌 Client connected: ${socket.id} (User: ${userId})`);
 

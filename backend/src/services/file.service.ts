@@ -8,7 +8,7 @@ export class FileService {
      * Upload a new file to Cloudinary
      */
     async uploadFile(
-        file: Express.Multer.File,
+        file: any,
         userId: string,
         projectId: string,
         taskId?: string,
@@ -62,7 +62,7 @@ export class FileService {
      */
     async uploadVersion(
         fileId: string,
-        file: Express.Multer.File,
+        file: any,
         userId: string
     ) {
         // Upload to Cloudinary
