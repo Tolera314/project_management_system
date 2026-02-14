@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { API_BASE_URL } from '../../config/api.config';
 
 const configSchema = z.object({
     name: z.string().min(1, 'Project name is required').max(100, 'Name is too long'),
@@ -69,7 +70,7 @@ export default function TemplateConfigModal({
 
             if (!orgId) return;
 
-            const res = await fetch(`http://localhost:4000/workspaces/${orgId}/members`, {
+            const res = await fetch(`${API_BASE_URL}/workspaces/${orgId}/members`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 

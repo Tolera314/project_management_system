@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { API_BASE_URL } from '../../config/api.config';
 import {
     Search, Plus, Settings, Menu, X, Home, FolderKanban,
     CheckSquare, Calendar, BarChart3, Layout, User,
@@ -58,8 +59,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             try {
                 const selectedId = localStorage.getItem('selectedWorkspaceId');
                 const url = selectedId
-                    ? `http://localhost:4000/workspaces/me?workspaceId=${selectedId}`
-                    : 'http://localhost:4000/workspaces/me';
+                    ? `${API_BASE_URL}/workspaces/me?workspaceId=${selectedId}`
+                    : `${API_BASE_URL}/workspaces/me`;
 
                 const res = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -117,7 +118,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const handleInviteToWorkspace = async (email: string, roleId: string) => {
         if (!workspace) return;
         const token = localStorage.getItem('token');
-        const res = await fetch(`http://localhost:4000/workspaces/${workspace.id}/invitations`, {
+        const res = await fetch(`${API_BASE_URL}/workspaces/${workspace.id}/invitations`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -144,8 +145,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             setIsSearching(true);
             setShowSearchResults(true);
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/tasks/search?q=\${encodeURIComponent(query)}&workspaceId=\${workspace?.id}`, {
-                headers: { 'Authorization': `Bearer \${token}` }
+            const res = await fetch(`${API_BASE_URL}/tasks/search?q=${encodeURIComponent(query)}&workspaceId=${workspace?.id}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
             setSearchResults(data.tasks || []);

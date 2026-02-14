@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Shield, ShieldCheck, ShieldAlert, Loader2, Save, Search } from 'lucide-react';
 import { useToast } from '../ui/Toast';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface WorkspacePermissionsEditorProps {
     isOpen: boolean;
@@ -40,7 +41,7 @@ export default function WorkspacePermissionsEditor({
                 const token = localStorage.getItem('token');
 
                 // Fetch all permissions
-                const permRes = await fetch('http://localhost:4000/workspaces/permissions/list', {
+                const permRes = await fetch(`${API_BASE_URL}/workspaces/permissions/list`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const permData = await permRes.json();
@@ -102,7 +103,7 @@ export default function WorkspacePermissionsEditor({
                 // Just check URL construction: 
                 // Create: POST /workspaces/:id/roles
                 // Update: PUT /workspaces/:id/roles/:roleId
-                url = `http://localhost:4000/workspaces/${workspaceId}/roles`;
+                url = `${API_BASE_URL}/workspaces/${workspaceId}/roles`;
                 if (!isCreating && role) url += `/${role.id}`;
             }
 
@@ -137,7 +138,7 @@ export default function WorkspacePermissionsEditor({
             // Let's check backend... Yes, updateWorkspaceRole only updates name/desc.
             // So we need a separate call for permissions if NOT creating.
             if (!isCreating) {
-                const permRes = await fetch(`http://localhost:4000/workspaces/${workspaceId}/roles/${role.id}/permissions`, {
+                const permRes = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/roles/${role.id}/permissions`, {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',

@@ -14,6 +14,7 @@ import {
     Shield
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface Workspace {
     id: string;
@@ -60,7 +61,7 @@ const WorkspaceSwitcher = ({ currentWorkspace, isCollapsed = false, onOpenModal 
         if (!token || token === 'undefined' || token === 'null') return;
 
         try {
-            const res = await fetch('http://localhost:4000/workspaces/list', {
+            const res = await fetch(`${API_BASE_URL}/workspaces/list`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 

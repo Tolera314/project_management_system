@@ -11,6 +11,7 @@ import axios from 'axios';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { File } from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
+import { API_BASE_URL } from '../config/api.config';
 
 function LoginContent() {
     const router = useRouter();
@@ -41,7 +42,7 @@ function LoginContent() {
         setIsLoading(true);
         setError(null);
         try {
-            const response = await axios.post('http://localhost:4000/auth/login', data);
+            const response = await axios.post(`${API_BASE_URL}/auth/login`, data);
 
             // Store token
             const token = response.data.token;
@@ -53,7 +54,7 @@ function LoginContent() {
             // If there's an invitation, accept it
             if (invitationToken) {
                 try {
-                    const acceptRes = await axios.post(`http://localhost:4000/invitations/accept/${invitationToken}`, {}, {
+                    const acceptRes = await axios.post(`${API_BASE_URL}/invitations/accept/${invitationToken}`, {}, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     if (acceptRes.data.redirectUrl) {
@@ -80,7 +81,7 @@ function LoginContent() {
     };
 
     const handleGoogleLogin = () => {
-        window.location.href = 'http://localhost:4000/auth/google';
+        window.location.href = `${API_BASE_URL}/auth/google`;
     };
 
     return (

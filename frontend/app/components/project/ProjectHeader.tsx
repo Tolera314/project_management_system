@@ -23,6 +23,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import SaveAsTemplateModal from '../templates/SaveAsTemplateModal';
 import { useUser } from '../../context/UserContext';
+import { API_BASE_URL } from '../../config/api.config';
 import UserAvatar from '../shared/UserAvatar';
 import { useToast } from '../ui/Toast';
 import { Loader2 } from 'lucide-react';
@@ -87,7 +88,7 @@ export default function ProjectHeader({
 
             if (format === 'pdf') {
                 showToast('info', 'Preparing PDF...', 'Your report is being generated.');
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+                const apiUrl = API_BASE_URL;
                 const response = await fetch(`${apiUrl}/projects/${projectId}/report`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -169,7 +170,7 @@ export default function ProjectHeader({
             }
 
             showToast('info', `Exporting ${format.toUpperCase()}...`, 'Generating your download.');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = API_BASE_URL;
             const url = `${apiUrl}/projects/${projectId}/report?format=${format}`;
             const response = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }

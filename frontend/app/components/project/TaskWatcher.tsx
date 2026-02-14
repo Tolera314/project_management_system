@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface TaskWatcherProps {
     taskId: string;
@@ -20,7 +21,7 @@ export default function TaskWatcher({ taskId, userId, initialIsWatching = false 
 
             if (isWatching) {
                 // Unwatch
-                const response = await fetch(`http://localhost:4000/tasks/${taskId}/watchers/${userId}`, {
+                const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/watchers/${userId}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -29,7 +30,7 @@ export default function TaskWatcher({ taskId, userId, initialIsWatching = false 
                 }
             } else {
                 // Watch
-                const response = await fetch(`http://localhost:4000/tasks/${taskId}/watchers`, {
+                const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/watchers`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -53,8 +54,8 @@ export default function TaskWatcher({ taskId, userId, initialIsWatching = false 
             onClick={toggleWatch}
             disabled={isLoading}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isWatching
-                    ? 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'
-                    : 'bg-white/5 text-text-secondary border border-white/10 hover:bg-white/10'
+                ? 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'
+                : 'bg-white/5 text-text-secondary border border-white/10 hover:bg-white/10'
                 } disabled:opacity-50`}
             title={isWatching ? 'Stop watching this task' : 'Watch this task for updates'}
         >

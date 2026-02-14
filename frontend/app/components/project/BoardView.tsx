@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { API_BASE_URL } from '../../config/api.config';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import {
     AlertTriangle,
@@ -136,7 +137,7 @@ export default function BoardView({ tasks, projectId, project, onTaskClick, onRe
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/tasks/${draggableId}`, {
+            const res = await fetch(`${API_BASE_URL}/tasks/${draggableId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

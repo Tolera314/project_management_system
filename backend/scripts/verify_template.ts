@@ -1,6 +1,8 @@
 // @ts-nocheck
 import prisma from '../src/lib/prisma';
 
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:4000';
+
 async function main() {
     const email = `testuser_${Date.now()}@example.com`;
 
@@ -46,7 +48,7 @@ async function main() {
 
     try {
         // Login
-        const loginRes = await fetch('http://localhost:4000/auth/login', {
+        const loginRes = await fetch(`${BACKEND_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -60,7 +62,7 @@ async function main() {
         console.log('Logged in, creating Template...');
 
         // 1. Create Template
-        const templateRes = await fetch('http://localhost:4000/projects', {
+        const templateRes = await fetch(`${BACKEND_URL}/projects`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -116,7 +118,7 @@ async function main() {
 
         // 3. Create Project from Template
         console.log('Creating Project from Template...');
-        const projectRes = await fetch('http://localhost:4000/projects', {
+        const projectRes = await fetch(`${BACKEND_URL}/projects`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,

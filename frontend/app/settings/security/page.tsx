@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Shield, Key, Laptop, Smartphone, Globe, LogOut, Check, AlertCircle, Loader2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '../../components/ui/Toast';
+import { API_BASE_URL } from '../../config/api.config';
 
 export default function SecuritySettingsPage() {
     const { showToast } = useToast();
@@ -23,7 +24,7 @@ export default function SecuritySettingsPage() {
     const fetchSessions = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/users/sessions', {
+            const res = await fetch(`${API_BASE_URL}/users/sessions`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -47,7 +48,7 @@ export default function SecuritySettingsPage() {
         setIsPasswordSaving(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/users/change-password', {
+            const res = await fetch(`${API_BASE_URL}/users/change-password`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -76,7 +77,7 @@ export default function SecuritySettingsPage() {
     const handleRevokeSession = async (sessionId: string) => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/users/sessions/${sessionId}`, {
+            const res = await fetch(`${API_BASE_URL}/users/sessions/${sessionId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -93,7 +94,7 @@ export default function SecuritySettingsPage() {
         if (!confirm('Are you sure you want to log out of all other devices?')) return;
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/users/sessions', {
+            const res = await fetch(`${API_BASE_URL}/users/sessions`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });

@@ -21,6 +21,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import FileList from '../../components/files/FileList';
 import { socketService } from '../../services/socket.service';
 import { TemplateService } from '../../services/template.service';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface User {
     id: string;
@@ -114,7 +115,7 @@ function ProjectContent() {
         try {
             if (!silent) setLoading(true);
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/projects/${projectId}?includeArchived=${showArchived}`, {
+            const res = await fetch(`${API_BASE_URL}/projects/${projectId}?includeArchived=${showArchived}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -246,7 +247,7 @@ function ProjectContent() {
 
     const handleInviteMember = async (email: string, roleId: string) => {
         const token = localStorage.getItem('token');
-        const res = await fetch(`http://localhost:4000/projects/${projectId}/members`, {
+        const res = await fetch(`${API_BASE_URL}/projects/${projectId}/members`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -265,7 +266,7 @@ function ProjectContent() {
 
     const handleUpdateMemberRole = async (memberId: string, roleId: string) => {
         const token = localStorage.getItem('token');
-        const res = await fetch(`http://localhost:4000/projects/${projectId}/members/${memberId}/role`, {
+        const res = await fetch(`${API_BASE_URL}/projects/${projectId}/members/${memberId}/role`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
@@ -284,7 +285,7 @@ function ProjectContent() {
 
     const handleRemoveMember = async (memberId: string) => {
         const token = localStorage.getItem('token');
-        const res = await fetch(`http://localhost:4000/projects/${projectId}/members/${memberId}`, {
+        const res = await fetch(`${API_BASE_URL}/projects/${projectId}/members/${memberId}`, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${token}`
@@ -305,27 +306,23 @@ function ProjectContent() {
 
     if (loading) {
         return (
-            <DashboardLayout>
-                <div className="flex items-center justify-center h-full">
-                    <div className="flex flex-col items-center gap-4">
-                        <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-                        <p className="text-text-secondary animate-pulse">Loading project...</p>
-                    </div>
+            <div className="flex items-center justify-center h-full">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                    <p className="text-text-secondary animate-pulse">Loading project...</p>
                 </div>
-            </DashboardLayout>
+            </div>
         );
     }
 
     if (!project) {
         return (
-            <DashboardLayout>
-                <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                        <h2 className="text-xl font-bold text-white mb-2">Project not found</h2>
-                        <p className="text-text-secondary">This project might have been deleted or you don&apos;t have access.</p>
-                    </div>
+            <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                    <h2 className="text-xl font-bold text-white mb-2">Project not found</h2>
+                    <p className="text-text-secondary">This project might have been deleted or you don&apos;t have access.</p>
                 </div>
-            </DashboardLayout>
+            </div>
         );
     }
 

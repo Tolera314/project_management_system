@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Camera, Mail, User, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { API_BASE_URL } from '../../config/api.config';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '../../context/UserContext';
 import { FileService } from '../../services/file.service';
@@ -27,7 +28,7 @@ export default function ProfileSettingsPage() {
     const fetchProfile = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/users/profile', {
+            const res = await fetch(`${API_BASE_URL}/users/profile`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -81,7 +82,7 @@ export default function ProfileSettingsPage() {
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/users/profile', {
+            const res = await fetch(`${API_BASE_URL}/users/profile`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

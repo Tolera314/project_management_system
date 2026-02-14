@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '../../context/UserContext';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface UserAvatarProps {
     userId?: string;
@@ -33,7 +34,7 @@ export default function UserAvatar({
 
     // Handle relative URLs for uploaded avatars
     if (finalAvatarUrl && !finalAvatarUrl.startsWith('http') && !finalAvatarUrl.startsWith('data:')) {
-        finalAvatarUrl = `http://localhost:4000/uploads/${finalAvatarUrl}`;
+        finalAvatarUrl = `${API_BASE_URL}/uploads/${finalAvatarUrl}`;
     }
     const finalFirstName = isCurrentUser ? user.firstName : firstName;
     // const finalLastName = isCurrentUser ? user.lastName : lastName; // Optional: update name too

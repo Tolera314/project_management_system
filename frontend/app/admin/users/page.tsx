@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ConfirmationModal from '../../components/shared/ConfirmationModal';
 import UserAvatar from '../../components/shared/UserAvatar';
 import { useToast } from '../../components/ui/Toast';
+import { API_BASE_URL } from '../../config/api.config';
 
 export default function UsersAdmin() {
     const [users, setUsers] = useState<any[]>([]);
@@ -46,7 +47,7 @@ export default function UsersAdmin() {
                 ...(filterRole && { role: filterRole })
             });
 
-            const response = await fetch(`http://localhost:4000/admin/users?${params}`, {
+            const response = await fetch(`${API_BASE_URL}/admin/users?${params}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 

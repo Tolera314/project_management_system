@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { API_BASE_URL } from '../config/api.config';
 
 class SocketService {
     private socket: Socket | null = null;
@@ -12,7 +13,7 @@ class SocketService {
         }
 
         const token = localStorage.getItem('token');
-        this.socket = io('http://localhost:4000', {
+        this.socket = io(API_BASE_URL, {
             auth: { token },
             transports: ['websocket']
         });

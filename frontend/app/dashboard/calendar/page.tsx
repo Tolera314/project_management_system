@@ -22,6 +22,7 @@ import { useRouter } from 'next/navigation';
 import TaskDetailPanel from '../../components/project/TaskDetailPanel';
 import { useToast } from '../../components/ui/Toast';
 import { socketService } from '../../services/socket.service';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface Task {
     id: string;
@@ -82,7 +83,7 @@ export default function CalendarPage() {
             let workspaceId = localStorage.getItem('selectedWorkspaceId');
 
             if (!workspaceId || workspaceId === 'null' || workspaceId === 'undefined') {
-                const wsRes = await fetch('http://localhost:4000/workspaces/me', {
+                const wsRes = await fetch(`${API_BASE_URL}/workspaces/me`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const wsData = await wsRes.json();
@@ -105,10 +106,10 @@ export default function CalendarPage() {
 
             // Fetch tasks and milestones
             const [tasksRes, milestonesRes] = await Promise.all([
-                fetch(`http://localhost:4000/tasks/search?workspaceId=${finalWorkspaceId}`, {
+                fetch(`${API_BASE_URL}/tasks/search?workspaceId=${finalWorkspaceId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 }),
-                fetch(`http://localhost:4000/milestones?workspaceId=${finalWorkspaceId}`, {
+                fetch(`${API_BASE_URL}/milestones?workspaceId=${finalWorkspaceId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 })
             ]);
@@ -385,7 +386,7 @@ export default function CalendarPage() {
                 t.id === taskId ? { ...t, dueDate: newDate.toISOString() } : t
             ));
 
-            const res = await fetch(`http://localhost:4000/tasks/${taskId}`, {
+            const res = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

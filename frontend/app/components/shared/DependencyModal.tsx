@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, Link as LinkIcon, Target, LayoutGrid, CheckCircle2, Loader2, Plus } from 'lucide-react';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface DependencyModalProps {
     isOpen: boolean;
@@ -33,11 +34,11 @@ export default function DependencyModal({ isOpen, onClose, targetId, type, organ
             let url = '';
 
             if (type === 'PROJECT') {
-                url = `http://localhost:4000/projects?organizationId=${organizationId}`;
+                url = `${API_BASE_URL}/projects?organizationId=${organizationId}`;
             } else if (type === 'LIST') {
-                url = `http://localhost:4000/projects/${projectId}`; // Will get lists from project
+                url = `${API_BASE_URL}/projects/${projectId}`; // Will get lists from project
             } else {
-                url = `http://localhost:4000/projects/${projectId}`; // Will get tasks from project
+                url = `${API_BASE_URL}/projects/${projectId}`; // Will get tasks from project
             }
 
             const res = await fetch(url, {
@@ -72,7 +73,7 @@ export default function DependencyModal({ isOpen, onClose, targetId, type, organ
         try {
             setSubmitting(true);
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/dependencies', {
+            const res = await fetch(`${API_BASE_URL}/dependencies`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

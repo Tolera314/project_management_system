@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DependencyModal from '../shared/DependencyModal';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface ListDetailPanelProps {
     listId: string | null;
@@ -50,7 +51,7 @@ export default function ListDetailPanel({ listId, isOpen, onClose, onRefresh, pr
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/lists/details/${listId}`, {
+            const res = await fetch(`${API_BASE_URL}/lists/details/${listId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -67,7 +68,7 @@ export default function ListDetailPanel({ listId, isOpen, onClose, onRefresh, pr
     const handleUpdateList = async (updates: any) => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/lists/${listId}`, {
+            const res = await fetch(`${API_BASE_URL}/lists/${listId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -88,7 +89,7 @@ export default function ListDetailPanel({ listId, isOpen, onClose, onRefresh, pr
         if (!confirm('Are you sure you want to delete this list? All tasks within it will also be deleted.')) return;
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/lists/${listId}`, {
+            const res = await fetch(`${API_BASE_URL}/lists/${listId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });

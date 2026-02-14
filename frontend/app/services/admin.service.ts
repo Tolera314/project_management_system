@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { AuthService } from './auth.service';
+import { API_BASE_URL } from '../config/api.config';
 
-const API_URL = 'http://localhost:4000/admin';
+const API_URL = `${API_BASE_URL}/admin`;
 
 export interface AdminStats {
     users: { total: number; active: number; growth: number };

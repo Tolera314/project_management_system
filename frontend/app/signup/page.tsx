@@ -11,6 +11,7 @@ import axios from 'axios';
 import { useRouter, useSearchParams } from 'next/navigation';
 import UserAvatar from '../components/shared/UserAvatar';
 import { FcGoogle } from "react-icons/fc";
+import { API_BASE_URL } from '../config/api.config';
 
 // Password strength calculator
 const calculatePasswordStrength = (password: string) => {
@@ -57,7 +58,7 @@ function SignUpContent() {
         setIsLoading(true);
         setError(null);
         try {
-            const signupRes = await axios.post('http://localhost:4000/auth/register', data);
+            const signupRes = await axios.post(`${API_BASE_URL}/auth/register`, data);
 
             // Do not store token/user yet, wait for verification
             // localStorage.setItem('token', token);
@@ -85,7 +86,7 @@ function SignUpContent() {
 
     const handleGoogleLogin = () => {
         // Redirect to Backend Google Auth Endpoint
-        window.location.href = 'http://localhost:4000/auth/google';
+        window.location.href = `${API_BASE_URL}/auth/google`;
     };
 
     return (

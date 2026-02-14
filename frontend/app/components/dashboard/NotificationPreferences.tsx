@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Bell, Mail, Info, Save, RotateCcw } from 'lucide-react';
 import { useToast } from '../ui/Toast';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface Preference {
     taskAssignedInApp: boolean;
@@ -78,7 +79,7 @@ const NotificationPreferences = () => {
         const fetchPrefs = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const res = await fetch('http://localhost:4000/notifications/preferences', {
+                const res = await fetch(`${API_BASE_URL}/notifications/preferences`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -105,7 +106,7 @@ const NotificationPreferences = () => {
         setIsSaving(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/notifications/preferences', {
+            const res = await fetch(`${API_BASE_URL}/notifications/preferences`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

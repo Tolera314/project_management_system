@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Target, Calendar, AlignLeft, Users, Plus, Check } from 'lucide-react';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface CreateMilestoneModalProps {
     isOpen: boolean;
@@ -24,7 +25,7 @@ export default function CreateMilestoneModal({ isOpen, onClose, projectId, onSuc
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/milestones', {
+            const res = await fetch(`${API_BASE_URL}/milestones`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
