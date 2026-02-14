@@ -20,7 +20,7 @@ export const getSettings = async (req: Request, res: Response) => {
         });
 
         // Transform to key-value object map
-        const settingsMap = settings.reduce((acc: Record<string, any>, curr) => {
+        const settingsMap = settings.reduce((acc: Record<string, any>, curr: any) => {
             acc[curr.key] = curr.value;
             return acc;
         }, {} as Record<string, any>);
