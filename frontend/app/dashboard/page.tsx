@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import CreateProjectModal from '../components/dashboard/CreateProjectModal';
 import WorkspaceCreationModal from '../components/dashboard/WorkspaceCreationModal';
 import ProjectCard from '../components/dashboard/ProjectCard';
+import { API_BASE_URL } from '../config/api.config';
 
 interface Project {
     id: string;
@@ -61,8 +62,8 @@ export default function DashboardPage() {
             // Check if user has workspace (Source of Truth check)
             const selectedId = localStorage.getItem('selectedWorkspaceId');
             const url = selectedId
-                ? `http://localhost:4000/workspaces/me?workspaceId=${selectedId}`
-                : 'http://localhost:4000/workspaces/me';
+                ? `${API_BASE_URL}/workspaces/me?workspaceId=${selectedId}`
+                : `${API_BASE_URL}/workspaces/me`;
 
             const workspaceResponse = await fetch(url, {
                 headers: {
@@ -133,7 +134,7 @@ export default function DashboardPage() {
             }
 
             // Fetch projects
-            const response = await fetch(`http://localhost:4000/projects?organizationId=${organizationId}`, {
+            const response = await fetch(`${API_BASE_URL}/projects?organizationId=${organizationId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                 },

@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Building, Check, Palette, Type, Save } from 'lucide-react';
+import { Palette, Type, Save, Check } from 'lucide-react';
 import { useToast } from '../ui/Toast';
+import { API_BASE_URL } from '../../config/api.config';
 
 const workspaceColors = [
     '#4F46E5', '#A78BFA', '#3B82F6', '#10B981',
@@ -26,8 +27,8 @@ export default function WorkspaceSettings() {
 
             try {
                 const url = selectedId
-                    ? `http://localhost:4000/workspaces/me?workspaceId=${selectedId}`
-                    : 'http://localhost:4000/workspaces/me';
+                    ? `${API_BASE_URL}/workspaces/me?workspaceId=${selectedId}`
+                    : `${API_BASE_URL}/workspaces/me`;
 
                 const res = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -51,8 +52,8 @@ export default function WorkspaceSettings() {
         setSuccessMessage('');
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/workspaces/${workspace.id}`, {
-                method: 'PATCH',
+            const res = await fetch(`${API_BASE_URL}/workspaces/${workspace.id}`, {
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`

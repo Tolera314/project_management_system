@@ -1,4 +1,5 @@
 'use client';
+import { API_BASE_URL } from '../../config/api.config';
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,7 +37,7 @@ export default function MilestoneDashboard({ projectId, onRefresh, projectTasks,
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/milestones?projectId=${projectId}`, {
+            const res = await fetch(`${API_BASE_URL}/milestones?projectId=${projectId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();

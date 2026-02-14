@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { useToast } from '../components/ui/Toast';
+import { API_BASE_URL } from '../config/api.config';
 
 const workspaceSchema = z.object({
     name: z.string().min(1, 'Workspace name is required').max(100, 'Name is too long'),
@@ -52,7 +53,7 @@ export default function CreateWorkspacePage() {
                 return;
             }
 
-            const response = await fetch('http://localhost:4000/workspaces', {
+            const response = await fetch(`${API_BASE_URL}/workspaces`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

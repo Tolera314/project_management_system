@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DependencyModal from '../shared/DependencyModal';
+import { API_BASE_URL } from '../../config/api.config';
 
 import InlineAssigneeSelector from './InlineAssigneeSelector';
 
@@ -58,7 +59,7 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
         if (!newListNames['new']) return;
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/lists', {
+            const res = await fetch(`${API_BASE_URL}/lists`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -85,7 +86,7 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
         if (!title) return;
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/tasks', {
+            const res = await fetch(`${API_BASE_URL}/tasks`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -127,7 +128,7 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
         try {
             setIsBulkLoading(true);
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/tasks/bulk', {
+            const res = await fetch(`${API_BASE_URL}/tasks/bulk`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -180,7 +181,7 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/tasks/${task.id}`, {
+            const res = await fetch(`${API_BASE_URL}/tasks/${task.id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -238,7 +239,7 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/tasks/${taskId}`, {
+            const res = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -315,7 +316,7 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
             // 2. Handle API calls
             if (isRemoving) {
                 // Remove
-                await fetch(`http://localhost:4000/tasks/${taskId}/assignees/${targetMemberId}`, {
+                await fetch(`${API_BASE_URL}/tasks/${taskId}/assignees/${targetMemberId}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -333,14 +334,14 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
                     const email = project.invitations?.find((inv: any) => inv.id === invId)?.email;
                     if (!email) return;
 
-                    const rolesRes = await fetch(`http://localhost:4000/workspaces/me`, {
+                    const rolesRes = await fetch(`${API_BASE_URL}/workspaces/me`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     const rolesData = await rolesRes.json();
                     const roles = rolesData.workspace.roles;
                     const memberRole = roles.find((r: any) => r.name === 'Project Member') || roles[0];
 
-                    const inviteRes = await fetch(`http://localhost:4000/projects/${projectId}/members`, {
+                    const inviteRes = await fetch(`${API_BASE_URL}/projects/${projectId}/members`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -363,7 +364,7 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
                     }
                 }
 
-                await fetch(`http://localhost:4000/tasks/${taskId}/assignees`, {
+                await fetch(`${API_BASE_URL}/tasks/${taskId}/assignees`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -395,14 +396,14 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
     const handleInviteAndAssign = async (taskId: string, email: string) => {
         try {
             const token = localStorage.getItem('token');
-            const rolesRes = await fetch(`http://localhost:4000/workspaces/me`, {
+            const rolesRes = await fetch(`${API_BASE_URL}/workspaces/me`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const rolesData = await rolesRes.json();
             const roles = rolesData.workspace.roles;
             const memberRole = roles.find((r: any) => r.name === 'Project Member') || roles[0];
 
-            const inviteRes = await fetch(`http://localhost:4000/projects/${projectId}/members`, {
+            const inviteRes = await fetch(`${API_BASE_URL}/projects/${projectId}/members`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -688,10 +689,10 @@ export default function TaskListView({ lists, projectId, project, onTaskClick, o
                                                                             onChange={(e) => handleToggleStatus(subtask, e.target.value)}
                                                                             value={subtask.status}
                                                                             className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-tight transition-all border-none focus:ring-0 cursor-pointer ${subtask.status === 'DONE' ? 'bg-emerald-500/10 text-emerald-500' :
-                                                                                    subtask.status === 'IN_PROGRESS' ? 'bg-primary/10 text-primary' :
-                                                                                        subtask.status === 'IN_REVIEW' ? 'bg-amber-500/10 text-amber-500' :
-                                                                                            subtask.status === 'BLOCKED' ? 'bg-red-500/10 text-red-500' :
-                                                                                                'bg-foreground/5 text-text-secondary'
+                                                                                subtask.status === 'IN_PROGRESS' ? 'bg-primary/10 text-primary' :
+                                                                                    subtask.status === 'IN_REVIEW' ? 'bg-amber-500/10 text-amber-500' :
+                                                                                        subtask.status === 'BLOCKED' ? 'bg-red-500/10 text-red-500' :
+                                                                                            'bg-foreground/5 text-text-secondary'
                                                                                 }`}
                                                                         >
                                                                             <option value="TODO" className="bg-[#1e1e1e] text-text-secondary">To Do</option>

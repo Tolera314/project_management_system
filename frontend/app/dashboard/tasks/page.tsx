@@ -10,6 +10,7 @@ import {
 import { useRouter } from 'next/navigation';
 import TaskDetailPanel from '../../components/project/TaskDetailPanel';
 import { useToast } from '../../components/ui/Toast';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface Task {
     id: string;
@@ -51,7 +52,7 @@ export default function TasksPage() {
 
             if (!workspaceId || workspaceId === 'null' || workspaceId === 'undefined') {
                 // Try to wait a bit or fetch current workspace as fallback
-                const wsRes = await fetch('http://localhost:4000/workspaces/me', {
+                const wsRes = await fetch(`${API_BASE_URL}/workspaces/me`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const wsData = await wsRes.json();
@@ -68,7 +69,7 @@ export default function TasksPage() {
             }
 
             const finalWorkspaceId = workspaceId as string;
-            let url = `http://localhost:4000/tasks/search?workspaceId=${finalWorkspaceId}`;
+            let url = `${API_BASE_URL}/tasks/search?workspaceId=${finalWorkspaceId}`;
             if (statusFilter !== 'all') url += `&status=${statusFilter}`;
             if (priorityFilter !== 'all') url += `&priority=${priorityFilter}`;
 

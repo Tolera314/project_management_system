@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Save, AlertTriangle, CheckCircle, Database, Mail, Shield, Settings as SettingsIcon } from 'lucide-react';
 import AdminLayout from '../../components/admin/AdminLayout';
 import ConfirmationModal from '../../components/shared/ConfirmationModal';
+import { API_BASE_URL } from '../../config/api.config';
 
 type SettingsTab = 'general' | 'security' | 'backups' | 'email';
 
@@ -40,7 +41,7 @@ export default function SettingsPage() {
     const fetchSettings = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/settings', {
+            const res = await fetch(`${API_BASE_URL}/settings`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -55,7 +56,7 @@ export default function SettingsPage() {
     const fetchBackups = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/settings/backups', {
+            const res = await fetch(`${API_BASE_URL}/settings/backups`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -71,7 +72,7 @@ export default function SettingsPage() {
         setSaveStatus('saving');
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/settings', {
+            const res = await fetch(`${API_BASE_URL}/settings`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -97,7 +98,7 @@ export default function SettingsPage() {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/settings/backup', {
+            const res = await fetch(`${API_BASE_URL}/settings/backup`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -135,7 +136,7 @@ export default function SettingsPage() {
         setTestEmailStatus('sending');
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/settings/test-email', {
+            const res = await fetch(`${API_BASE_URL}/settings/test-email`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

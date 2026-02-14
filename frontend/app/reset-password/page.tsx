@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { API_BASE_URL } from '../config/api.config';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -60,7 +61,7 @@ function ResetPasswordContent() {
         setIsLoading(true);
         setError(null);
         try {
-            await axios.post('http://localhost:4000/auth/reset-password', {
+            await axios.post(`${API_BASE_URL}/auth/reset-password`, {
                 token,
                 newPassword: data.password
             });

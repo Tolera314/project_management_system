@@ -6,6 +6,7 @@ import { Loader2, Mail, ArrowLeft, CheckCircle2, ShieldCheck, RefreshCcw } from 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api.config';
 import { useToast } from '@/app/components/ui/Toast';
 
 function VerifyOTPContent() {
@@ -66,7 +67,7 @@ function VerifyOTPContent() {
 
         setIsLoading(true);
         try {
-            const res = await axios.post('http://localhost:4000/auth/verify-otp', {
+            const res = await axios.post(`${API_BASE_URL}/auth/verify-otp`, {
                 email,
                 otpCode: fullOtp
             });
@@ -79,7 +80,7 @@ function VerifyOTPContent() {
             // Handle invitation auto-accept if token exists
             if (invitationToken) {
                 try {
-                    await axios.post(`http://localhost:4000/invitations/accept/${invitationToken}`, {}, {
+                    await axios.post(`${API_BASE_URL}/invitations/accept/${invitationToken}`, {}, {
                         headers: { 'Authorization': `Bearer ${res.data.token}` }
                     });
                 } catch (err) {
@@ -100,7 +101,7 @@ function VerifyOTPContent() {
     const handleResend = async () => {
         setResending(true);
         try {
-            await axios.post('http://localhost:4000/auth/resend-otp', { email });
+            await axios.post(`${API_BASE_URL}/auth/resend-otp`, { email });
             showToast('success', 'Code Sent', 'A new verification code has been sent to your email');
         } catch (err: any) {
             showToast('error', 'Error', 'Failed to resend code');

@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { Loader2, ArrowRight, ArrowLeft, Mail, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import axios from 'axios';
+import { API_BASE_URL } from '../config/api.config';
 
 const forgotPasswordSchema = z.object({
     email: z.string().email('Please enter a valid email address'),
@@ -32,7 +33,7 @@ export default function ForgotPasswordPage() {
         setIsLoading(true);
         setError(null);
         try {
-            await axios.post('http://localhost:4000/auth/forgot-password', data);
+            await axios.post(`${API_BASE_URL}/auth/forgot-password`, data);
             setIsSuccess(true);
         } catch (err: any) {
             if (axios.isAxiosError(err) && err.response) {

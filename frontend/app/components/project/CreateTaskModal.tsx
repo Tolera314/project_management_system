@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface CreateTaskModalProps {
     isOpen: boolean;
@@ -38,7 +39,7 @@ export default function CreateTaskModal({ isOpen, onClose, projectId, onSuccess,
             setLoading(true);
             setError('');
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/tasks', {
+            const res = await fetch(`${API_BASE_URL}/tasks`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

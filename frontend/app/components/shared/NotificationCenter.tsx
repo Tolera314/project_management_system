@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { API_BASE_URL } from '../../config/api.config';
 import UserAvatar from './UserAvatar';
 
 interface Notification {
@@ -33,7 +34,7 @@ interface Notification {
 
 import { socketService } from '../../services/socket.service';
 
-const API_URL = 'http://localhost:4000';
+const API_URL = API_BASE_URL;
 
 const NotificationCenter = () => {
     const router = useRouter();

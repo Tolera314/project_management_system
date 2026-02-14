@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import { useRouter } from 'next/navigation';
 import { useToast } from '../../components/ui/Toast';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface Task {
     id: string;
@@ -61,7 +62,7 @@ export default function ReportsPage() {
             let workspaceId = localStorage.getItem('selectedWorkspaceId');
 
             if (!workspaceId || workspaceId === 'null' || workspaceId === 'undefined') {
-                const wsRes = await fetch('http://localhost:4000/workspaces/me', {
+                const wsRes = await fetch(`${API_BASE_URL}/workspaces/me`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const wsData = await wsRes.json();
@@ -80,10 +81,10 @@ export default function ReportsPage() {
 
             // Fetch tasks and projects
             const [tasksRes, projectsRes] = await Promise.all([
-                fetch(`http://localhost:4000/tasks/search?workspaceId=${finalWorkspaceId}`, {
+                fetch(`${API_BASE_URL}/tasks/search?workspaceId=${finalWorkspaceId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 }),
-                fetch(`http://localhost:4000/projects?organizationId=${finalWorkspaceId}`, {
+                fetch(`${API_BASE_URL}/projects?organizationId=${finalWorkspaceId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 })
             ]);

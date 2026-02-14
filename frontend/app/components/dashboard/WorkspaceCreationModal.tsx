@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Building2, User, Check, Building } from 'lucide-react';
 import { useState } from 'react';
 import { useToast } from '../ui/Toast';
+import { API_BASE_URL } from '../../config/api.config';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -55,7 +56,7 @@ export default function WorkspaceCreationModal({ isOpen, onSuccess }: WorkspaceC
                 return;
             }
 
-            const response = await fetch('http://localhost:4000/workspaces', {
+            const response = await fetch(`${API_BASE_URL}/workspaces`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

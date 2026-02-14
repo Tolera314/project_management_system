@@ -1,4 +1,6 @@
-const API_URL = 'http://localhost:4000';
+import { API_BASE_URL } from '../config/api.config';
+
+const API_URL = API_BASE_URL;
 
 export const ProjectService = {
     async getProjects(organizationId: string) {

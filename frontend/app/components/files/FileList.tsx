@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { FileService, FileData } from '../../services/file.service';
 import FileUploader from './FileUploader';
 import FilePreviewModal from './FilePreviewModal';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface FileListProps {
     projectId: string;
@@ -152,7 +153,7 @@ export default function FileList({ projectId }: FileListProps) {
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 const token = localStorage.getItem('token');
-                                                window.open(`http://localhost:4000/files/${file.id}/download?token=${token}`, '_blank');
+                                                window.open(`${API_BASE_URL}/files/${file.id}/download?token=${token}`, '_blank');
                                             }}
                                             className="p-2 hover:bg-surface-secondary rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                                         >

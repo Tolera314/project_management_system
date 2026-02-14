@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Trash2, Loader2, Palette } from 'lucide-react';
+import { API_BASE_URL } from '../../config/api.config';
 import { useToast } from '../ui/Toast';
 import { useRouter } from 'next/navigation';
 
@@ -52,9 +53,7 @@ export default function ProjectSettingsModal({ isOpen, onClose, project, onUpdat
         try {
             setIsLoading(true);
             const token = localStorage.getItem('token');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-            const response = await fetch(`${apiUrl}/projects/${project.id}`, {
+            const response = await fetch(`${API_BASE_URL}/projects/${project.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

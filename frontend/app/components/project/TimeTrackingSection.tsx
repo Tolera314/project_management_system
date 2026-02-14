@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Clock, Play, Pause, Save, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface TimeEntry {
     id: string;
@@ -54,7 +55,7 @@ export default function TimeTrackingSection({ taskId, onSave }: TimeTrackingProp
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`http://localhost:4000/tasks/${taskId}/time-entries`, {
+            const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/time-entries`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -101,7 +102,7 @@ export default function TimeTrackingSection({ taskId, onSave }: TimeTrackingProp
         const loadEntries = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:4000/tasks/${taskId}/time-entries`, {
+                const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/time-entries`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (response.ok) {

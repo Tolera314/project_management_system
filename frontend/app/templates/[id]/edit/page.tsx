@@ -11,6 +11,7 @@ import BoardView from '../../../components/project/BoardView';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Layout, Save, ChevronLeft, Info } from 'lucide-react';
 import Link from 'next/link';
+import { API_BASE_URL } from '../../../config/api.config';
 
 export default function TemplateEditorPage() {
     const params = useParams();
@@ -31,7 +32,7 @@ export default function TemplateEditorPage() {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/templates/${templateId}`, {
+            const res = await fetch(`${API_BASE_URL}/templates/${templateId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -51,7 +52,7 @@ export default function TemplateEditorPage() {
     const handleUpdateTemplate = async (updates: any) => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/templates/${templateId}`, {
+            const res = await fetch(`${API_BASE_URL}/templates/${templateId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

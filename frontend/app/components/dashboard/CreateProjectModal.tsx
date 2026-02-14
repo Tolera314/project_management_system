@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '../ui/Toast';
+import { API_BASE_URL } from '../../config/api.config';
 
 const projectColors = [
     { name: 'Primary', value: '#4F46E5' },
@@ -117,7 +118,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess, initial
             const organizationId = user.organizations?.[0]?.id;
             if (!organizationId) return;
 
-            const response = await fetch(`http://localhost:4000/projects?organizationId=${organizationId}`, {
+            const response = await fetch(`${API_BASE_URL}/projects?organizationId=${organizationId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -161,7 +162,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess, initial
                 requestBody.templateId = selectedTemplateId;
             }
 
-            const response = await fetch('http://localhost:4000/projects', {
+            const response = await fetch(`${API_BASE_URL}/projects`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

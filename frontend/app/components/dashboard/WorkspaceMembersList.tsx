@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Shield, Trash2, Mail, User, Plus, Search } from 'lucide-react';
 import InviteToWorkspaceModal from '../workspace/InviteToWorkspaceModal';
 import { useToast } from '../ui/Toast';
+import { API_BASE_URL } from '../../config/api.config';
 
 export default function WorkspaceMembersList() {
     const [members, setMembers] = useState<any[]>([]);
@@ -25,15 +26,15 @@ export default function WorkspaceMembersList() {
         try {
             // First get workspace info to know current user's role
             const wsRes = await fetch(selectedId
-                ? `http://localhost:4000/workspaces/me?workspaceId=${selectedId}`
-                : 'http://localhost:4000/workspaces/me', {
+                ? `${API_BASE_URL}/workspaces/me?workspaceId=${selectedId}`
+                : `${API_BASE_URL}/workspaces/me`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const wsData = await wsRes.json();
             if (wsData.workspace) {
                 setWorkspace(wsData.workspace);
                 // Fetch roles for the dropdown
-                const rolesRes = await fetch(`http://localhost:4000/workspaces/${wsData.workspace.id}/roles`, {
+                const rolesRes = await fetch(`${API_BASE_URL}/workspaces/${wsData.workspace.id}/roles`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const rolesData = await rolesRes.json();
@@ -41,7 +42,7 @@ export default function WorkspaceMembersList() {
 
 
                 // Then get members
-                const res = await fetch(`http://localhost:4000/workspaces/${wsData.workspace.id}/members`, {
+                const res = await fetch(`${API_BASE_URL}/workspaces/${wsData.workspace.id}/members`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -65,7 +66,7 @@ export default function WorkspaceMembersList() {
     const handleRoleChange = async (memberId: string, newRoleId: string) => {
         const token = localStorage.getItem('token');
         try {
-            const res = await fetch(`http://localhost:4000/workspaces/${workspace.id}/members/${memberId}`, {
+            const res = await fetch(`${API_BASE_URL}/workspaces/${workspace.id}/members/${memberId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -95,7 +96,7 @@ export default function WorkspaceMembersList() {
 
         const token = localStorage.getItem('token');
         try {
-            const res = await fetch(`http://localhost:4000/workspaces/${workspace.id}/members/${memberId}`, {
+            const res = await fetch(`${API_BASE_URL}/workspaces/${workspace.id}/members/${memberId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -114,7 +115,7 @@ export default function WorkspaceMembersList() {
 
     const handleInvite = async (email: string, roleId: string) => {
         const token = localStorage.getItem('token');
-        const res = await fetch(`http://localhost:4000/workspaces/${workspace.id}/invitations`, {
+        const res = await fetch(`${API_BASE_URL}/workspaces/${workspace.id}/invitations`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, LayoutGrid, Palette, Type } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface CreateListModalProps {
     isOpen: boolean;
@@ -22,7 +23,7 @@ export default function CreateListModal({ isOpen, onClose, projectId, onSuccess 
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/lists', {
+            const res = await fetch(`${API_BASE_URL}/lists`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

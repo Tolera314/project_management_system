@@ -38,6 +38,7 @@ import CommentComposer from './CommentComposer';
 import FileUploader from '../files/FileUploader';
 import { FileService } from '../../services/file.service';
 import { useToast } from '../ui/Toast';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface TaskDetailPanelProps {
     task: any;
@@ -92,13 +93,13 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
             setLoading(true);
             const token = localStorage.getItem('token');
             const [taskRes, depRes, membersRes] = await Promise.all([
-                fetch(`http://localhost:4000/tasks/${initialTask.id}`, {
+                fetch(`${API_BASE_URL}/tasks/${initialTask.id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 }),
-                fetch(`http://localhost:4000/dependencies/${initialTask.id}?type=TASK`, {
+                fetch(`${API_BASE_URL}/dependencies/${initialTask.id}?type=TASK`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 }),
-                fetch(`http://localhost:4000/projects/${initialTask.projectId}`, {
+                fetch(`${API_BASE_URL}/projects/${initialTask.projectId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 })
             ]);
@@ -116,7 +117,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
 
                 // Fetch organization tags
                 if (projectData.project.organizationId) {
-                    const tagsRes = await fetch(`http://localhost:4000/tags/org/${projectData.project.organizationId}`, {
+                    const tagsRes = await fetch(`${API_BASE_URL}/tags/org/${projectData.project.organizationId}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     const tagsData = await tagsRes.json();
@@ -156,7 +157,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
             const currentlyWatching = isWatching(currentUser.id);
 
             const method = currentlyWatching ? 'DELETE' : 'POST';
-            const res = await fetch(`http://localhost:4000/tasks/${task?.id}/watch`, {
+            const res = await fetch(`${API_BASE_URL}/tasks/${task?.id}/watch`, {
                 method,
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -172,7 +173,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
     const handleAttachTag = async (tagId: string) => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/tags/attach`, {
+            const res = await fetch(`${API_BASE_URL}/tags/attach`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -194,7 +195,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
         if (!tagSearch.trim()) return;
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/tags', {
+            const res = await fetch(`${API_BASE_URL}/tags`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -210,7 +211,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
             if (res.ok) {
                 const newTag = await res.json();
                 // Refresh all tags and attach
-                const tagsRes = await fetch(`http://localhost:4000/tags/org/${project?.organizationId}`, {
+                const tagsRes = await fetch(`${API_BASE_URL}/tags/org/${project?.organizationId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const tagsData = await tagsRes.json();
@@ -230,7 +231,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
     const handleDetachTag = async (tagId: string) => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/tags/detach/${task?.id}/${tagId}`, {
+            const res = await fetch(`${API_BASE_URL}/tags/detach/${task?.id}/${tagId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -257,7 +258,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
             setTask((prev: any) => ({ ...prev, status: newStatus }));
             onUpdate();
 
-            await fetch(`http://localhost:4000/tasks/${task?.id}`, {
+            await fetch(`${API_BASE_URL}/tasks/${task?.id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -279,7 +280,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
             setTask((prev: any) => ({ ...prev, ...updates }));
             onUpdate();
 
-            await fetch(`http://localhost:4000/tasks/${task?.id}`, {
+            await fetch(`${API_BASE_URL}/tasks/${task?.id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -297,7 +298,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
         if (!window.confirm('Are you sure you want to delete this task?')) return;
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/tasks/${task.id}`, {
+            const res = await fetch(`${API_BASE_URL}/tasks/${task.id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -315,7 +316,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
     const handleDuplicateTask = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/tasks/${task.id}/duplicate`, {
+            const res = await fetch(`${API_BASE_URL}/tasks/${task.id}/duplicate`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -339,7 +340,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
         if (!newSubtaskTitle.trim()) return;
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/tasks', {
+            const res = await fetch(`${API_BASE_URL}/tasks`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -376,7 +377,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
             }));
             onUpdate();
 
-            await fetch(`http://localhost:4000/tasks/${subtask.id}`, {
+            await fetch(`${API_BASE_URL}/tasks/${subtask.id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -443,14 +444,14 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                     return;
                 }
 
-                const rolesRes = await fetch(`http://localhost:4000/workspaces/me`, {
+                const rolesRes = await fetch(`${API_BASE_URL}/workspaces/me`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const rolesData = await rolesRes.json();
                 const roles = rolesData.workspace.roles;
                 const memberRole = roles.find((r: any) => r.name === 'Project Member') || roles[0];
 
-                const inviteRes = await fetch(`http://localhost:4000/projects/${task.projectId}/members`, {
+                const inviteRes = await fetch(`${API_BASE_URL}/projects/${task.projectId}/members`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -473,7 +474,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                 }
             }
 
-            const res = await fetch(`http://localhost:4000/tasks/${task.id}/assignees`, {
+            const res = await fetch(`${API_BASE_URL}/tasks/${task.id}/assignees`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -506,7 +507,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
             }));
             onUpdate();
 
-            const res = await fetch(`http://localhost:4000/tasks/${task.id}/assignees/${projectMemberId}`, {
+            const res = await fetch(`${API_BASE_URL}/tasks/${task.id}/assignees/${projectMemberId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -522,7 +523,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
     const handleInviteAndAssign = async (email: string) => {
         try {
             const token = localStorage.getItem('token');
-            const projectRes = await fetch(`http://localhost:4000/projects/${task.projectId}`, {
+            const projectRes = await fetch(`${API_BASE_URL}/projects/${task.projectId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const projectData = await projectRes.json();
@@ -531,7 +532,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
 
             if (!memberRole) throw new Error('No role found');
 
-            const inviteRes = await fetch(`http://localhost:4000/projects/${task.projectId}/members`, {
+            const inviteRes = await fetch(`${API_BASE_URL}/projects/${task.projectId}/members`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -556,7 +557,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
     const handleCommentPost = async (content: string) => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/tasks/${task.id}/comments`, {
+            const res = await fetch(`${API_BASE_URL}/tasks/${task.id}/comments`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -662,7 +663,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                         <button
                             onClick={async () => {
                                 const token = localStorage.getItem('token');
-                                const res = await fetch(`http://localhost:4000/tasks/${task?.id}/restore`, {
+                                const res = await fetch(`${API_BASE_URL}/tasks/${task?.id}/restore`, {
                                     method: 'POST',
                                     headers: { 'Authorization': `Bearer ${token}` }
                                 });
@@ -676,7 +677,7 @@ export default function TaskDetailPanel({ task: initialTask, project: initialPro
                         <button
                             onClick={async () => {
                                 const token = localStorage.getItem('token');
-                                const res = await fetch(`http://localhost:4000/tasks/${task?.id}/archive`, {
+                                const res = await fetch(`${API_BASE_URL}/tasks/${task?.id}/archive`, {
                                     method: 'POST',
                                     headers: { 'Authorization': `Bearer ${token}` }
                                 });

@@ -9,6 +9,7 @@ import DashboardLayout from '../../components/dashboard/DashboardLayout';
 import ProjectCard from '../../components/dashboard/ProjectCard';
 import CreateProjectModal from '../../components/dashboard/CreateProjectModal';
 import { useToast } from '../../components/ui/Toast';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface Project {
     id: string;
@@ -58,7 +59,7 @@ function ProjectsContent() {
                 return;
             }
 
-            const response = await fetch(`http://localhost:4000/projects?organizationId=${organizationId}`, {
+            const response = await fetch(`${API_BASE_URL}/projects?organizationId=${organizationId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                 },

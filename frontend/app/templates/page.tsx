@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import TemplatePreviewModal from '../components/templates/TemplatePreviewModal';
 import TemplateConfigModal from '../components/templates/TemplateConfigModal';
 import { useToast } from '../components/ui/Toast';
+import { API_BASE_URL } from '../config/api.config';
 
 export default function TemplatesPage() {
     const [templates, setTemplates] = useState<any[]>([]);
@@ -43,7 +44,7 @@ export default function TemplatesPage() {
             // Using the new dedicated templates endpoint with search and category
             const categoryParam = activeCategory !== 'All' ? `&category=${activeCategory}` : '';
             const searchParam = searchQuery ? `&search=${searchQuery}` : '';
-            const res = await fetch(`http://localhost:4000/templates?${categoryParam}${searchParam}`, {
+            const res = await fetch(`${API_BASE_URL}/templates?${categoryParam}${searchParam}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -89,7 +90,7 @@ export default function TemplatesPage() {
             const user = JSON.parse(userStr);
             const organizationId = user.organizations?.[0]?.id;
 
-            const res = await fetch('http://localhost:4000/projects', {
+            const res = await fetch(`${API_BASE_URL}/projects`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -124,7 +125,7 @@ export default function TemplatesPage() {
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/templates/${templateId}`, {
+            const res = await fetch(`${API_BASE_URL}/templates/${templateId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });

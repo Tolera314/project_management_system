@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { API_BASE_URL } from '../../config/api.config';
 
 const templateSchema = z.object({
     name: z.string().min(1, 'Template name is required').max(100, 'Name is too long'),
@@ -71,7 +72,7 @@ export default function SaveAsTemplateModal({
                 throw new Error('Not authenticated');
             }
 
-            const res = await fetch(`http://localhost:4000/projects/${projectId}/convert-to-template`, {
+            const res = await fetch(`${API_BASE_URL}/projects/${projectId}/convert-to-template`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

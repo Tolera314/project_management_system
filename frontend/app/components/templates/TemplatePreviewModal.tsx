@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Layout, CheckSquare, Calendar, Diamond, ArrowRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface TemplatePreviewModalProps {
     isOpen: boolean;
@@ -31,7 +32,7 @@ export default function TemplatePreviewModal({
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/templates/${templateId}`, {
+            const res = await fetch(`${API_BASE_URL}/templates/${templateId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 

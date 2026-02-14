@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Mail, ShieldCheck, Clock, UserPlus, LogIn, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { API_BASE_URL } from '../../config/api.config';
 
 export default function InvitePage() {
     const { token } = useParams();
@@ -22,7 +23,7 @@ export default function InvitePage() {
     const verifyToken = async () => {
         try {
             setVerifying(true);
-            const res = await fetch(`http://localhost:4000/invitations/verify/${token}`);
+            const res = await fetch(`${API_BASE_URL}/invitations/verify/${token}`);
             const data = await res.json();
 
             if (!res.ok) {

@@ -78,10 +78,10 @@ export default function TemplatesPage() {
                         <button
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
-                            className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all \${selectedCategory === cat
-                                    ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                                    : 'bg-surface-secondary text-text-secondary hover:text-white border border-border'
-                                    }`}
+                            className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${selectedCategory === cat
+                                ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                                : 'bg-surface-secondary text-text-secondary hover:text-white border border-border'
+                                }`}
                         >
                             {cat}
                         </button>
@@ -108,7 +108,7 @@ export default function TemplatesPage() {
                             >
                                 <div
                                     className="h-32 p-6 flex items-start justify-between"
-                                    style={{ backgroundColor: `\${template.color}15` }}
+                                    style={{ backgroundColor: `${template.color}15` }}
                                 >
                                     <div className="p-3 rounded-xl bg-white shadow-sm" style={{ color: template.color }}>
                                         <Layout size={24} />
@@ -139,13 +139,13 @@ export default function TemplatesPage() {
 
                                     <div className="flex items-center gap-3">
                                         <button
-                                            onClick={() => router.push(`/projects/\${template.id}?preview=true`)}
+                                            onClick={() => router.push(`/projects/${template.id}?preview=true`)}
                                             className="flex-1 py-2.5 bg-surface-secondary hover:bg-border border border-border rounded-xl text-sm font-semibold text-white transition-all flex items-center justify-center gap-2"
                                         >
                                             Preview
                                         </button>
                                         <button
-                                            onClick={() => router.push(`/dashboard/projects?create=true&templateId=\${template.id}`)}
+                                            onClick={() => router.push(`/dashboard/projects?create=true&templateId=${template.id}`)}
                                             className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-sm font-semibold shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
                                         >
                                             Use This

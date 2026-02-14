@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Shield, Lock, Users, Info, Settings, ShieldCheck } from 'lucide-react';
 import WorkspacePermissionsEditor from './WorkspacePermissionsEditor';
 import { useToast } from '../ui/Toast';
+import { API_BASE_URL } from '../../config/api.config';
 
 export default function WorkspaceRolesList() {
     const [roles, setRoles] = useState<any[]>([]);
@@ -23,8 +24,8 @@ export default function WorkspaceRolesList() {
         try {
             // First get workspace info
             const wsRes = await fetch(selectedId
-                ? `http://localhost:4000/workspaces/me?workspaceId=${selectedId}`
-                : 'http://localhost:4000/workspaces/me', {
+                ? `${API_BASE_URL}/workspaces/me?workspaceId=${selectedId}`
+                : `${API_BASE_URL}/workspaces/me`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const wsData = await wsRes.json();
@@ -32,7 +33,7 @@ export default function WorkspaceRolesList() {
 
             // Then get roles
             if (wsData.workspace?.id) {
-                const res = await fetch(`http://localhost:4000/workspaces/${wsData.workspace.id}/roles`, {
+                const res = await fetch(`${API_BASE_URL}/workspaces/${wsData.workspace.id}/roles`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -50,7 +51,7 @@ export default function WorkspaceRolesList() {
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/workspaces/${workspace.id}/roles/${roleId}`, {
+            const res = await fetch(`${API_BASE_URL}/workspaces/${workspace.id}/roles/${roleId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
