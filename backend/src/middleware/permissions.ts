@@ -48,7 +48,7 @@ export const checkProjectPermission = (permissionName: string) => {
             // 2. Check if role has specific permission
             if (projectMember) {
                 const hasPermission = projectMember.role.permissions.some(
-                    rp => rp.permission.name === permissionName
+                    (rp: any) => rp.permission.name === permissionName
                 );
 
                 // Allow if Project Manager (Super user for project)
