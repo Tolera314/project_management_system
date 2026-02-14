@@ -76,7 +76,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/health', healthRoutes);
 app.use('/api', contactRoutes);
 
-app.get('/', (req, res) => {
+app.get('/', (req: any, res: any) => {
     res.send('ProjectOS Backend Running');
 });
 
@@ -85,7 +85,7 @@ prisma.$connect()
     .then(() => {
         console.log('✅ Database connected successfully');
     })
-    .catch((error) => {
+    .catch((error: any) => {
         console.error('❌ Database connection failed:', error.message);
     });
 

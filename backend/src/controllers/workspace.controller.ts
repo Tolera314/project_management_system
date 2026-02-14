@@ -44,7 +44,7 @@ export const createWorkspace = async (req: Request, res: Response) => {
 
             // 1. Fetch Global Permissions
             const permissions = await tx.permission.findMany();
-            const permMap = new Map(permissions.map(p => [p.name, p.id]));
+            const permMap = new Map(permissions.map((p: any) => [p.name, p.id]));
 
             const getPermIds = (names: string[]) => names.map(n => permMap.get(n)).filter(id => id !== undefined) as string[];
 
@@ -120,7 +120,7 @@ export const createWorkspace = async (req: Request, res: Response) => {
                     const permIds = getPermIds(def.permissions);
                     if (permIds.length > 0) {
                         await tx.rolePermission.createMany({
-                            data: permIds.map(permId => ({
+                            data: permIds.map((permId: string) => ({
                                 roleId: role.id,
                                 permissionId: permId
                             }))
@@ -195,11 +195,11 @@ export const getUserWorkspaces = async (req: Request, res: Response) => {
             }
         });
 
-        const workspaces = memberships.map(m => ({
+        const workspaces = memberships.map((m: any) => ({
             id: m.organization.id,
             name: m.organization.name,
             role: m.role.name,
-            color: m.organization.color,
+            color: m.organization.color || '#4F46E5',
             createdAt: m.organization.createdAt
         }));
 
@@ -752,7 +752,7 @@ export const getWorkspacePermissions = async (req: Request, res: Response) => {
         });
 
         // Group by category for easier UI display
-        const grouped = permissions.reduce((acc: any, p) => {
+        const grouped = permissions.reduce((acc: any, p: any) => {
             if (!acc[p.category]) acc[p.category] = [];
             acc[p.category].push(p);
             return acc;

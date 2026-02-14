@@ -46,7 +46,7 @@ export const convertProjectToTemplate = async (req: Request, res: Response) => {
 
         // Check if user has permission (must be PM or Admin)
         const userMembership = sourceProject.members.find(
-            m => m.organizationMember.userId === userId
+            (m: any) => m.organizationMember.userId === userId
         );
 
         if (!userMembership || !['Project Manager', 'Admin'].includes(userMembership.role.name)) {
@@ -60,14 +60,14 @@ export const convertProjectToTemplate = async (req: Request, res: Response) => {
             return;
         }
 
-        const totalTasks = sourceProject.lists.reduce((sum, list) => sum + list.tasks.length, 0);
+        const totalTasks = sourceProject.lists.reduce((sum: any, list: any) => sum + list.tasks.length, 0);
         if (totalTasks === 0) {
             res.status(400).json({ error: 'Project must have at least one task' });
             return;
         }
 
         // Create template in a transaction
-        const template = await prisma.$transaction(async (tx) => {
+        const template = await prisma.$transaction(async (tx: any) => {
             // Create the template project
             const newTemplate = await tx.project.create({
                 data: {
@@ -116,7 +116,7 @@ export const convertProjectToTemplate = async (req: Request, res: Response) => {
                     const subtasks = list.tasks.filter(t => t.parentId === task.id);
                     if (subtasks.length > 0) {
                         await tx.task.createMany({
-                            data: subtasks.map(st => ({
+                            data: subtasks.map((st: any) => ({
                                 title: st.title,
                                 description: st.description,
                                 priority: st.priority,
@@ -136,7 +136,7 @@ export const convertProjectToTemplate = async (req: Request, res: Response) => {
             // Clone milestones
             if (sourceProject.milestones.length > 0) {
                 await tx.milestone.createMany({
-                    data: sourceProject.milestones.map(m => ({
+                    data: sourceProject.milestones.map((m: any) => ({
                         name: m.name,
                         description: m.description,
                         status: 'PENDING',
@@ -291,7 +291,7 @@ export const deleteTemplate = async (req: Request, res: Response) => {
         const { id } = req.params;
 
         // Use a transaction to ensure all related structure is deleted
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx: any) => {
             // Tasks (milestones might be linked)
             await tx.task.deleteMany({ where: { projectId: id } });
             // Lists
@@ -346,7 +346,7 @@ export const useTemplate = async (req: Request, res: Response) => {
         }
 
         // Create new project in a transaction
-        const newProject = await prisma.$transaction(async (tx) => {
+        const newProject = await prisma.$transaction(async (tx: any) => {
             // 1. Create Project
             const project = await tx.project.create({
                 data: {
@@ -447,7 +447,7 @@ export const useTemplate = async (req: Request, res: Response) => {
             // 4. Clone Milestones
             if (template.milestones.length > 0) {
                 await tx.milestone.createMany({
-                    data: template.milestones.map(m => ({
+                    data: template.milestones.map((m: any) => ({
                         name: m.name,
                         description: m.description,
                         status: 'PENDING',

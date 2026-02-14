@@ -9,8 +9,8 @@ const createProjectSchema = z.object({
     name: z.string().min(1, 'Project name is required').max(100, 'Project name is too long'),
     description: z.string().optional(),
     organizationId: z.string().cuid('Invalid organization ID'),
-    startDate: z.string().optional().transform(v => v ? new Date(v) : undefined),
-    dueDate: z.string().optional().transform(v => v ? new Date(v) : undefined),
+    startDate: z.string().optional().transform((v: any) => v ? new Date(v) : undefined),
+    dueDate: z.string().optional().transform((v: any) => v ? new Date(v) : undefined),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
     status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'CANCELLED']).default('NOT_STARTED'),
     color: z.string().optional(),
@@ -126,7 +126,7 @@ export const createProject = async (req: Request, res: Response) => {
             // Handle dependencies if any
             if (dependencyIds && dependencyIds.length > 0) {
                 await tx.projectDependency.createMany({
-                    data: dependencyIds.map(depId => ({
+                    data: dependencyIds.map((depId: any) => ({
                         sourceId: depId,
                         targetId: newProject.id,
                         type: 'FINISH_TO_START'
@@ -174,7 +174,7 @@ export const createProject = async (req: Request, res: Response) => {
                     // Clone Milestones
                     if (template.milestones.length > 0) {
                         await tx.milestone.createMany({
-                            data: template.milestones.map(m => ({
+                            data: template.milestones.map((m: any) => ({
                                 name: m.name,
                                 description: m.description,
                                 status: 'PENDING',
@@ -197,7 +197,7 @@ export const createProject = async (req: Request, res: Response) => {
                         });
 
                         // Filter top-level tasks
-                        const topLevelTasks = list.tasks.filter(t => !t.parentId);
+                        const topLevelTasks = list.tasks.filter((t: any) => !t.parentId);
 
                         for (const task of topLevelTasks) {
                             const newTask = await tx.task.create({
@@ -217,10 +217,10 @@ export const createProject = async (req: Request, res: Response) => {
                             });
 
                             // Subtasks
-                            const subtasks = list.tasks.filter(t => t.parentId === task.id);
+                            const subtasks = list.tasks.filter((t: any) => t.parentId === task.id);
                             if (subtasks.length > 0) {
                                 await tx.task.createMany({
-                                    data: subtasks.map(st => ({
+                                    data: subtasks.map((st: any) => ({
                                         title: st.title,
                                         description: st.description,
                                         priority: st.priority,

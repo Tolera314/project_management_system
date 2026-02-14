@@ -13,8 +13,8 @@ const createTaskSchema = z.object({
     parentId: z.string().cuid().optional(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
     status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'BLOCKED']).default('TODO'),
-    startDate: z.string().optional().transform(v => v ? new Date(v) : undefined),
-    dueDate: z.string().optional().transform(v => v ? new Date(v) : undefined),
+    startDate: z.string().optional().transform((v: any) => v ? new Date(v) : undefined),
+    dueDate: z.string().optional().transform((v: any) => v ? new Date(v) : undefined),
     position: z.number().int().optional(),
 });
 
@@ -24,10 +24,10 @@ const updateTaskSchema = z.object({
     listId: z.string().cuid().optional(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
     status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'BLOCKED']).optional(),
-    startDate: z.string().nullable().optional().transform(v => v ? new Date(v) : (v === null ? null : undefined)),
-    dueDate: z.string().nullable().optional().transform(v => v ? new Date(v) : (v === null ? null : undefined)),
+    startDate: z.string().nullable().optional().transform((v: any) => v ? new Date(v) : (v === null ? null : undefined)),
+    dueDate: z.string().nullable().optional().transform((v: any) => v ? new Date(v) : (v === null ? null : undefined)),
     position: z.number().int().optional(),
-    completedAt: z.string().nullable().optional().transform(v => v ? new Date(v) : (v === null ? null : undefined)),
+    completedAt: z.string().nullable().optional().transform((v: any) => v ? new Date(v) : (v === null ? null : undefined)),
 });
 
 export const createTask = async (req: Request, res: Response) => {
@@ -139,24 +139,24 @@ export const duplicateTask = async (req: Request, res: Response) => {
                 createdById: userId,
                 updatedById: userId,
                 tags: {
-                    create: originalTask.tags.map(t => ({
+                    create: originalTask.tags.map((t: any) => ({
                         tagId: t.tagId
                     }))
                 },
                 assignees: {
-                    create: originalTask.assignees.map(a => ({
+                    create: originalTask.assignees.map((a: any) => ({
                         projectMemberId: a.projectMemberId,
                         assignedById: userId
                     }))
                 },
                 dependents: {
-                    create: originalTask.dependents.map(d => ({
+                    create: originalTask.dependents.map((d: any) => ({
                         sourceId: d.sourceId,
                         type: d.type
                     }))
                 },
                 children: {
-                    create: originalTask.children.map(child => ({
+                    create: originalTask.children.map((child: any) => ({
                         title: child.title,
                         description: child.description,
                         priority: child.priority,
@@ -248,7 +248,7 @@ export const updateTask = async (req: Request, res: Response) => {
             });
 
             if (unfinishedDependencies.length > 0) {
-                const sourceTitles = unfinishedDependencies.map(d => d.source.title).join(', ');
+                const sourceTitles = unfinishedDependencies.map((d: any) => d.source.title).join(', ');
                 res.status(400).json({ error: `Cannot complete task: Waiting on unfinished dependencies (${sourceTitles})` });
                 return;
             }
