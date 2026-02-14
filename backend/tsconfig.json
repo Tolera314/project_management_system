@@ -16,12 +16,7 @@
     "resolveJsonModule": true,
     "moduleResolution": "node",
     "sourceMap": true,
-    "declaration": true,
-    "types": [
-      "node",
-      "express",
-      "multer"
-    ]
+    "declaration": true
   },
   "include": [
     "src/**/*"
