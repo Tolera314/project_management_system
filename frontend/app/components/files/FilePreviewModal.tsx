@@ -176,6 +176,25 @@ export default function FilePreviewModal({
                                             />
                                         )}
 
+                                        {/* CSV Preview */}
+                                        {file.mimeType === 'text/csv' && textContent && (
+                                            <div className="w-full h-full bg-surface border border-border rounded-lg shadow-lg overflow-auto">
+                                                <table className="w-full text-sm">
+                                                    <tbody>
+                                                        {textContent.split('\n').map((row, i) => (
+                                                            <tr key={i} className={i === 0 ? 'bg-surface-secondary font-semibold' : 'hover:bg-surface-secondary/50'}>
+                                                                {row.split(',').map((cell, j) => (
+                                                                    <td key={j} className="px-3 py-2 border-b border-border">
+                                                                        {cell.trim()}
+                                                                    </td>
+                                                                ))}
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+
                                         {/* Text/Code */}
                                         {(file.mimeType.startsWith('text/') ||
                                             file.mimeType === 'application/json' ||
@@ -184,7 +203,7 @@ export default function FilePreviewModal({
                                             file.name.endsWith('.ts') ||
                                             file.name.endsWith('.tsx') ||
                                             file.name.endsWith('.md')
-                                        ) && (
+                                        ) && file.mimeType !== 'text/csv' && (
                                                 <div className="w-full h-full bg-surface border border-border rounded-lg shadow-lg overflow-auto p-4 text-sm font-mono text-text-primary">
                                                     <pre className="whitespace-pre-wrap break-words">
                                                         {textContent}

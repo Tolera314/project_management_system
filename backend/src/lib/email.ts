@@ -49,7 +49,21 @@ interface EmailOptions {
 
 export const sendEmail = async ({ to, subject, html }: EmailOptions) => {
     try {
+        console.log('[Email] Creating transporter...');
         const transporter = await getTransporter();
+
+        // Verify SMTP connection before sending
+        try {
+            await transporter.verify();
+            console.log('[Email] SMTP connection verified successfully');
+        } catch (verifyError: any) {
+            console.error('[Email] SMTP verification failed:', {
+                error: verifyError.message,
+                code: verifyError.code,
+                command: verifyError.command
+            });
+            throw new Error(`SMTP connection failed: ${verifyError.message}`);
+        }
 
         // Get dynamic sender name if available
         let from = defaultSender;
@@ -60,16 +74,30 @@ export const sendEmail = async ({ to, subject, html }: EmailOptions) => {
             from = `"${fromName.value}" <${fromEmail.value}>`;
         }
 
+        console.log('[Email] Sending email:', { to, subject, from });
         const info = await transporter.sendMail({
             from,
             to,
             subject,
             html,
         });
-        console.log('Message sent: %s', info.messageId);
+
+        console.log('[Email] Message sent successfully:', {
+            messageId: info.messageId,
+            accepted: info.accepted,
+            rejected: info.rejected,
+            response: info.response
+        });
+
         return info;
-    } catch (error) {
-        console.error('Error sending email:', error);
+    } catch (error: any) {
+        console.error('[Email] Error sending email:', {
+            error: error.message,
+            stack: error.stack,
+            code: error.code,
+            to,
+            subject
+        });
         throw error;
     }
 };

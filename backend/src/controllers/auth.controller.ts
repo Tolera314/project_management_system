@@ -101,13 +101,28 @@ export const register = async (req: Request, res: Response) => {
 
         // Send OTP Email via Brevo
         try {
+            console.log('[Auth] Attempting to send OTP email to:', user.email);
+            console.log('[Auth] SMTP Config:', {
+                server: process.env.SMTP_SERVER,
+                port: process.env.SMTP_PORT,
+                user: process.env.SMTP_USER ? '***configured***' : 'MISSING',
+                from: process.env.SENDER_EMAIL
+            });
+
             await sendEmail({
                 to: user.email,
                 subject: 'Verify your email - ProjectOS',
                 html: getOTPVerificationTemplate(otpCode)
             });
-        } catch (emailError) {
-            console.error('[Auth] Failed to send OTP email:', emailError);
+
+            console.log('[Auth] OTP email sent successfully to:', user.email);
+        } catch (emailError: any) {
+            console.error('[Auth] Failed to send OTP email:', {
+                error: emailError.message,
+                stack: emailError.stack,
+                code: emailError.code,
+                recipientEmail: user.email
+            });
             // We still created the user, they might need to request a resend
         }
 
