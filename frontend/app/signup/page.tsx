@@ -278,7 +278,7 @@ function SignUpContent() {
                                 <Check className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none" />
                             </div>
                             <label htmlFor="terms" className="text-sm text-slate-400 cursor-pointer select-none">
-                                I accept the <Link href="#" className="text-indigo-400 hover:text-indigo-300">Terms</Link>
+                                I accept the <Link href="#" className="text-indigo-400 hover:text-indigo-300">Terms</Link> and <Link href="#" className="text-indigo-400 hover:text-indigo-300">Agreement</Link>
                             </label>
                         </div>
 

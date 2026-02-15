@@ -73,7 +73,7 @@ export default function FileUploader({
                     ) : (
                         <div className="space-y-1">
                             <p className="text-sm font-medium text-text-primary">Click to upload or drag and drop</p>
-                            <p className="text-xs">Any file up to 10MB</p>
+                            <p className="text-xs">Images, Videos, PDFs, Office docs, Audio, CSV, JSON up to 25MB</p>
                         </div>
                     )}
                 </div>
