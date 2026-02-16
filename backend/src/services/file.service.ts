@@ -18,9 +18,12 @@ export class FileService {
         const dbProjectId = isRealProject ? projectId : null;
 
         // Upload to Cloudinary
+        // For non-images, 'auto' is good, but for PDFs we want to ensure accessibility
+        const resourceType = file.mimetype === 'application/pdf' ? 'raw' : 'auto';
+
         const cloudinaryResult = await uploadToCloudinary(file.buffer, {
             folder: isRealProject ? `projects/${projectId}` : 'general',
-            resourceType: 'auto'
+            resourceType: resourceType as any
         });
 
         // Create File Record
@@ -66,9 +69,11 @@ export class FileService {
         userId: string
     ) {
         // Upload to Cloudinary
+        const resourceType = file.mimetype === 'application/pdf' ? 'raw' : 'auto';
+
         const cloudinaryResult = await uploadToCloudinary(file.buffer, {
             folder: 'file-versions',
-            resourceType: 'auto'
+            resourceType: resourceType as any
         });
 
         const existingFile = await prisma.file.findUnique({
