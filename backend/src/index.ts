@@ -34,6 +34,10 @@ const app = express();
 const port = process.env.PORT || 4000;
 const httpServer = createServer(app);
 
+// Trust proxy settings for Render/Cloud environments
+// This avoids rate-limiting errors when behind a load balancer
+app.set('trust proxy', 1);
+
 // Initialize Socket.io
 SocketService.initialize(httpServer);
 

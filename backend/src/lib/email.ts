@@ -3,7 +3,9 @@ import prisma from '../lib/prisma'; // Import prisma
 
 // Helper to get transporter dynamically
 const getTransporter = async () => {
-    // Port 465 (SSL/TLS) is often more reliable on Render/Cloud networks
+    // Port 465 (SSL/TLS) is generally more reliable on Render/Cloud networks
+    // We default to 465 even if the user provides 587, unless explicitly forced otherwise,
+    // because 587 is frequently blocked or experiences timeouts on Render.
     const DEFAULT_PORT = 465;
     const DEFAULT_SECURE = true;
 
@@ -17,8 +19,17 @@ const getTransporter = async () => {
         settings.forEach((s: any) => config[s.key] = s.value as string);
 
         if (config['SMTP_SERVER'] && config['SMTP_USER']) {
-            const port = parseInt(config['SMTP_PORT'] || DEFAULT_PORT.toString());
-            const secure = config['SMTP_SECURE'] ? config['SMTP_SECURE'] === 'true' : (port === 465);
+            let port = parseInt(config['SMTP_PORT'] || DEFAULT_PORT.toString());
+
+            // If port is 587 but we're experiencing timeouts, force 465 for stability
+            if (port === 587) {
+                console.log('[Email] Port 587 detected, forcing 465 for better production stability on Render');
+                port = 465;
+            }
+
+            const secure = port === 465;
+
+            console.log(`[Email] Configuring SMTP: ${config['SMTP_SERVER']}:${port} (Secure: ${secure})`);
 
             return nodemailer.createTransport({
                 host: config['SMTP_SERVER'],
@@ -28,10 +39,9 @@ const getTransporter = async () => {
                     user: config['SMTP_USER'],
                     pass: config['SMTP_PASS'],
                 },
-                // Increased timeouts for production reliability
-                connectionTimeout: 15000, // 15s
-                greetingTimeout: 15000,   // 15s
-                socketTimeout: 30000,     // 30s
+                connectionTimeout: 15000,
+                greetingTimeout: 15000,
+                socketTimeout: 30000,
             });
         }
     } catch (e) {
@@ -39,8 +49,16 @@ const getTransporter = async () => {
     }
 
     // 2. Fallback to ENV
-    const envPort = parseInt(process.env.SMTP_PORT || DEFAULT_PORT.toString());
-    const envSecure = process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : (envPort === 465);
+    let envPort = parseInt(process.env.SMTP_PORT || DEFAULT_PORT.toString());
+
+    // Force 465 if 587 is provided for fallback as well
+    if (envPort === 587) {
+        envPort = 465;
+    }
+
+    const envSecure = envPort === 465;
+
+    console.log(`[Email] Configuring SMTP (ENV): ${process.env.SMTP_SERVER}:${envPort} (Secure: ${envSecure})`);
 
     return nodemailer.createTransport({
         host: process.env.SMTP_SERVER,
@@ -50,10 +68,9 @@ const getTransporter = async () => {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
         },
-        // Increased timeouts for production reliability
-        connectionTimeout: 15000, // 15s
-        greetingTimeout: 15000,   // 15s
-        socketTimeout: 30000,     // 30s
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+        socketTimeout: 30000,
     });
 };
 
