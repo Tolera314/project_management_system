@@ -100,6 +100,9 @@ export const register = async (req: Request, res: Response) => {
         });
 
         // Send OTP Email via Brevo
+        let emailSent = false;
+        let emailError = null;
+
         try {
             console.log('[Auth] Attempting to send OTP email to:', user.email);
             console.log('[Auth] SMTP Config:', {
@@ -115,22 +118,27 @@ export const register = async (req: Request, res: Response) => {
                 html: getOTPVerificationTemplate(otpCode)
             });
 
+            emailSent = true;
             console.log('[Auth] OTP email sent successfully to:', user.email);
-        } catch (emailError: any) {
+        } catch (err: any) {
+            emailError = err.message;
             console.error('[Auth] Failed to send OTP email:', {
-                error: emailError.message,
-                stack: emailError.stack,
-                code: emailError.code,
+                error: err.message,
+                stack: err.stack,
+                code: err.code,
                 recipientEmail: user.email
             });
-            // We still created the user, they might need to request a resend
         }
 
         const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
         res.status(201).json({
-            message: 'User registered successfully',
+            message: emailSent
+                ? 'User registered successfully. Please check your email for the verification code.'
+                : 'User registered, but verification email failed to send. Please request a new code from the verification page.',
             token,
+            emailSent,
+            emailError,
             user: {
                 id: user.id,
                 email: user.email,
@@ -659,13 +667,30 @@ export const resendOTP = async (req: Request, res: Response) => {
             data: { otpCode, otpExpiresAt }
         });
 
-        await sendEmail({
-            to: user.email,
-            subject: 'Your new verification code - ProjectOS',
-            html: getOTPVerificationTemplate(otpCode)
-        });
+        let emailSent = false;
+        let emailError = null;
 
-        res.json({ message: 'New verification code sent' });
+        try {
+            await sendEmail({
+                to: user.email,
+                subject: 'Your new verification code - ProjectOS',
+                html: getOTPVerificationTemplate(otpCode)
+            });
+            emailSent = true;
+        } catch (err: any) {
+            emailError = err.message;
+            console.error('[Auth] Resend OTP email failed:', err);
+        }
+
+        if (emailSent) {
+            res.json({ message: 'New verification code sent', emailSent: true });
+        } else {
+            res.status(500).json({
+                error: 'Failed to send verification email. Please try again later.',
+                emailSent: false,
+                emailError
+            });
+        }
 
     } catch (error) {
         console.error('[Auth] Resend OTP error:', error);
