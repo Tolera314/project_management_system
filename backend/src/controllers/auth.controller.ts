@@ -11,11 +11,12 @@ import { sendEmail, getOTPVerificationTemplate } from '../lib/email';
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 
-const generateOTP = () => {
+const generateOTP = (): string => {
+    // Use crypto.randomInt for cryptographically secure OTP generation
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let otp = '';
     for (let i = 0; i < 6; i++) {
-        otp += chars.charAt(Math.floor(Math.random() * chars.length));
+        otp += chars.charAt(crypto.randomInt(0, chars.length));
     }
     return otp;
 };
@@ -130,15 +131,14 @@ export const register = async (req: Request, res: Response) => {
             });
         }
 
-        const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
+        const token = jwt.sign({ userId: user.id, tokenVersion: 1 }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
         res.status(201).json({
             message: emailSent
                 ? 'User registered successfully. Please check your email for the verification code.'
-                : 'User registered, but verification email failed to send. Please request a new code from the verification page.',
+                : 'User registered. Verification email could not be sent — please request a new code from the verification page.',
             token,
             emailSent,
-            emailError,
             user: {
                 id: user.id,
                 email: user.email,
@@ -338,23 +338,49 @@ export const forgotPassword = async (req: Request, res: Response) => {
             }
         });
 
-        // Send Email
+        // Send password reset email
         const link = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
 
-        // Use NotificationService or sendEmail directly
-        // For now using simple console log as fallback if email service not fully verified, 
-        // but user asked to use Brevo.
-        // Assuming sendEmail is imported in file.
-        // Check imports... imports from ../lib/email. But auth.controller lines showed NotificationService?
-        // Let's use NotificationService if related method exists, or sendEmail directly (I saw sendEmail in email.ts).
-        // I need to import sendEmail if not present.
-        // The file text had `import { sendEmail... }` ? No, `import { NotificationService }`.
-        // I'll assume NotificationService has a method or I can't easily add import without checking.
-        // I'll stick to basic email logic here or just console log if risk of import error.
-        // User said "Pending email service". I will try to implement it properly.
-
-        console.log(`[Auth] Reset link for ${user.email}: ${link}`);
-        // TODO: Call sendEmail({ to: user.email, subject: 'Reset Password', html: ... })
+        try {
+            const { sendEmail } = await import('../lib/email');
+            await sendEmail({
+                to: user.email,
+                subject: 'Reset your password — ProjectOS',
+                html: `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <style>
+                            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f5; margin: 0; padding: 0; }
+                            .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+                            .header { background-color: #4F46E5; color: #ffffff; padding: 30px; text-align: center; }
+                            .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+                            .content { padding: 40px 30px; }
+                            .btn { display: inline-block; background-color: #4F46E5; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 20px; }
+                            .footer { background-color: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container">
+                            <div class="header"><h1>Reset Your Password</h1></div>
+                            <div class="content">
+                                <p>Hello,</p>
+                                <p>You requested a password reset for your ProjectOS account. Click the button below to set a new password. This link expires in <strong>1 hour</strong>.</p>
+                                <div style="text-align: center;">
+                                    <a href="${link}" class="btn">Reset Password</a>
+                                </div>
+                                <p style="margin-top: 30px; font-size: 14px; color: #6b7280;">If you did not request this, you can safely ignore this email. Your password will not change.</p>
+                            </div>
+                            <div class="footer">&copy; ${new Date().getFullYear()} ProjectOS. All rights reserved.</div>
+                        </div>
+                    </body>
+                    </html>
+                `
+            });
+        } catch (emailErr: any) {
+            console.error('[Auth] Failed to send password reset email:', emailErr.message);
+            // Still respond with success to prevent email enumeration
+        }
 
         res.json({ message: 'If an account exists, a reset link has been sent.' });
     } catch (error) {
@@ -416,17 +442,8 @@ export const resetPassword = async (req: Request, res: Response) => {
 };
 
 export const verifyMFA = async (req: Request, res: Response) => {
-    try {
-        const { userId, code } = req.body;
-        // Mock verification logic
-        if (code === '123456') { // Super mock
-            res.json({ message: 'MFA verified' });
-        } else {
-            res.status(401).json({ error: 'Invalid MFA code' });
-        }
-    } catch (error) {
-        res.status(500).json({ error: 'Internal server error' });
-    }
+    // MFA via TOTP is a future enhancement — placeholder returns 501
+    res.status(501).json({ error: 'MFA verification is not yet implemented.' });
 };
 
 export const getSession = async (req: Request, res: Response) => {
@@ -526,14 +543,15 @@ export const googleCallback = async (req: Request, res: Response) => {
             const randomPassword = crypto.randomBytes(16).toString('hex');
             const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
-            user = await prisma.user.create({
+        user = await prisma.user.create({
                 data: {
                     email,
                     firstName: given_name || 'Google',
                     lastName: family_name || 'User',
                     password: hashedPassword,
                     avatarUrl: picture,
-                    // systemRole: 'USER' // Default
+                    isVerified: true,       // Google accounts are pre-verified
+                    status: 'ACTIVE',
                 },
                 include: { organizationMembers: true }
             });

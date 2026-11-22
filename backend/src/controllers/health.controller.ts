@@ -1,35 +1,57 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 
-export const healthCheck = async (req: Request, res: Response) => {
+const startTime = Date.now();
+
+export const healthCheck = async (_req: Request, res: Response) => {
+    const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
+
     try {
-        // Check database connection
+        // Lightweight DB liveness probe
+        const dbStart = Date.now();
         await prisma.$queryRaw`SELECT 1`;
-
-        const dbStatus = 'healthy';
-
-        // Get connection pool info if available
-        const poolInfo = {
-            status: 'operational',
-            maxConnections: 20,
-            timestamp: new Date().toISOString()
-        };
+        const dbLatencyMs = Date.now() - dbStart;
 
         res.status(200).json({
             status: 'healthy',
             timestamp: new Date().toISOString(),
+            uptime: uptimeSeconds,
+            version: process.env.npm_package_version || '1.0.0',
+            environment: process.env.NODE_ENV || 'development',
             services: {
-                database: dbStatus,
-                api: 'operational',
-                pool: poolInfo
+                database: {
+                    status: 'healthy',
+                    latencyMs: dbLatencyMs,
+                },
+                api: {
+                    status: 'operational',
+                    pool: {
+                        max: 10,
+                        note: 'Configured for Neon free-tier (tune for paid plans)',
+                    },
+                },
             },
-            version: process.env.npm_package_version || '1.0.0'
         });
-    } catch (error) {
+    } catch (error: any) {
+        console.error('[Health] DB check failed:', error.message);
         res.status(503).json({
             status: 'unhealthy',
             timestamp: new Date().toISOString(),
-            error: 'Database connection failed'
+            uptime: uptimeSeconds,
+            services: {
+                database: {
+                    status: 'unreachable',
+                    error: 'Database connection failed',
+                },
+            },
         });
     }
+};
+
+/**
+ * Lightweight ping endpoint — returns 200 immediately without a DB query.
+ * Used by UptimeRobot / Render health checks to prevent free-tier sleep.
+ */
+export const ping = (_req: Request, res: Response) => {
+    res.status(200).json({ ok: true, ts: Date.now() });
 };

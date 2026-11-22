@@ -1,0 +1,30 @@
+name: Render Backend Keep-Alive
+
+# Scheduled cron to ping the Render backend every 12 minutes
+# Prevents Render free-tier instance from sleeping (spins down after 15 min)
+on:
+  schedule:
+    - cron: '*/12 * * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  ping:
+    name: Keep-Alive Ping
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Backend Health Endpoint
+        run: |
+          URL="${{ secrets.RENDER_BACKEND_URL }}"
+          if [ -z "$URL" ]; then
+            URL="https://project-management-system-ogdi.onrender.com"
+          fi
+          echo "Sending keep-alive ping to: $URL/health/ping"
+          RESPONSE=$(curl -s -w "%{http_code}" -o /tmp/ping_output.txt "$URL/health/ping" || true)
+          echo "HTTP Response Status: $RESPONSE"
+          cat /tmp/ping_output.txt
+          echo ""
+          if [ "$RESPONSE" -ge 200 ] && [ "$RESPONSE" -lt 400 ]; then
+            echo "✅ Keep-alive successful: Server is awake and responding."
+          else
+            echo "⚠️ Warning: Keep-alive ping returned status $RESPONSE"
+          fi
