@@ -9,7 +9,8 @@
 # All collaborators MUST re-clone after this operation.
 
 $ErrorActionPreference = "Continue"
-Set-Location $PSScriptRoot
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+Set-Location $repoRoot
 
 $filesToPurge = @(
     "backend/.env",
@@ -24,22 +25,17 @@ $filesToPurge = @(
 $filterArg = ($filesToPurge | ForEach-Object { "`"$_`"" }) -join " "
 $indexFilter = "git rm -r --cached --ignore-unmatch $filterArg"
 
-Write-Host "==> Rewriting git history to remove sensitive files..." -ForegroundColor Yellow
+Write-Host "==> Rewriting git history to remove sensitive files across ALL branches..." -ForegroundColor Yellow
 $env:FILTER_BRANCH_SQUELCH_WARNING = "1"
 
-$branches = git branch --format "%(refname:short)"
-foreach ($branch in $branches) {
-    Write-Host "  Processing branch: $branch" -ForegroundColor Cyan
-    git checkout $branch 2>&1 | Out-Null
-    $result = & git filter-branch --force --index-filter $indexFilter --prune-empty -- $branch 2>&1
-    Write-Host "  Result: $result"
+# Run filter-branch once across all branches and tags
+& git filter-branch --force --index-filter $indexFilter --prune-empty --tag-name-filter cat -- --all 2>&1 | ForEach-Object {
+    Write-Host $_
 }
-
-git checkout main 2>&1 | Out-Null
 
 Write-Host ""
 Write-Host "==> Cleaning up refs and running aggressive GC..." -ForegroundColor Yellow
-git for-each-ref --format "%(refname)" refs/original/ | ForEach-Object {
+git for-each-ref --format="%(refname)" refs/original/ | ForEach-Object {
     git update-ref -d $_ 2>&1 | Out-Null
 }
 git reflog expire --expire=now --all 2>&1 | Out-Null
