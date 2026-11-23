@@ -42,7 +42,17 @@ services:
         sync: false
       - key: GOOGLE_CALLBACK_URL
         sync: false
-      - key: CLOUDINARY_URL
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: APP_NAME
+        value: ProjectOS
+      # Optional — enables BullMQ email queue + Socket.io Redis adapter
+      # Leave unset to use direct SMTP + single-instance Socket.io
+      - key: REDIS_URL
         sync: false
 
     healthCheckPath: /health

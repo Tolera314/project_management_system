@@ -1,5 +1,6 @@
 import { NotificationType } from '@prisma/client';
 import { sendEmail, getTaskAssignedEmailTemplate, getPlatformWelcomeTemplate } from '../lib/email';
+import { queueEmail } from '../queues/email.queue';
 import prisma from '../lib/prisma';
 import { SocketService } from './socket.service';
 
@@ -18,18 +19,16 @@ export interface NotificationPayload {
 
 export class NotificationService {
     static async sendWelcomeEmail(user: { email: string, firstName: string }) {
-        // Fire-and-forget: Don't await, don't block caller
-        setImmediate(async () => {
-            try {
-                await sendEmail({
-                    to: user.email,
-                    subject: 'Welcome to ProjectOS!',
-                    html: getPlatformWelcomeTemplate(user.firstName)
-                });
-            } catch (error) {
-                console.error('[NotificationService] Failed to send welcome email:', error);
-            }
-        });
+        // Asynchronous queued email (with BullMQ or direct fallback)
+        try {
+            await queueEmail({
+                to: user.email,
+                subject: 'Welcome to ProjectOS!',
+                html: getPlatformWelcomeTemplate(user.firstName)
+            });
+        } catch (error) {
+            console.error('[NotificationService] Failed to queue welcome email:', error);
+        }
     }
 
     /**
@@ -102,7 +101,7 @@ export class NotificationService {
                 });
 
                 if (recipient?.email) {
-                    await sendEmail({
+                    await queueEmail({
                         to: recipient.email,
                         subject: payload.title,
                         html: this.formatEmailHtml(payload)

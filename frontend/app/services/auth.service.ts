@@ -26,8 +26,13 @@ export class AuthService {
         return null;
     }
 
-    static logout(): void {
+    static async logout(): Promise<void> {
         if (typeof window !== 'undefined') {
+            try {
+                await axios.post(`${API_URL}/logout`);
+            } catch (e) {
+                // Ignore network errors on logout
+            }
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/login';

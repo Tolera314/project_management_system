@@ -5,6 +5,7 @@ dotenv.config();
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 
 import prisma from './lib/prisma';
@@ -12,6 +13,7 @@ import { SocketService } from './services/socket.service';
 import { authLimiter, apiLimiter } from './middleware/rateLimit.middleware';
 
 import authRoutes from './routes/auth.routes';
+import mfaRoutes from './routes/mfa.routes';
 import projectRoutes from './routes/project.routes';
 import workspaceRoutes from './routes/workspace.routes';
 import listRoutes from './routes/list.routes';
@@ -47,30 +49,68 @@ const httpServer = createServer(app);
 app.set('trust proxy', 1);
 
 // ── Security middleware ──────────────────────────────────────────────────────
-app.use(helmet({
-    crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow Cloudinary images
-}));
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',').map((o) => o.trim());
 
-const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',').map(o => o.trim());
-app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, curl, Render health checks)
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error(`CORS: origin "${origin}" not allowed`));
-        }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+app.use(
+    helmet({
+        crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow Cloudinary CDN images
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'"],
+                styleSrc: ["'self'", "'unsafe-inline'"], // Tailwind CSS requires inline styles
+                imgSrc: [
+                    "'self'",
+                    'data:',
+                    'blob:',
+                    'https://res.cloudinary.com',
+                    'https://lh3.googleusercontent.com',
+                ],
+                connectSrc: ["'self'", ...allowedOrigins],
+                fontSrc: ["'self'"],
+                mediaSrc: ["'self'", 'https://res.cloudinary.com'],
+                frameSrc: ["'none'"],
+                objectSrc: ["'none'"],
+                baseUri: ["'self'"],
+                formAction: ["'self'"],
+                upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+            } as any,
+        },
+        hsts: {
+            maxAge: 31_536_000,          // 1 year
+            includeSubDomains: true,
+            preload: true,
+        },
+        referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+        xFrameOptions: { action: 'deny' },
+    })
+);
 
+app.use(
+    cors({
+        origin: (origin, callback) => {
+            // Allow requests with no origin (mobile apps, curl, Render health checks)
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error(`CORS: origin "${origin}" not allowed`));
+            }
+        },
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+    })
+);
+
+// ── Body parsers & cookie parser ─────────────────────────────────────────────
+app.use(cookieParser()); // Parse HttpOnly auth cookies
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// ── Initialize Socket.io ─────────────────────────────────────────────────────
-SocketService.initialize(httpServer);
+// ── Initialize Socket.io (async — Redis adapter connected inside) ─────────────
+SocketService.initialize(httpServer).catch((err) => {
+    console.error('❌ Socket.io initialization failed:', err);
+});
 
 // ── Rate limiters ────────────────────────────────────────────────────────────
 app.use('/auth', authLimiter);
@@ -83,6 +123,7 @@ app.use('/templates', apiLimiter);
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/auth', authRoutes);
+app.use('/auth/mfa', mfaRoutes);
 app.use('/projects', projectRoutes);
 app.use('/workspaces', workspaceRoutes);
 app.use('/lists', listRoutes);
@@ -124,7 +165,8 @@ app.use((_req: Request, res: Response) => {
 });
 
 // ── Start server ─────────────────────────────────────────────────────────────
-prisma.$connect()
+prisma
+    .$connect()
     .then(() => console.log('✅ Database connected successfully'))
     .catch((error: any) => {
         console.error('❌ Database connection failed:', error.message);
@@ -145,6 +187,6 @@ const shutdown = async (signal: string) => {
     });
 };
 process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT',  () => shutdown('SIGINT'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 export { app, prisma, httpServer, server };

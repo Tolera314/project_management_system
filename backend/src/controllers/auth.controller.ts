@@ -199,6 +199,17 @@ export const login = async (req: Request, res: Response) => {
             return;
         }
 
+        if (user.status === 'SUSPENDED') {
+            res.status(403).json({ error: 'Your account has been suspended. Please contact support.' });
+            return;
+        }
+
+        // If MFA is enabled, return a pending state — full token issued after TOTP verification
+        if ((user as any).mfaEnabled) {
+            res.status(200).json({ mfaRequired: true, userId: user.id });
+            return;
+        }
+
         const token = jwt.sign(
             { userId: user.id, tokenVersion: user.tokenVersion },
             process.env.JWT_SECRET!,
@@ -222,9 +233,18 @@ export const login = async (req: Request, res: Response) => {
             }
         });
 
+        // Set HttpOnly cookie (XSS-resistant token storage)
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            path: '/',
+        });
+
         res.status(200).json({
             message: 'Login successful',
-            token,
+            token, // Also returned in body for clients that prefer Authorization header
             user: {
                 id: user.id,
                 email: user.email,
@@ -249,10 +269,20 @@ export const login = async (req: Request, res: Response) => {
 
 export const logout = async (req: Request, res: Response) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1];
+        // Support both Bearer token and HttpOnly cookie
+        const token = req.headers.authorization?.split(' ')[1] || (req as any).cookies?.token;
         if (token) {
             await prisma.session.deleteMany({ where: { token } });
         }
+
+        // Clear the HttpOnly cookie
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+        });
+
         res.json({ message: 'Logged out successfully' });
     } catch (error) {
         res.status(500).json({ error: 'Internal server error' });
@@ -575,6 +605,16 @@ export const googleCallback = async (req: Request, res: Response) => {
 
         // Redirect to frontend with token
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+        // Set HttpOnly cookie for XSS-resistant storage
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            path: '/',
+        });
+
         res.redirect(`${frontendUrl}/auth/success?token=${token}&user=${encodeURIComponent(JSON.stringify({
             id: user.id,
             email: user.email,

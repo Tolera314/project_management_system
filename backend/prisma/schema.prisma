@@ -85,6 +85,7 @@ model User {
   passwordVersion Int        @default(1)
   tokenVersion    Int        @default(1)
   mfaEnabled      Boolean    @default(false)
+  mfaSecret       String?    // TOTP secret (store encrypted in production via KMS)
   lastLogin       DateTime?
   otpCode         String?
   otpExpiresAt    DateTime?

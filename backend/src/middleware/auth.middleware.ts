@@ -13,9 +13,13 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         const authHeader = req.headers.authorization;
 
         if (authHeader && authHeader.startsWith('Bearer ')) {
+            // 1. Bearer token (Authorization header — mobile apps, Postman, etc.)
             token = authHeader.substring(7).trim();
+        } else if ((req as any).cookies?.token) {
+            // 2. HttpOnly cookie (browsers — preferred for XSS protection)
+            token = (req as any).cookies.token;
         } else if (req.query.token && typeof req.query.token === 'string') {
-            // Allow token via query string only for file-download / socket handshake endpoints
+            // 3. Query string — only for file-download / socket handshake endpoints
             token = req.query.token.trim();
         }
 
@@ -60,6 +64,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         }
 
         (req as any).userId = decoded.userId;
+        (req as any).user = { userId: decoded.userId }; // Uniform access pattern
         next();
 
     } catch (error: any) {
@@ -67,3 +72,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         res.status(500).json({ error: 'An internal error occurred during authentication.' });
     }
 };
+
+// Alias used by some route files
+export const authenticate = authMiddleware;

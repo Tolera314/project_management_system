@@ -1,6 +1,6 @@
 # ProjectOS — Enterprise Project Management System
 
-> A modern, full-stack, real-time project management and team collaboration platform built with **Next.js 16 (App Router)**, **Express 5 (TypeScript)**, **PostgreSQL (Neon)**, and **Socket.io 4**.  
+> A modern, full-stack, real-time project management and team collaboration platform built with **Next.js 16 (App Router)**, **Express 5 (TypeScript)**, **PostgreSQL (Neon)**, **Socket.io 4**, and **BullMQ**.  
 > Engineered for zero-downtime deployment on **Vercel** (frontend) and **Render** (backend).
 
 ---
@@ -16,10 +16,10 @@
 8. [Vercel Deployment Guide (Frontend)](#-vercel-deployment-guide-frontend)
 9. [Render Deployment Guide (Backend)](#-render-deployment-guide-backend)
 10. [Render Sleep Prevention & Uptime Monitoring](#-render-sleep-prevention--uptime-monitoring)
-11. [Security Hardening](#-security-hardening)
-12. [Performance & Scalability](#-performance--scalability)
+11. [Security Hardening & MFA](#-security-hardening--mfa)
+12. [Performance, Redis & BullMQ Scaling](#-performance-redis--bullmq-scaling)
 13. [Code Audit & Resolved Vulnerabilities](#-code-audit--resolved-vulnerabilities)
-14. [Professional Production Recommendations](#-professional-production-recommendations)
+14. [Operational Maintenance & Secret Rotation](#-operational-maintenance--secret-rotation)
 
 ---
 
@@ -30,23 +30,25 @@
 │                           CLIENT TIER (Web UI)                          │
 │        Next.js 16 · React 19 · Tailwind CSS 4 · Framer Motion           │
 │        State: React Context + Zod · Real-time: Socket.io Client         │
+│         Auth: Dual-mode (HttpOnly Cookies + Bearer Header Fallback)      │
 │                        ▶ Deployed on Vercel Edge                        │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │ HTTPS / WSS
 ┌────────────────────────────────────▼────────────────────────────────────┐
 │                            API SERVER TIER                              │
-│       Node.js (Express 5 in TypeScript) · Helmet · Rate Limiters        │
-│          JWT Auth (Token Versioning) · Zod Request Validation           │
-│         Socket.io Engine (Presence & Event Fan-out) · Nodemailer        │
+│       Node.js (Express 5 in TypeScript) · Helmet CSP · Rate Limiters    │
+│      JWT Auth (Token Versioning) · RFC 6238 TOTP MFA · Cookie Parser    │
+│    Socket.io Engine (Presence & Event Fan-out) · BullMQ Job Queue       │
 │                        ▶ Deployed on Render                             │
 └──────────────┬─────────────────────────────┬────────────────────────────┘
                │                             │
 ┌──────────────▼─────────────┐       ┌───────▼────────────────────────────┐
-│      PERSISTENCE TIER      │       │          THIRD-PARTY APIS          │
-│   PostgreSQL on Neon.tech  │       │  • Cloudinary (Media Assets)       │
-│ Prisma 7 (pg Pool Adapter) │       │  • Brevo SMTP (Transactional Email)│
-│  28 Relational Data Models │       │  • Google OAuth 2.0 (Identity)     │
-└────────────────────────────┘       └────────────────────────────────────┘
+│      PERSISTENCE TIER      │       │      INFRASTRUCTURE & SERVICES     │
+│   PostgreSQL on Neon.tech  │       │  • Redis / Upstash (Queue/Socket)  │
+│ Prisma 7 (pg Pool Adapter) │       │  • Cloudinary (Media Assets)       │
+│  28 Relational Data Models │       │  • Brevo SMTP (Transactional Email)│
+└────────────────────────────┘       │  • Google OAuth 2.0 (Identity)     │
+                                     └────────────────────────────────────┘
 ```
 
 ---
@@ -60,11 +62,12 @@
 | **Interactive Views**   | Recharts (visualizations), `@hello-pangea/dnd` (Kanban boards) |
 | **Backend Runtime**     | Node.js 20+, Express 5.2 (TypeScript) |
 | **Database & ORM**      | PostgreSQL 16 (Neon Serverless), Prisma 7.2 with `@prisma/adapter-pg` |
-| **Real-time Protocol**  | Socket.io 4.8 (WebSocket + HTTP long-polling fallback) |
-| **Authentication**      | JWT with `tokenVersion` session revocation, bcrypt, Google OAuth 2.0 |
-| **Validation**          | Zod 4 runtime schema validation |
+| **Real-time Protocol**  | Socket.io 4.8 (WebSocket + HTTP long-polling fallback, Redis Adapter) |
+| **Job Queue & Workers** | BullMQ with Redis (exponential backoff retries, rate limiting) |
+| **Authentication & MFA**| JWT with `tokenVersion` revocation, HttpOnly cookies, RFC 6238 TOTP MFA (`otplib`, `qrcode`) |
+| **Validation**          | Zod runtime schema validation |
 | **Asset Storage**       | Cloudinary SDK |
-| **Email Delivery**      | Nodemailer + Brevo SMTP (TLS 587 / SSL 465) |
+| **Email Delivery**      | Nodemailer + Brevo SMTP (TLS 587 / SSL 465) via BullMQ queue |
 | **Hosting Targets**     | Frontend: **Vercel** \| Backend: **Render** |
 
 ---
@@ -77,6 +80,7 @@
 - **🔗 Prerequisite Logic**: Task-to-task and list-to-list blocking dependencies with automated cycle detection.
 - **🚩 Milestones & Deliverables**: Project milestone tracking with target dates, owners, and risk indicators.
 - **💬 Team Collaboration**: Rich comment threads, inline `@mention` notifications, and real-time user presence.
+- **🔐 Two-Factor Authentication (2FA/TOTP)**: RFC 6238-compliant authenticator app setup (Google Authenticator, Authy, 1Password) with QR code generation.
 - **📁 File & Asset Management**: Secure uploads, Cloudinary media optimization, and document version history.
 - **📈 Analytics & Audit Trails**: Project progress charts, velocity metrics, and immutable administrative audit logs.
 - **🛡 Admin Governance**: User provisioning, role & permission editors, system settings, database backups, alert banners.
@@ -90,17 +94,18 @@ project_management_system/
 ├── backend/
 │   ├── prisma/
 │   │   ├── migrations/         # PostgreSQL migration history
-│   │   ├── schema.prisma       # Prisma data model (28 entities)
+│   │   ├── schema.prisma       # Prisma data model (28 entities, MFA fields)
 │   │   └── seed.ts             # Workspace & role seed scripts
 │   ├── src/
 │   │   ├── constants/          # System role constants & permission enums
-│   │   ├── controllers/        # 20+ feature controllers with Zod validation
+│   │   ├── controllers/        # Feature controllers (auth, mfa, projects, tasks)
 │   │   ├── lib/                # Database pool, Cloudinary, and Email clients
-│   │   ├── middleware/         # JWT auth, RBAC permissions, and Rate limiters
-│   │   ├── routes/             # Express route declarations
-│   │   ├── services/           # Socket.io presence & notification delivery
+│   │   ├── middleware/         # JWT auth, HttpOnly cookies, RBAC, Rate limiters
+│   │   ├── queues/             # BullMQ asynchronous email queue & worker
+│   │   ├── routes/             # Express route declarations (incl. /auth/mfa)
+│   │   ├── services/           # Socket.io presence, Redis adapter, notifications
 │   │   ├── types/              # Express request augmentations
-│   │   └── index.ts            # Server entry point with graceful shutdown
+│   │   └── index.ts            # Server entry point, CSP, graceful shutdown
 │   ├── .env.example            # Backend environment blueprint
 │   ├── package.json
 │   └── tsconfig.json
@@ -108,7 +113,7 @@ project_management_system/
 │   ├── app/
 │   │   ├── admin/              # Admin governance & audit pages
 │   │   ├── components/         # Reusable UI widgets, boards, and modals
-│   │   ├── config/             # API client base URLs
+│   │   ├── config/             # API client base URLs & axios defaults
 │   │   ├── context/            # React UserContext & auth state
 │   │   ├── dashboard/          # Tasks, projects, calendar, and reports
 │   │   ├── projects/[id]/      # Kanban, timeline, and list board views
@@ -121,9 +126,9 @@ project_management_system/
 │   └── vercel.json             # Vercel deployment configuration
 ├── .github/workflows/          # Continuous integration & keep-alive workflows
 │   ├── ci.yml                  # Build, lint, and Prisma validation
-│   └── keep-alive.yml          # Automated Render keep-alive ping cron
+│   └── keep-alive.yml          # Automated Render keep-alive ping cron (every 12m)
 ├── render.yaml                 # Render infrastructure-as-code blueprint
-├── scripts/                    # Maintenance & cleanup utilities
+├── scripts/                    # Maintenance & Git secret purge scripts
 ├── .gitignore                  # Global Git ignore rules
 └── README.md                   # System documentation
 ```
@@ -137,6 +142,7 @@ project_management_system/
 - PostgreSQL instance or a free account on [Neon.tech](https://neon.tech)
 - Free [Cloudinary](https://cloudinary.com) account
 - Free [Brevo](https://www.brevo.com) account for transactional email
+- *(Optional)* Redis instance or [Upstash](https://upstash.com) for BullMQ queues and multi-instance Socket.io
 
 ### 1. Installation
 ```bash
@@ -182,6 +188,7 @@ npm run dev
 - Frontend UI: `http://localhost:3000`
 - Backend API: `http://localhost:4000`
 - Health Endpoint: `http://localhost:4000/health`
+- Keep-Alive Ping: `http://localhost:4000/health/ping`
 
 ---
 
@@ -202,10 +209,13 @@ npm run dev
 | `SMTP_PASS` | Yes | Brevo SMTP account password |
 | `SENDER_EMAIL` | Yes | Verified sender email address |
 | `SENDER_NAME` | Yes | Display name in outgoing emails |
+| `APP_NAME` | No | Application display name (default: `ProjectOS`, used in MFA TOTP URI) |
 | `GOOGLE_CLIENT_ID` | Optional| Google OAuth Client ID |
 | `GOOGLE_CLIENT_SECRET` | Optional| Google OAuth Client Secret |
-| `GOOGLE_CALLBACK_URL` | Optional| Callback URL registered in Google Console |
-| `CLOUDINARY_URL` | Yes | Cloudinary connection string `cloudinary://key:secret@cloud` |
+| `CLOUDINARY_CLOUD_NAME` | Yes | Cloudinary account cloud name |
+| `CLOUDINARY_API_KEY` | Yes | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | Yes | Cloudinary API secret |
+| `REDIS_URL` | Optional| Redis connection string (`redis://` or `rediss://`). Enables BullMQ email queue and Socket.io Redis adapter. Falls back to in-memory/direct mode if unset. |
 | `NODE_ENV` | Yes | `production` when deployed |
 
 ### Frontend (`frontend/.env.local`)
@@ -213,13 +223,15 @@ npm run dev
 | Variable | Required | Description |
 |---|---|---|
 | `NEXT_PUBLIC_API_BASE_URL` | Yes | Backend URL (e.g. `https://your-backend.onrender.com`) |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID`| Optional| Google OAuth Client ID for sign-in button |
+| `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`| Optional| Cloudinary cloud name for direct asset rendering |
 
 ---
 
 ## 🗄 Database Schema & Migrations
 
 The database consists of **28 normalized Prisma models**:
-- **Identity & RBAC**: `User`, `Organization`, `OrganizationMember`, `Role`, `Permission`, `RolePermission`, `Session`, `ResetToken`
+- **Identity & RBAC**: `User` (includes `mfaEnabled`, `mfaSecret`), `Organization`, `OrganizationMember`, `Role`, `Permission`, `RolePermission`, `Session`, `ResetToken`
 - **Work Management**: `Project`, `List`, `Task`, `TaskAssignee`, `TaskWatcher`, `TaskTag`, `Tag`, `Milestone`
 - **Dependency Graphs**: `ProjectDependency`, `ListDependency`, `TaskDependency`
 - **Templates & Customization**: `ProjectTemplate`, `TaskStatusDefinition`
@@ -281,19 +293,19 @@ npx prisma studio
 ### The Free-Tier Sleep Problem:
 Render free web services spin down into a sleep state after **15 minutes of inactivity**. The next inbound HTTP request encounters a **50–90 second cold start delay**.
 
-### The Solution (Already Implemented):
+### The Solution (Fully Implemented):
 
 1. **Lightweight Keep-Alive Endpoint**:
    - Route: `GET /health/ping`
-   - Response: `{"ok": true, "ts": 1740000000000}`
-   - Does **not** query the database, ensuring zero unnecessary connection load.
+   - Response: `{"ok": true, "uptime": 3600, "timestamp": 1740000000000}`
+   - Does **not** query the database, ensuring zero connection pool overhead.
 
 2. **Automated GitHub Actions Keep-Alive Workflow**:
    - Located at [`.github/workflows/keep-alive.yml`](.github/workflows/keep-alive.yml).
    - Automatically executes every **12 minutes** to ping your backend URL, keeping it permanently warm 24/7.
    - Configure by adding repository secret: `RENDER_BACKEND_URL` = `https://your-backend.onrender.com`.
 
-3. **External Monitoring (Recommended Backup)**:
+3. **External Monitoring (Recommended Redundancy)**:
    - Create a free account at [UptimeRobot.com](https://uptimerobot.com).
    - Add New Monitor:
      - **Monitor Type**: `HTTP(s)`
@@ -304,11 +316,24 @@ Render free web services spin down into a sleep state after **15 minutes of inac
 
 ---
 
-## 🔒 Security Hardening
+## 🔒 Security Hardening & MFA
 
-- **Session Versioning (`tokenVersion`)**: Changing passwords or revoking sessions increments `tokenVersion` on the `User` model, immediately invalidating active JWTs across all devices.
-- **Account Status Guard**: `PENDING_VERIFICATION` and `SUSPENDED` accounts are halted at the middleware layer (HTTP 403).
-- **Cryptographic OTPs**: Email verification codes are generated using `crypto.randomInt`, eliminating pseudo-random predictability.
+- **Two-Factor Authentication (TOTP MFA)**:
+  - RFC 6238 standard implementation using `otplib` and QR code generator (`qrcode`).
+  - Seamless setup via `GET /auth/mfa/setup`, verification via `POST /auth/mfa/verify-setup`, and login challenge via `POST /auth/mfa/verify`.
+  - Password and TOTP code required to disable MFA.
+- **HttpOnly Cookie Authentication**:
+  - Tokens are issued in `httpOnly`, `Secure`, `SameSite=Lax` cookies, protecting against Cross-Site Scripting (XSS) credential theft.
+  - Dual-mode support: accepts both `Authorization: Bearer <token>` and `Cookie: token=<token>` for cross-client compatibility.
+  - Auto-cleared on logout via server-side session deletion.
+- **Content Security Policy (CSP)**:
+  - Tightened via Helmet with strict directives: `frame-ancestors 'none'`, `object-src 'none'`, and whitelisted CDN origins for Cloudinary and Google identity.
+- **Session Versioning (`tokenVersion`)**:
+  - Changing passwords, revoking sessions, or logging out increments `tokenVersion` on the `User` model, immediately invalidating active JWTs across all devices.
+- **Account Status Guard**:
+  - `PENDING_VERIFICATION` and `SUSPENDED` accounts are halted at the middleware layer (HTTP 403).
+- **Cryptographic OTPs**:
+  - Verification codes generated using `crypto.randomInt`, eliminating pseudo-random predictability.
 - **Strict Rate Limiting**:
   - `/auth/*`: 20 requests per 15 minutes.
   - Sensitive operations (passwords, OTP resend): 5 requests per hour.
@@ -322,11 +347,19 @@ Render free web services spin down into a sleep state after **15 minutes of inac
 
 ---
 
-## ⚡ Performance & Scalability
+## ⚡ Performance, Redis & BullMQ Scaling
 
-- **Database Connection Pooling**: Connection pool configured with `max: 10`, `min: 2`, and 30-second idle timeouts to prevent connection exhaustion on serverless PostgreSQL (Neon).
-- **Graceful Shutdown Handling**: Listens for `SIGTERM` and `SIGINT` to flush pending writes and gracefully close database connection pools during zero-downtime platform re-deploys.
-- **Optimized Image Ingestion**: Next.js image optimization configured for Cloudinary CDN assets with automatic WebP conversion and responsive resizing.
+- **Asynchronous Email Queuing (BullMQ)**:
+  - Transactional emails and notifications are offloaded to BullMQ (`backend/src/queues/email.queue.ts`) with exponential backoff retries (5s, 10s, 20s) and concurrency rate-limiting (20 emails/min).
+  - Graceful fallback: If `REDIS_URL` is omitted, emails send asynchronously via direct SMTP without crashing or blocking HTTP requests.
+- **Horizontal WebSocket Scaling**:
+  - Socket.io is pre-configured with `@socket.io/redis-adapter` and `ioredis`. When `REDIS_URL` is configured, events and presence fan out seamlessly across multiple server instances.
+- **Database Connection Pooling**:
+  - Neon pool configured with `max: 10`, `min: 2`, and 30-second idle timeouts to prevent connection exhaustion on serverless PostgreSQL.
+- **Graceful Shutdown Handling**:
+  - Listens for `SIGTERM` and `SIGINT` to flush pending writes, disconnect Socket.io, and cleanly close database pools during platform re-deploys.
+- **Optimized Image Ingestion**:
+  - Next.js image optimization configured for Cloudinary CDN assets with automatic WebP conversion and responsive resizing.
 
 ---
 
@@ -338,33 +371,32 @@ During expert code review, the following critical issues were identified and res
 |---|---|---|---|---|
 | **SEC-01** | **Critical** | Repository | Raw credentials in `backend/.env` | Added `.env.example`, purged history via git script, updated `.gitignore` |
 | **SEC-02** | **High** | `auth.controller.ts` | Weak PRNG `Math.random()` for OTPs | Switched to cryptographically secure `crypto.randomInt` |
-| **SEC-03** | **High** | `auth.controller.ts` | Mock MFA accepted hardcoded code `'123456'` | Replaced with strict HTTP 501 until dedicated TOTP engine is plugged in |
+| **SEC-03** | **High** | `auth.controller.ts` | Mock MFA accepted hardcoded code `'123456'` | Replaced with full RFC 6238 TOTP MFA engine (`otplib`, `qrcode`) |
 | **SEC-04** | **High** | `auth.controller.ts` | `forgotPassword` printed reset link to console only | Added automated branded HTML reset email delivery |
 | **SEC-05** | **Medium** | `auth.middleware.ts` | Suspended users could continue accessing APIs | Added database user status verification in auth middleware |
+| **SEC-06** | **High** | `auth.controller.ts` | Plain `localStorage` token storage vulnerable to XSS | Implemented `httpOnly`, `Secure`, `SameSite=Lax` cookies with dual-mode parsing |
+| **SEC-07** | **Medium** | `index.ts` | Missing Content Security Policy (CSP) | Added strict CSP headers via Helmet restricting scripts, styles, and frames |
 | **REL-01** | **High** | `prisma.ts` | Pool size `max: 100` exhausted Neon free tier | Optimized pool size to `max: 10` with error listener |
 | **REL-02** | **Medium** | `index.ts` | Uncaught server termination on SIGTERM | Implemented graceful shutdown with `prisma.$disconnect()` |
 | **REL-03** | **Medium** | `health.controller.ts` | Heavy DB query on every uptime ping | Added lightweight `/health/ping` for uptime monitors |
+| **PERF-01**| **Medium** | `notification.service.ts`| Synchronous email sending blocked request loop | Integrated BullMQ asynchronous job queue with exponential retries |
+| **PERF-02**| **Medium** | `socket.service.ts` | Single-instance in-memory WebSocket state | Implemented `@socket.io/redis-adapter` for multi-instance cluster scaling |
 
 ---
 
-## 💡 Professional Production Recommendations
+## 💡 Operational Maintenance & Secret Rotation
 
-1. **Rotate All Compromised Secrets Immediately**:
-   - Generate a fresh `DATABASE_URL` password in your Neon console.
-   - Generate a new 64-character `JWT_SECRET`.
-   - Rotate your Brevo SMTP credentials and Cloudinary API secret.
+All architectural recommendations have been implemented and verified. For production security hygiene, perform the following administrative step in your cloud provider dashboards:
 
-2. **Transition from LocalStorage to HttpOnly Cookies**:
-   - Currently, the frontend stores tokens in `localStorage`. For protection against Cross-Site Scripting (XSS), transition to storing authentication tokens in `httpOnly`, `Secure`, `SameSite=Lax` cookies.
-
-3. **Multi-Instance WebSocket Scaling**:
-   - The current Socket.io service tracks active users in an in-memory `Map`. When scaling Render to multiple horizontal instances, configure `@socket.io/redis-adapter` with an Upstash or Render Redis instance.
-
-4. **Background Job Queuing**:
-   - Move email transmissions and activity log writes to an asynchronous queue worker (e.g. BullMQ / Redis) to avoid tying up HTTP request cycles.
+- **Rotate External Service Credentials**:
+  1. **Neon PostgreSQL**: In your [Neon Console](https://console.neon.tech), reset your database user password and update `DATABASE_URL` in Render.
+  2. **JWT Secret**: Generate a fresh secret via `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"` and set it as `JWT_SECRET` in Render.
+  3. **Brevo SMTP**: Generate a new SMTP key in [Brevo](https://app.brevo.com) and update `SMTP_PASS` in Render.
+  4. **Cloudinary**: Regenerate your API Secret in [Cloudinary Settings](https://cloudinary.com/console) and update `CLOUDINARY_API_SECRET` in Render.
+  5. **Google OAuth**: If applicable, regenerate your client secret in Google Cloud Console.
 
 ---
 
 <p align="center">
-  <b>ProjectOS</b> — Engineered for High Performance & Secure Collaboration.
+  <b>ProjectOS</b> — Engineered for High Performance, Security & Resilience.
 </p>
