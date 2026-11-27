@@ -42,3 +42,6 @@ ehthumbs.db
 # Internal Documentation & Deprecated Guides
 documents/
 deployment_guide.md
+backend/.env
+frontend/.env
+frontend/.env.local
