@@ -10,6 +10,9 @@ jobs:
   backend-check:
     name: Backend Validation (TypeCheck & Prisma)
     runs-on: ubuntu-latest
+    env:
+      # Placeholder URL for Prisma schema validation & client generation (no DB connection made)
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/projectos_ci?schema=public
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,6 +29,9 @@ jobs:
 
       - name: Validate Prisma schema
         run: cd backend && npx prisma validate
+
+      - name: Generate Prisma Client
+        run: cd backend && npx prisma generate
 
       - name: Backend TypeScript compilation check
         run: cd backend && npm run build

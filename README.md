@@ -212,19 +212,15 @@ npm run dev
 | `APP_NAME` | No | Application display name (default: `ProjectOS`, used in MFA TOTP URI) |
 | `GOOGLE_CLIENT_ID` | Optional| Google OAuth Client ID |
 | `GOOGLE_CLIENT_SECRET` | Optional| Google OAuth Client Secret |
-| `CLOUDINARY_CLOUD_NAME` | Yes | Cloudinary account cloud name |
-| `CLOUDINARY_API_KEY` | Yes | Cloudinary API key |
-| `CLOUDINARY_API_SECRET` | Yes | Cloudinary API secret |
+| `CLOUDINARY_URL` | Yes | Cloudinary connection string (`cloudinary://api_key:api_secret@cloud_name`) |
 | `REDIS_URL` | Optional| Redis connection string (`redis://` or `rediss://`). Enables BullMQ email queue and Socket.io Redis adapter. Falls back to in-memory/direct mode if unset. |
 | `NODE_ENV` | Yes | `production` when deployed |
 
-### Frontend (`frontend/.env.local`)
+### Frontend (`frontend/.env` or `frontend/.env.local`)
 
 | Variable | Required | Description |
 |---|---|---|
-| `NEXT_PUBLIC_API_BASE_URL` | Yes | Backend URL (e.g. `https://your-backend.onrender.com`) |
-| `NEXT_PUBLIC_GOOGLE_CLIENT_ID`| Optional| Google OAuth Client ID for sign-in button |
-| `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`| Optional| Cloudinary cloud name for direct asset rendering |
+| `NEXT_PUBLIC_API_BASE_URL` | Yes | Backend API & Socket.io URL (e.g. `https://your-backend.onrender.com` or `http://localhost:4000`) |
 
 ---
 
