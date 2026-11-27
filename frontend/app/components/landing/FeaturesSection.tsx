@@ -64,15 +64,15 @@ export default function FeaturesSection() {
                                     <div
                                         key={feature.id}
                                         onClick={() => setActiveFeature(index)}
-                                        className={`p-6 rounded-2xl cursor-pointer transition-all duration-300 border ${isActive ? 'bg-surface border-primary/20 shadow-lg' : 'bg-transparent border-transparent hover:bg-white/5'
+                                        className={`p-6 rounded-2xl cursor-pointer transition-all duration-300 border ${isActive ? 'bg-surface border-primary/20 shadow-lg' : 'bg-transparent border-transparent hover:bg-surface-secondary'
                                             }`}
                                     >
                                         <div className="flex items-center gap-4">
-                                            <div className={`p-3 rounded-lg ${isActive ? 'bg-primary/10' : 'bg-white/5'}`}>
+                                            <div className={`p-3 rounded-lg ${isActive ? 'bg-primary/10' : 'bg-surface-secondary'}`}>
                                                 <feature.icon className={`w-6 h-6 ${isActive ? feature.color : 'text-text-secondary'}`} />
                                             </div>
                                             <div>
-                                                <h3 className={`text-xl font-semibold mb-1 ${isActive ? 'text-white' : 'text-text-secondary'}`}>
+                                                <h3 className={`text-xl font-semibold mb-1 ${isActive ? 'text-text-primary' : 'text-text-secondary'}`}>
                                                     {feature.title}
                                                 </h3>
                                                 <p className="text-text-secondary text-sm md:text-base">
@@ -91,10 +91,10 @@ export default function FeaturesSection() {
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.8 }}
-                        className="relative h-[600px] w-full bg-surface rounded-3xl border border-white/10 overflow-hidden shadow-2xl flex flex-col"
+                        className="relative h-[600px] w-full bg-surface rounded-3xl border border-border overflow-hidden shadow-2xl flex flex-col"
                     >
                         {/* Dynamic UI based on active feature */}
-                        <div className="h-14 border-b border-white/10 bg-white/5 flex items-center px-6 justify-between">
+                        <div className="h-14 border-b border-border bg-surface-secondary flex items-center px-6 justify-between">
                             <div className="flex gap-2">
                                 <div className="w-3 h-3 rounded-full bg-red-500/20" />
                                 <div className="w-3 h-3 rounded-full bg-yellow-500/20" />
@@ -116,13 +116,13 @@ export default function FeaturesSection() {
                                     className="absolute inset-8"
                                 >
                                     {/* Mock UI Content */}
-                                    <div className="h-8 w-48 bg-white/10 rounded-lg mb-8 animate-pulse" />
+                                    <div className="h-8 w-48 bg-border rounded-lg mb-8 animate-pulse" />
                                     <div className="space-y-4">
                                         {[1, 2, 3, 4].map((Line) => (
-                                            <div key={Line} className="flex items-center gap-4 p-4 bg-background/50 rounded-xl border border-white/5">
-                                                <div className={`w-5 h-5 rounded border ${activeFeature === index ? 'border-primary' : 'border-white/20'}`} />
-                                                <div className="h-2 flex-1 bg-white/10 rounded-full" />
-                                                <div className="w-8 h-8 rounded-full bg-white/5" />
+                                            <div key={Line} className="flex items-center gap-4 p-4 bg-background/50 rounded-xl border border-border">
+                                                <div className={`w-5 h-5 rounded border ${activeFeature === index ? 'border-primary' : 'border-border'}`} />
+                                                <div className="h-2 flex-1 bg-border rounded-full" />
+                                                <div className="w-8 h-8 rounded-full bg-surface-secondary" />
                                             </div>
                                         ))}
                                     </div>

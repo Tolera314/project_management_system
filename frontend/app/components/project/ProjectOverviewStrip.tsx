@@ -1,24 +1,44 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
     CheckCircle2,
     Circle,
-    Clock,
     AlertCircle,
     TrendingUp,
     Users
 } from 'lucide-react';
+import { ProjectService } from '../../services/project.service';
 
 interface ProjectOverviewStripProps {
     project: any;
 }
 
 export default function ProjectOverviewStrip({ project }: ProjectOverviewStripProps) {
+    const [statsData, setStatsData] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            if (!project?.id) return;
+            try {
+                const data = await ProjectService.getProjectStats(project.id);
+                setStatsData(data);
+            } catch (error) {
+                console.error('Failed to fetch project stats:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchStats();
+    }, [project?.id]);
+
     const stats = [
         {
             label: 'Progress',
-            value: '68%',
+            value: statsData ? `${statsData.progress}%` : '0%',
             subtext: 'Overall completion',
             icon: CheckCircle2,
             color: 'text-emerald-500',
@@ -26,7 +46,7 @@ export default function ProjectOverviewStrip({ project }: ProjectOverviewStripPr
         },
         {
             label: 'Open Tasks',
-            value: project._count?.tasks || 0,
+            value: statsData ? statsData.openTasks : 0,
             subtext: 'Needs attention',
             icon: Circle,
             color: 'text-primary',
@@ -34,7 +54,7 @@ export default function ProjectOverviewStrip({ project }: ProjectOverviewStripPr
         },
         {
             label: 'Overdue',
-            value: '3',
+            value: statsData ? statsData.overdueTasks : 0,
             subtext: 'High priority',
             icon: AlertCircle,
             color: 'text-rose-500',
@@ -42,7 +62,7 @@ export default function ProjectOverviewStrip({ project }: ProjectOverviewStripPr
         },
         {
             label: 'Members',
-            value: (project.members?.length || 0) + (project.invitations?.filter((i: any) => i.status === 'PENDING').length || 0),
+            value: statsData ? statsData.totalMembers : (project.members?.length || 0),
             subtext: 'Active & invited',
             icon: Users,
             color: 'text-amber-500',
@@ -50,13 +70,23 @@ export default function ProjectOverviewStrip({ project }: ProjectOverviewStripPr
         },
         {
             label: 'Velocity',
-            value: '+12%',
-            subtext: 'VS last week',
+            value: statsData ? `${statsData.velocity.value}%` : '0%',
+            subtext: statsData ? (statsData.velocity.direction === 'up' ? 'Increase vs last week' : 'Decrease vs last week') : 'VS last week',
             icon: TrendingUp,
             color: 'text-indigo-500',
             bg: 'bg-indigo-500/10'
         }
     ];
+
+    if (loading) {
+        return (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="h-24 bg-surface/30 rounded-2xl animate-pulse" />
+                ))}
+            </div>
+        );
+    }
 
     return (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -83,7 +113,7 @@ export default function ProjectOverviewStrip({ project }: ProjectOverviewStripPr
                         <div className="mt-3 w-full h-1 bg-white/5 rounded-full overflow-hidden">
                             <motion.div
                                 initial={{ width: 0 }}
-                                animate={{ width: stat.value }}
+                                animate={{ width: statsData ? `${statsData.progress}%` : '0%' }}
                                 transition={{ duration: 1, delay: 0.5 }}
                                 className="h-full bg-emerald-500"
                             />

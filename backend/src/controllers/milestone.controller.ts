@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
+import { NotificationService } from '../services/notification.service';
 
 const createMilestoneSchema = z.object({
     name: z.string().min(1, 'Milestone name is required').max(100),
     description: z.string().optional(),
-    dueDate: z.string().transform(v => new Date(v)),
+    dueDate: z.string().transform((v: any) => new Date(v)),
     projectId: z.string().cuid(),
     ownerId: z.string().cuid().optional(),
     taskIds: z.array(z.string().cuid()).optional(),
@@ -14,7 +15,7 @@ const createMilestoneSchema = z.object({
 const updateMilestoneSchema = z.object({
     name: z.string().min(1).max(100).optional(),
     description: z.string().optional(),
-    dueDate: z.string().optional().transform(v => v ? new Date(v) : undefined),
+    dueDate: z.string().optional().transform((v: any) => v ? new Date(v) : undefined),
     ownerId: z.string().cuid().optional(),
     taskIds: z.array(z.string().cuid()).optional(),
 });
@@ -52,6 +53,11 @@ export const createMilestone = async (req: Request, res: Response) => {
             return;
         }
 
+        if (project.dueDate && dueDate > project.dueDate) {
+            res.status(400).json({ error: 'Milestone due date cannot be after project due date' });
+            return;
+        }
+
         const milestone = await prisma.milestone.create({
             data: {
                 name,
@@ -61,7 +67,7 @@ export const createMilestone = async (req: Request, res: Response) => {
                 createdById: userId,
                 ownerId,
                 tasks: taskIds ? {
-                    connect: taskIds.map(id => ({ id }))
+                    connect: taskIds.map((id: any) => ({ id }))
                 } : undefined
             },
             include: {
@@ -87,23 +93,27 @@ export const createMilestone = async (req: Request, res: Response) => {
 
 export const getMilestones = async (req: Request, res: Response) => {
     try {
-        const { projectId } = req.query;
+        const { projectId, workspaceId } = req.query;
         const userId = (req as any).userId;
 
-        if (!projectId || typeof projectId !== 'string') {
-            res.status(400).json({ error: 'Project ID is required' });
+        if (!projectId && !workspaceId) {
+            res.status(400).json({ error: 'Project ID or Workspace ID is required' });
             return;
         }
 
-        const milestones = await prisma.milestone.findMany({
-            where: {
-                projectId,
-                project: {
-                    organization: {
-                        members: { some: { userId } }
-                    }
+        const where: any = {
+            project: {
+                organization: {
+                    members: { some: { userId } }
                 }
-            },
+            }
+        };
+
+        if (projectId) where.projectId = projectId;
+        if (workspaceId) where.project = { ...where.project, organizationId: workspaceId };
+
+        const milestones = await prisma.milestone.findMany({
+            where,
             include: {
                 tasks: {
                     select: { id: true, status: true, dueDate: true }
@@ -124,9 +134,9 @@ export const getMilestones = async (req: Request, res: Response) => {
 
         // Calculate Derived Status and Progress for each milestone
         const today = new Date();
-        const enrichedMilestones = milestones.map(m => {
+        const enrichedMilestones = milestones.map((m: any) => {
             const totalTasks = m.tasks.length;
-            const completedTasks = m.tasks.filter(t => t.status === 'DONE').length;
+            const completedTasks = m.tasks.filter((t: any) => t.status === 'DONE').length;
             const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
             let status = 'ON_TRACK';
@@ -137,7 +147,7 @@ export const getMilestones = async (req: Request, res: Response) => {
                 status = 'OVERDUE';
             } else {
                 // At Risk if some tasks are overdue OR if due date is near and many tasks are left
-                const delayedTasks = m.tasks.filter(t => t.status !== 'DONE' && t.dueDate && t.dueDate < today).length;
+                const delayedTasks = m.tasks.filter((t: any) => t.status !== 'DONE' && t.dueDate && t.dueDate < today).length;
                 const daysToDue = (m.dueDate.getTime() - today.getTime()) / (1000 * 3600 * 24);
 
                 if (delayedTasks > 0 || (daysToDue < 3 && progress < 80)) {
@@ -206,6 +216,34 @@ export const updateMilestone = async (req: Request, res: Response) => {
                 owner: true
             }
         });
+
+        // Send Notification if milestone owner is set and changed, or if it's completed
+        try {
+            if (updatedMilestone.ownerId) {
+                const owner = await prisma.projectMember.findUnique({
+                    where: { id: updatedMilestone.ownerId },
+                    include: { organizationMember: true }
+                });
+
+                if (owner && owner.organizationMember.userId !== userId) {
+                    await NotificationService.notify({
+                        type: 'MILESTONE_COMPLETED', // Or generic MILESTONE_UPDATED if we want
+                        recipientId: owner.organizationMember.userId,
+                        actorId: userId,
+                        projectId: updatedMilestone.projectId,
+                        milestoneId: updatedMilestone.id,
+                        title: 'Milestone Updated',
+                        message: `Milestone "${updatedMilestone.name}" has been updated.`,
+                        link: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/projects/${updatedMilestone.projectId}`,
+                        metadata: {
+                            milestoneName: updatedMilestone.name
+                        }
+                    });
+                }
+            }
+        } catch (notifErr) {
+            console.error('Failed to send milestone notification:', notifErr);
+        }
 
         res.json({ milestone: updatedMilestone });
     } catch (error) {

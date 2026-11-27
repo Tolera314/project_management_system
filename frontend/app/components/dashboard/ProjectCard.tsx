@@ -41,7 +41,7 @@ export default function ProjectCard({ project, index }: ProjectCardProps) {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
-                className="group relative p-5 bg-surface/40 border border-white/5 hover:border-white/10 rounded-2xl transition-all hover:bg-surface/60 shadow-lg shadow-black/5 cursor-pointer h-full"
+                className="group relative p-5 bg-surface border border-border hover:border-primary/20 rounded-2xl transition-all hover:shadow-2xl hover:shadow-primary/5 cursor-pointer h-full"
             >
                 <div className="flex items-start justify-between mb-4">
                     <div
@@ -64,7 +64,7 @@ export default function ProjectCard({ project, index }: ProjectCardProps) {
                                 e.stopPropagation();
                                 setIsMenuOpen(!isMenuOpen);
                             }}
-                            className={`p-2 hover:bg-white/10 rounded-xl transition-all ${isMenuOpen ? 'bg-white/10 text-white' : 'text-text-secondary opacity-0 group-hover:opacity-100'}`}
+                            className={`p-2 hover:bg-surface-secondary rounded-xl transition-all \${isMenuOpen ? 'bg-surface-secondary text-primary' : 'text-text-secondary opacity-0 group-hover:opacity-100'}`}
                         >
                             <MoreHorizontal className="w-5 h-5" />
                         </button>
@@ -78,7 +78,7 @@ export default function ProjectCard({ project, index }: ProjectCardProps) {
                     </div>
                 </div>
 
-                <h3 className="text-lg font-bold text-white mb-1.5 group-hover:text-primary transition-colors truncate">
+                <h3 className="text-lg font-bold text-text-primary mb-1.5 group-hover:text-primary transition-colors truncate">
                     {project.name}
                 </h3>
 
@@ -90,15 +90,15 @@ export default function ProjectCard({ project, index }: ProjectCardProps) {
                     <div className="h-[40px] mb-4" />
                 )}
 
-                <div className="flex items-center gap-5 pt-4 border-t border-white/5">
+                <div className="flex items-center gap-5 pt-4 border-t border-border">
                     <div className="flex items-center gap-2 text-xs font-medium text-text-secondary">
-                        <div className="p-1 rounded-md bg-white/5">
+                        <div className="p-1 rounded-md bg-surface-secondary">
                             <CheckSquare className="w-3.5 h-3.5" />
                         </div>
                         <span>{project._count.tasks} tasks</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs font-medium text-text-secondary">
-                        <div className="p-1 rounded-md bg-white/5">
+                        <div className="p-1 rounded-md bg-surface-secondary">
                             <Clock className="w-3.5 h-3.5" />
                         </div>
                         <span>{new Date(project.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>

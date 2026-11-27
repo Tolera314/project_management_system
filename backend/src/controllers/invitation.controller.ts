@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma';
+import { NotificationService } from '../services/notification.service';
 
 /**
  * Verify an invitation token
@@ -253,19 +254,35 @@ export const acceptInvitation = async (req: Request, res: Response) => {
             redirectUrl = `/projects/${invitation.projectId}`;
         }
 
-        // Mark invitation as accepted
+        // Update invitation status
         await prisma.invitation.update({
             where: { id: invitation.id },
             data: {
                 status: 'ACCEPTED',
-                acceptedAt: new Date()
+                acceptedAt: new Date(),
             }
         });
 
-        res.json({
-            message: 'Invitation accepted successfully',
-            redirectUrl
-        });
+        // Send Notification to Inviter
+        try {
+            const invitee = await prisma.user.findUnique({ where: { id: userId } });
+            await NotificationService.notify({
+                type: 'INVITATION_ACCEPTED',
+                recipientId: invitation.invitedById,
+                actorId: userId,
+                title: 'Invitation Accepted',
+                message: `${invitee ? `${invitee.firstName} ${invitee.lastName}` : 'Someone'} accepted your invitation.`,
+                link: invitation.type === 'PROJECT' ? `${process.env.FRONTEND_URL || 'http://localhost:3000'}/projects/${invitation.projectId}` : '/dashboard',
+                metadata: {
+                    inviteeName: invitee ? `${invitee.firstName} ${invitee.lastName}` : 'Someone',
+                    type: invitation.type
+                }
+            });
+        } catch (notifErr) {
+            console.error('Failed to send invitation accepted notification:', notifErr);
+        }
+
+        res.json({ message: 'Invitation accepted successfully', redirectUrl });
 
     } catch (error) {
         console.error('Accept invitation error:', error);

@@ -15,12 +15,22 @@ if (!connectionString) {
   throw new Error('DATABASE_URL is not defined')
 }
 
-// Create pg pool with explicit configuration
+// Pool sized for Neon serverless / Render free-tier constraints.
+// Neon free tier limits to ~20 concurrent connections; keep max ≤ 10 to leave headroom.
+// Increase for paid plans: Starter → 25, Pro → 50+
 const pool = new Pool({
   connectionString,
-  // Ensure password is treated as string
+  max: 10,                     // Maximum pool size — tune per your DB plan
+  min: 2,                      // Minimum connections kept alive
+  idleTimeoutMillis: 30000,    // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 10000, // Wait max 10 s for a connection
+  maxUses: 7500,               // Recycle connections after 7500 uses (prevents leaks)
   ssl: connectionString.includes('sslmode=require') ? { rejectUnauthorized: false } : false
 })
+
+pool.on('error', (err) => {
+  console.error('[PgPool] Unexpected error on idle client', err);
+});
 
 const adapter = new PrismaPg(pool)
 

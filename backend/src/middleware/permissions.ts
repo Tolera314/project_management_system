@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
-import { prisma } from '../lib/prisma';
+import prisma from '../lib/prisma';
 
 export const checkProjectPermission = (permissionName: string) => {
     return async (req: Request, res: Response, next: NextFunction) => {
         try {
             const userId = (req as any).userId;
-            let projectId = req.params.projectId || req.body.projectId;
+            let projectId = req.params?.projectId || req.body?.projectId;
 
             // If not found, check if req.params.id is project ID or task ID
             if (!projectId && req.params.id) {
@@ -48,7 +48,7 @@ export const checkProjectPermission = (permissionName: string) => {
             // 2. Check if role has specific permission
             if (projectMember) {
                 const hasPermission = projectMember.role.permissions.some(
-                    rp => rp.permission.name === permissionName
+                    (rp: any) => rp.permission.name === permissionName
                 );
 
                 // Allow if Project Manager (Super user for project)

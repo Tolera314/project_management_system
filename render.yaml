@@ -1,0 +1,54 @@
+services:
+  - type: web
+    name: projectos-backend
+    runtime: node
+    region: oregon
+    plan: free
+
+    rootDir: backend
+
+    buildCommand: npm install && npm run build && npx prisma generate
+
+    startCommand: node dist/index.js
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false     # Set in Render dashboard — never commit this value
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: BACKEND_URL
+        sync: false
+      - key: SMTP_SERVER
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SENDER_EMAIL
+        sync: false
+      - key: SENDER_NAME
+        sync: false
+      - key: COMPANY_NAME
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: CLOUDINARY_URL
+        sync: false
+      - key: APP_NAME
+        value: ProjectOS
+      # Optional — enables BullMQ email queue + Socket.io Redis adapter
+      # Leave unset to use direct SMTP + single-instance Socket.io
+      - key: REDIS_URL
+        sync: false
+
+    healthCheckPath: /health
